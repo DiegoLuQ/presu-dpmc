@@ -1,0 +1,121 @@
+# ==============================================================================
+# Fullstack Next.js + FastAPI .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment & Secrets (NUNCA subir credenciales o variables de entorno)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+*.local
+incio.txt
+
+# ------------------------------------------------------------------------------
+# 2. Node.js & Next.js (Frontend)
+# ------------------------------------------------------------------------------
+**/node_modules/
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output & cache
+**/.next/
+.next/
+out/
+build/
+dist/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js / TypeScript build info
+*.tsbuildinfo
+
+# ------------------------------------------------------------------------------
+# 3. Python & FastAPI (Backend)
+# ------------------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+develop-eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+
+# Databases & local logs
+*.sqlite
+*.sqlite3
+*.db
+*.log
+backend/app.log
+logs/
+
+# ------------------------------------------------------------------------------
+# 4. IDEs, Editors & Tools
+# ------------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude / Agent / Scratch local tools
+.claude/
+scratch/
+
+# ------------------------------------------------------------------------------
+# 5. Operating System Files
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+nul
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ------------------------------------------------------------------------------
+# 6. Temporary & Backup Files
+# ------------------------------------------------------------------------------
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+*~

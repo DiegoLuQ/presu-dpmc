@@ -1,0 +1,407 @@
+[
+    {
+        "codigo": "410501",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Asistencia técnico pedagógica (Consultoría/Apoyo ATE)"
+    },
+    {
+        "codigo": "410502",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Acciones formativas y perfeccionamiento docente (Cursos, Capacitación)"
+    },
+    {
+        "codigo": "410503",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Actividades de información y orientación pedagógica (Charlas, Talleres)"
+    },
+    {
+        "codigo": "410601",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Implementos de laboratorio (ciencias, microscopios, pipetas, etc.)"
+    },
+    {
+        "codigo": "410602",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Implementos deportivos (balones, colchonetas, arcos, etc.)"
+    },
+    {
+        "codigo": "410603",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Instrumentos musicales y artísticos (teclados, atriles, pinceles, etc.)"
+    },
+    {
+        "codigo": "410604",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Recursos audiovisuales y software educativo (licencias de aula)"
+    },
+    {
+        "codigo": "410605",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Material y recursos didácticos de sala (plastilina, reglas, cartulinas)"
+    },
+    {
+        "codigo": "410606",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Bibliotecas, libros, textos y revistas complementarias"
+    },
+    {
+        "codigo": "410607",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Pasajes y entradas para giras, eventos educativos y culturales"
+    },
+    {
+        "codigo": "410608",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Evaluaciones diagnósticas académicas y atención de especialistas"
+    },
+    {
+        "codigo": "410609",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Otros gastos en recursos (termolaminadoras, anillados, micas)"
+    },
+    {
+        "codigo": "410701",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Equipos de fotografía y filmación (uso didáctico/evidencias)"
+    },
+    {
+        "codigo": "410702",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Pizarras interactivas de sala"
+    },
+    {
+        "codigo": "410703",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Equipos informáticos de sala (notebooks alumnos, tablets)"
+    },
+    {
+        "codigo": "410704",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Equipos reproductores de imagen (proyectores, televisores de aula)"
+    },
+    {
+        "codigo": "410705",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Equipos multicopiadores especializados (impresoras Braille, 3D)"
+    },
+    {
+        "codigo": "410706",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Equipos de amplificación y sonido de aula"
+    },
+    {
+        "codigo": "410707",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Otros equipos de apoyo pedagógico y elementos sensoriales (PIE)"
+    },
+    {
+        "codigo": "410801",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Vestuario especial, buzos de selección o delantales de taller"
+    },
+    {
+        "codigo": "410802",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Otros gastos alumnos (pañales, insumos médicos, premios de asistencia)"
+    },
+    {
+        "codigo": "410803",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Monitores y talleristas de talleres extraprogramáticos"
+    },
+    {
+        "codigo": "410804",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Contratación de especialistas externos para evaluaciones diagnósticas"
+    },
+    {
+        "codigo": "410805",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Apoyo al estudiante y elementos para prevención de deserción (Pro Retención)"
+    },
+    {
+        "codigo": "410806",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Sets de útiles escolares personales entregados al alumno"
+    },
+    {
+        "codigo": "410901",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Transporte escolar permanente (furgón domicilio-colegio)"
+    },
+    {
+        "codigo": "410902",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Suministros y materiales de oficina (papel de impresora, carpetas)"
+    },
+    {
+        "codigo": "410903",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Fotocopias o reproducción de guías y documentos"
+    },
+    {
+        "codigo": "410904",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Servicios de alimentación y colaciones para actividades escolares"
+    },
+    {
+        "codigo": "410905",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Insumos computacionales administrativos (tóner, mouse, teclados)"
+    },
+    {
+        "codigo": "410906",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Combustible y peajes asociados a traslados de la comunidad"
+    },
+    {
+        "codigo": "410907",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Adquisición de materiales y útiles de aseo (auxiliares)"
+    },
+    {
+        "codigo": "410908",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Publicidad, folletos, letreros y difusión institucional"
+    },
+    {
+        "codigo": "410909",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Pasajes y movilización de funcionarios en comisión de servicio"
+    },
+    {
+        "codigo": "410910",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Otros gastos de operación y publicaciones legales"
+    },
+    {
+        "codigo": "410911",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Gastos municipales, impuestos y exigencias legales"
+    },
+    {
+        "codigo": "410912",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Créditos financieros (cuotas de préstamos bancarios)"
+    },
+    {
+        "codigo": "410913",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Gastos bancarios y mantención de cuenta corriente"
+    },
+    {
+        "codigo": "410914",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Devolución de apoyo por inicio de actividad escolar"
+    },
+    {
+        "codigo": "410916",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Contratación de seguros obligatorios y generales"
+    },
+    {
+        "codigo": "410917",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Devolución de saldos de fondos públicos no ejecutados"
+    },
+    {
+        "codigo": "410918",
+        "categoria_pilar": "premio/beneficio",
+        "descripcion_breve": "Traslado de estudiantes para salidas pedagógicas o talleres específicos"
+    },
+    {
+        "codigo": "411001",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Servicio de Internet y conectividad mensual del establecimiento"
+    },
+    {
+        "codigo": "411002",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Consumo de agua potable y alcantarillado"
+    },
+    {
+        "codigo": "411003",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Consumo de gas licuado o gas natural de cañería"
+    },
+    {
+        "codigo": "411004",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Consumo de energía eléctrica y tarifas de luz"
+    },
+    {
+        "codigo": "411005",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Servicio de correo, correspondencia y mensajería externa"
+    },
+    {
+        "codigo": "411006",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Servicio de telefonía móvil y red fija institucional"
+    },
+    {
+        "codigo": "411007",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Combustible o energía para calefacción (parafina, pellet, leña)"
+    },
+    {
+        "codigo": "411008",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Otros consumos y gastos en servicios básicos"
+    },
+    {
+        "codigo": "411101",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Servicios externos de aseo, jardinería y control de plagas"
+    },
+    {
+        "codigo": "411102",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Servicios de seguridad, alarmas y guardias externos"
+    },
+    {
+        "codigo": "411103",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Contratación de otros servicios externos (asesorías legales, notarías, auditoría)"
+    },
+    {
+        "codigo": "411201",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Multas e intereses de carácter fiscal y previsional"
+    },
+    {
+        "codigo": "411401",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo mensual del edificio del local escolar"
+    },
+    {
+        "codigo": "411402",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo de oficinas externas de administración superior"
+    },
+    {
+        "codigo": "411403",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo de canchas, recintos deportivos o salones externos de eventos"
+    },
+    {
+        "codigo": "411404",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Mejoras de infraestructura útiles y necesarias en el local arrendado"
+    },
+    {
+        "codigo": "411501",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Contrato de arriendo o renting de equipos informáticos (PC, notebook)"
+    },
+    {
+        "codigo": "411502",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo de maquinarias de oficina (fotocopiadoras externas)"
+    },
+    {
+        "codigo": "411503",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo de mobiliario para eventos o uso administrativo"
+    },
+    {
+        "codigo": "411504",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Arriendo de otros bienes muebles no clasificados"
+    },
+    {
+        "codigo": "411601",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Mantenimiento menor y conservación de infraestructura (pinturas, cerrajería)"
+    },
+    {
+        "codigo": "411602",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Obras civiles y construcción de nueva infraestructura (obra gruesa)"
+    },
+    {
+        "codigo": "411603",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Terminaciones de infraestructura (pavimentos, cielos, pintura final)"
+    },
+    {
+        "codigo": "411604",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Instalaciones y reparaciones eléctricas, iluminación o calefacción central"
+    },
+    {
+        "codigo": "411605",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación y mantención de redes de gas del colegio"
+    },
+    {
+        "codigo": "411606",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación y mantención de redes de agua y llaves de paso"
+    },
+    {
+        "codigo": "411607",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Limpieza de fosas sépticas o destape de alcantarillados"
+    },
+    {
+        "codigo": "411608",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación de cierres perimetrales, rejas o portones externos"
+    },
+    {
+        "codigo": "411609",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Mantención e instalación de servicios higiénicos (inodoros, duchas)"
+    },
+    {
+        "codigo": "411610",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Eliminación de barreras arquitectónicas de menor envergadura (rampas)"
+    },
+    {
+        "codigo": "411701",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación y mantención de muebles de oficina y extintores"
+    },
+    {
+        "codigo": "411702",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Cambio de repuestos y servicio técnico de vehículos propios"
+    },
+    {
+        "codigo": "411703",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación de hardware o servicio técnico de computadores"
+    },
+    {
+        "codigo": "411704",
+        "categoria_pilar": "mantencion/servicio",
+        "descripcion_breve": "Reparación física de mobiliario escolar (sillas y mesas de alumnos)"
+    },
+    {
+        "codigo": "411801",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Adquisición de terrenos o pagos de cuotas de créditos hipotecarios"
+    },
+    {
+        "codigo": "411802",
+        "categoria_pilar": "clases(alumno)",
+        "descripcion_breve": "Adquisición de mobiliario escolar nuevo (camas de internado, pupitres)"
+    },
+    {
+        "codigo": "411803",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Adquisición de vehículos nuevos para traslado o logística del colegio"
+    },
+    {
+        "codigo": "411804",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Adquisición de otros bienes muebles no pedagógicos (escritorios de oficina)"
+    },
+    {
+        "codigo": "700001",
+        "categoria_pilar": "oficinas(administracion)",
+        "descripcion_breve": "Traspaso de fondos por egresos de recursos centralizados a administración"
+    }
+]

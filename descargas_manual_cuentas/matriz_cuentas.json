@@ -1,0 +1,4637 @@
+[
+    {
+        "codigo": "410201",
+        "nombre": "PAGO BONO DE ESCOLARIDAD Y ADICIONAL",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410202",
+        "nombre": "PAGO AGUINALDO DE NAVIDAD",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410203",
+        "nombre": "PAGO AGUINALDO DE FIESTAS PATRIAS",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410204",
+        "nombre": "PAGO BONO ESPECIAL",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410205",
+        "nombre": "PAGO BONO VACACIONES",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410206",
+        "nombre": "PAGO BONO DESEMPEÑO LABORAL",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410207",
+        "nombre": "OTROS BONOS NO IMPONIBLES LEY DE REAJUSTE",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410208",
+        "nombre": "DEVOLUCIÓN BONOS LEY DE REAJUSTE",
+        "grupo": "410200",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410301",
+        "nombre": "INDEMNIZACIONES Y/O FERIADO PROPORCIONAL",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410302",
+        "nombre": "VIÁTICOS",
+        "grupo": "410300",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410303",
+        "nombre": "BONO RETIRO ASISTENTES EDUCACIÓN",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410304",
+        "nombre": "OTROS GASTOS EN PERSONAL",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410306",
+        "nombre": "BONIFICACIÓN ADICIONAL POR ANTIGÜEDAD",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410307",
+        "nombre": "APORTE FISCAL EXTRAORDINARIO POR RETIRO VOLUNTARIO PROFESIONALES DE LA EDUCACIÓN",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410308",
+        "nombre": "APORTE COMPLEMENTARIO POR RETIRO VOLUNTARIO PROFESIONALES DE LA EDUCACIÓN",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410309",
+        "nombre": "SALA CUNA",
+        "grupo": "410300",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410312",
+        "nombre": "BONIFICACIÓN POR RETIRO VOLUNTARIO AL PERSONAL ASISTENTE DE LA EDUCACION (LEY N° 20.964)",
+        "grupo": "410300",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410401",
+        "nombre": "SEGURO DE ACCIDENTE DEL TRABAJO",
+        "grupo": "410400",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410402",
+        "nombre": "SEGURO DE CESANTIA",
+        "grupo": "410400",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410403",
+        "nombre": "SEGURO DE INVALIDEZ Y SOBREVIVENCIA (SIS)",
+        "grupo": "410400",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410404",
+        "nombre": "OTROS APORTES PREVISIONALES DE LA ENTIDAD SOSTENEDORA",
+        "grupo": "410400",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410405",
+        "nombre": "APORTE REFORMA DE PENSIONES LEY N°21.735",
+        "grupo": "410400",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410501",
+        "nombre": "ASISTENCIA TÉCNICA PEDAGÓGICA EDUCATIVA (REGISTRO ATE)",
+        "grupo": "410500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410502",
+        "nombre": "ACCIONES FORMATIVAS Y PERFECCIONAMIENTO DE RR.HH.",
+        "grupo": "410500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410503",
+        "nombre": "ACTIVIDADES PARA EL FORTALECIMIENTO DE LOS OBJETIVOS DE MEJORAMIENTO DE LA CALIDAD EDUCATIVA",
+        "grupo": "410500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410601",
+        "nombre": "IMPLEMENTOS DE LABORATORIO",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410602",
+        "nombre": "IMPLEMENTOS DEPORTIVOS",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410603",
+        "nombre": "INSTRUMENTOS MUSICALES Y ARTÍSTICOS",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410604",
+        "nombre": "RECURSOS AUDIOVISUALES Y SOFTWARE EDUCATIVO",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410605",
+        "nombre": "MATERIAL Y RECURSOS DIDÁCTICOS",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410606",
+        "nombre": "BIBLIOTECAS, LIBROS Y REVISTAS",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410607",
+        "nombre": "EVENTOS EDUCATIVOS Y CULTURALES",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410608",
+        "nombre": "EVALUACIÓN DIAGNÓSTICA",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410609",
+        "nombre": "OTROS GASTOS EN RECURSOS DE APRENDIZAJE",
+        "grupo": "410600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410701",
+        "nombre": "EQUIPOS DE FOTOGRAFÍA Y FILMACIÓN",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410702",
+        "nombre": "PIZARRAS INTERACTIVAS",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410703",
+        "nombre": "EQUIPOS INFORMÁTICOS Y LICENCIAS",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410704",
+        "nombre": "EQUIPOS REPRODUCTORES DE IMAGEN",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410705",
+        "nombre": "EQUIPOS MULTICOPIADORES",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410706",
+        "nombre": "EQUIPOS DE AMPLIFICACIÓN Y SONIDO",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410707",
+        "nombre": "OTROS GASTOS EN EQUIPAMIENTO DE APOYO PEDAGÓGICO",
+        "grupo": "410700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410801",
+        "nombre": "UNIFORMES Y VESTUARIO",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410802",
+        "nombre": "OTROS GASTOS ALUMNOS",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410803",
+        "nombre": "TALLERES EXTRAPROGRAMÁTICOS",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410804",
+        "nombre": "CONTRATACIÓN DE APOYO DE ESPECIALISTAS",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410805",
+        "nombre": "APOYO AL ESTUDIANTE",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410806",
+        "nombre": "ÚTILES ESCOLARES",
+        "grupo": "410800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410901",
+        "nombre": "TRANSPORTE ESCOLAR",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410902",
+        "nombre": "MATERIALES DE OFICINA",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410903",
+        "nombre": "REPRODUCCIÓN DE DOCUMENTOS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410904",
+        "nombre": "ALIMENTACIÓN",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410905",
+        "nombre": "INSUMOS COMPUTACIONALES",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410906",
+        "nombre": "COMBUSTIBLE Y PEAJES",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410907",
+        "nombre": "MATERIALES Y ÚTILES DE ASEO",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410908",
+        "nombre": "PUBLICIDAD",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410909",
+        "nombre": "PASAJES",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410910",
+        "nombre": "OTROS GASTOS DE OPERACIÓN",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410911",
+        "nombre": "GASTOS MUNICIPALES E IMPUESTOS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410912",
+        "nombre": "CRÉDITOS FINANCIEROS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410913",
+        "nombre": "GASTOS BANCARIOS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410914",
+        "nombre": "DEVOLUCION APOYO INICIO ACTIVIDAD",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410916",
+        "nombre": "CONTRATACIÓN DE SEGUROS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410917",
+        "nombre": "DEVOLUCIONES DE FONDOS PÚBLICOS",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "410918",
+        "nombre": "TRASLADO DE ESTUDIANTES POR ACTIVIDAD ESCOLAR",
+        "grupo": "410900",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411001",
+        "nombre": "INTERNET",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411002",
+        "nombre": "AGUA",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411003",
+        "nombre": "GAS",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411004",
+        "nombre": "ELECTRICIDAD",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411005",
+        "nombre": "SERVICIO DE CORRESPONDENCIA (CORREOS)",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411006",
+        "nombre": "TELEFONÍA (MÓVIL Y FIJA)",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411007",
+        "nombre": "COMBUSTIBLE O FUENTE DE ENERGÍA PARA CALEFACCIÓN",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411008",
+        "nombre": "OTROS GASTOS SERVICIOS BÁSICOS",
+        "grupo": "411000",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411101",
+        "nombre": "CONTRATACIÓN SERVICIOS DE ASEO Y JARDINERIA",
+        "grupo": "411100",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411102",
+        "nombre": "CONTRATACIÓN SERVICIOS DE SEGURIDAD",
+        "grupo": "411100",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411103",
+        "nombre": "CONTRATACIÓN OTROS SERVICIOS EXTERNOS",
+        "grupo": "411100",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411201",
+        "nombre": "MULTAS E INTERESES FISCALES Y PREVISIONALES",
+        "grupo": "411200",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411401",
+        "nombre": "ARRIENDO DE LOCAL ESCOLAR",
+        "grupo": "411400",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411402",
+        "nombre": "ARRIENDO DE OFICINAS Y/O DEPENDENCIAS DE ADMINISTRACIÓN",
+        "grupo": "411400",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411403",
+        "nombre": "ARRIENDO DE OTROS BIENES INMUEBLES",
+        "grupo": "411400",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411404",
+        "nombre": "MEJORAS ÚTILES Y NECESARIAS EN LOCAL ESCOLAR ARRENDADO",
+        "grupo": "411400",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411501",
+        "nombre": "ARRIENDO DE EQUIPOS INFORMÁTICOS",
+        "grupo": "411500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411502",
+        "nombre": "ARRIENDO DE MAQUINARIAS Y EQUIPOS",
+        "grupo": "411500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411503",
+        "nombre": "ARRIENDO DE MOBILIARIO",
+        "grupo": "411500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411504",
+        "nombre": "ARRIENDO DE OTROS BIENES MUEBLES",
+        "grupo": "411500",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411601",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE INFRAESTRUCTURA",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411602",
+        "nombre": "CONSTRUCCIÓN DE INFRAESTRUCTURA [OBRA GRUESA]",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411603",
+        "nombre": "TERMINACIONES DE INFRAESTRUCTURA",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411604",
+        "nombre": "INSTALACIONES ELECTRICAS, ILUMINACIÓN Y SISTEMAS DE CALEFACCIÓN",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411605",
+        "nombre": "INSTALACIONES DE GAS",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411606",
+        "nombre": "INSTALACIONES DE AGUA",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411607",
+        "nombre": "ALCANTARILLADOS O POZOS SÉPTICOS",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411608",
+        "nombre": "CIERRES PERIMETRALES Y OBRAS COMPLEMENTARIAS",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411609",
+        "nombre": "SERVICIOS HIGIÉNICOS",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "true": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411610",
+        "nombre": "ELIMINACIÓN DE BARRERAS ARQUITECTÓNICAS DE MENOR ENVERGADURA",
+        "grupo": "411600",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411701",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE BIENES MUEBLES",
+        "grupo": "411700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411702",
+        "nombre": "REPUESTOS, MANTENIMIENTO Y REPARACIÓN DE VEHÍCULOS",
+        "grupo": "411700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411703",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE EQUIPOS COMPUTACIONALES",
+        "grupo": "411700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411704",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE MOBILIARIO ESCOLAR",
+        "grupo": "411700",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411801",
+        "nombre": "ADQUISICIÓN DE BIENES INMUEBLES",
+        "grupo": "411800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411802",
+        "nombre": "ADQUISICIÓN DE MOBILIARIO",
+        "grupo": "411800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411803",
+        "nombre": "ADQUISICIÓN DE VEHÍCULO",
+        "grupo": "411800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "411804",
+        "nombre": "ADQUISICIÓN DE OTROS BIENES MUEBLES NO PEDAGÓGICOS",
+        "grupo": "411800",
+        "libro_rendicion": "Compras y Otros Gastos",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": true
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    },
+    {
+        "codigo": "700001",
+        "nombre": "EGRESOS POR RECURSOS CENTRALIZADOS",
+        "grupo": "700000",
+        "libro_rendicion": "No aplica",
+        "documentos_habilitados": [],
+        "subvenciones_reglas": {
+            "SUBV_GENERAL": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SUBV_GRAL": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "SEP": {
+                "habilitado": true,
+                "critico_fiscalizacion": false
+            },
+            "ADM_CENTRAL_SEP": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PIE": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "MANTENIMIENTO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "PRO_RETENCION": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "INTERNADO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            },
+            "REFUERZO_EDUCATIVO": {
+                "habilitado": false,
+                "critico_fiscalizacion": false
+            }
+        }
+    }
+]

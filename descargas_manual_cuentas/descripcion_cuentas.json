@@ -1,0 +1,1227 @@
+[
+    {
+        "codigo": "410 501",
+        "nombre": "ASISTENCIA TÉCNICO PEDAGÓGICA EDUCATIVA (REGISTRO ATE)",
+        "caracteristicas": "Servicios de apoyo externo, específico y transitorio orientados a la elaboración e implementación del Plan de Mejoramiento Educativo (PME), debiendo formar parte del Registro Público de Entidades Pedagógicas y Técnicas de Apoyo (Registro ATE) del Ministerio de Educación.",
+        "diferenciacion_publico": "Entidades sostenedoras, equipos directivos, equipos técnico-pedagógicos, equipos administrativos, docentes o asistentes de la educación.",
+        "ejemplos_compra": [
+            "Servicios de capacitación presencial inscritos en el Registro ATE",
+            "Servicios de asesoría presencial inscritos en el Registro ATE",
+            "Servicios de evaluación presencial inscritos en el Registro ATE",
+            "Servicios de capacitación semipresencial inscritos en el Registro ATE",
+            "Servicios de capacitación virtual inscritos en el Registro ATE"
+        ],
+        "advertencias_sistema": [
+            "La entidad contratada debe estar constituida como persona natural o jurídica sin fines de lucro y registrada en el Registro ATE.",
+            "Los servicios contratados bajo modalidad virtual o semipresencial deben estar certificados por el CPEIP y contar con el Código de Certificación de Acción Formativa.",
+            "Los servicios ATE de capacitación virtual o semipresencial no deben comprender recursos audiovisuales ni software educativos independientes.",
+            "La evaluación del servicio ATE al término de la contratación es obligatoria y debe informarse al Ministerio de Educación.",
+            "Queda estrictamente prohibido el fraccionamiento de servicios con la finalidad de eludir la realización de concursos públicos o licitaciones."
+        ]
+    },
+    {
+        "codigo": "410 502",
+        "nombre": "ACCIONES FORMATIVAS Y PERFECCIONAMIENTO DE RR.HH.",
+        "caracteristicas": "Gastos en formación, perfeccionamiento y capacitación del personal escolar y de administración superior de la entidad sostenedora que no correspondan a servicios que deban estar inscritos en el Registro ATE.",
+        "diferenciacion_publico": "Equipo docente, equipo directivo, asistentes de la educación, profesionales de apoyo y personal contratado que ejerce funciones de administración superior.",
+        "ejemplos_compra": [
+            "Cursos abiertos para aprender idiomas",
+            "Cursos de computación de carácter general (sin focalización educativa)",
+            "Capacitaciones asociadas al uso de software específico de gestión u oficina",
+            "Capacitaciones vinculadas al uso de materiales o servicios adquiridos por el establecimiento",
+            "Programas certificados inscritos en el registro público del CPEIP"
+        ],
+        "advertencias_sistema": [
+            "Las acciones rendidas en esta cuenta no deben corresponder a servicios inscritos o que deban inscribirse en el Registro ATE.",
+            "No se permite el financiamiento de estudios o cursos conducentes a la obtención de un grado académico (licenciaturas, magíster, doctorados).",
+            "El financiamiento con recursos SEP para estas actividades no podrá superar más de un 5% por sobre el 50% señalado en el inciso tercero del artículo 8º bis de la Ley N°20.248.",
+            "Para recursos PIE, las capacitaciones deben estar exclusivamente orientadas al desarrollo profesional en materias de educación especial o inclusión escolar.",
+            "La Superintendencia fiscalizará que no se use esta cuenta de forma fraccionada para eludir la normativa de licitación pública de servicios ATE."
+        ]
+    },
+    {
+        "codigo": "410 503",
+        "nombre": "ACTIVIDADES PARA EL FORTALECIMIENTO DE LOS OBJETIVOS DE MEJORAMIENTO DE LA CALIDAD EDUCATIVA",
+        "caracteristicas": "Gastos asociados a la contratación externa de personas naturales o jurídicas para la realización de actividades específicas, acotadas y no habituales de orientación, información o talleres orientados a fortalecer los objetivos del proyecto educativo.",
+        "diferenciacion_publico": "Estudiantes, padres y apoderados del establecimiento.",
+        "ejemplos_compra": [
+            "Charlas de orientación vocacional para estudiantes",
+            "Conversatorios para estudiantes y apoderados sobre postulación a las universidades",
+            "Talleres sobre indagación científica",
+            "Talleres sobre vida saludable",
+            "Talleres en materia de necesidades educativas especiales (NEE)"
+        ],
+        "advertencias_sistema": [
+            "Las actividades identificadas propiamente como capacitación o asesoría técnico-pedagógica de prestadores ATE deben rendirse exclusivamente en la cuenta 410 501.",
+            "Para financiamiento con recursos SEP, las acciones deben estar vinculadas directamente a una de las dimensiones del Plan de Mejoramiento Educativo (PME).",
+            "El fraccionamiento de servicios para eludir la normativa de licitación o concurso de capacitaciones y asesorías ATE será fiscalizado por la Superintendencia."
+        ]
+    },
+    {
+        "codigo": "410 601",
+        "nombre": "IMPLEMENTOS DE LABORATORIO",
+        "caracteristicas": "Desembolsos para la adquisición de utensilios, herramientas y equipos necesarios para el aprendizaje práctico de los estudiantes en asignaturas científicas o laboratorios.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, focalizado en estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Microscopio con pantalla integrada y salida HDMI/USB",
+            "Pipetas con empuñadura ergonómica y gatillo grande",
+            "Probetas con graduación de alto contraste y marcas en bajo relieve",
+            "Estaciones de trabajo regulables en altura con soportes y barreras de contención",
+            "Balanzas de laboratorio con síntesis de voz o alertas auditivas",
+            "Utensilios de laboratorio de matemáticas, química, biología o física"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos a recursos PIE, los implementos de laboratorio deben contar con adaptaciones o especializaciones específicas para asegurar accesibilidad de estudiantes con NEE.",
+            "Los implementos adquiridos bajo recursos PIE deben ser distintos al mínimo obligatorio con el que debe contar el establecimiento según el Decreto N°53 de 2011.",
+            "No se pueden destinar recursos de Pro Retención para gastos asociados al normal funcionamiento del establecimiento en esta categoría."
+        ]
+    },
+    {
+        "codigo": "410 602",
+        "nombre": "IMPLEMENTOS DEPORTIVOS",
+        "caracteristicas": "Desembolsos destinados a la adquisición de materiales, equipamiento e insumos deportivos necesarios para el desarrollo de actividades físicas, psicomotrices y deportivas de los estudiantes.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Colchonetas comunes y colchonetas antideslizantes de alta densidad",
+            "Caballetes y balones estándar",
+            "Balones sonoros para fútbol, goalball o handball",
+            "Aros de básquetbol o porterías regulables",
+            "Señalética táctil de cancha",
+            "Rampas de lanzamiento y pelotas adaptadas para boccia escolar",
+            "Módulos de psicomotricidad blandos",
+            "Arnés guía o elásticos de seguimiento para atletismo y circuitos"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos a recursos PIE, los implementos deportivos deben poseer alguna adaptación o especialización que facilite la participación de alumnos con NEE.",
+            "Los artículos adquiridos con recursos PIE deben ser superiores o distintos a los mínimos exigidos por el Decreto N°53 de 2011.",
+            "Los recursos de Pro Retención no pueden usarse para financiar implementos destinados al normal funcionamiento de la asignatura de educación física general."
+        ]
+    },
+    {
+        "codigo": "410 603",
+        "nombre": "INSTRUMENTOS MUSICALES Y ARTÍSTICOS",
+        "caracteristicas": "Gastos generados por la adquisición de instrumentos musicales, herramientas de expresión artística y utensilios especializados destinados a las actividades formativas de los estudiantes.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Guitarras, flautas y órganos de uso general",
+            "Teclados y controladores MIDI de alto contraste y sensibilidad ajustable",
+            "Baquetas o agarres ergonómicos",
+            "Soportes estabilizadores para percusión",
+            "Instrumentos de viento con llaves ampliadas o activadores alternativos",
+            "Pinceles y útiles de arte con empuñadura gruesa o contraste elevado",
+            "Tijeras de resorte",
+            "Caballetes y mesas de arte regulables con fijación de papel y planos inclinados"
+        ],
+        "advertencias_sistema": [
+            "En caso de rendir con recursos PIE, el instrumento o material artístico debe poseer adaptaciones que garanticen la accesibilidad de alumnos con NEE.",
+            "Los bienes adquiridos con fondos PIE deben exceder o diferenciarse del estándar mínimo exigido en el Decreto N°53 de 2011 para el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "410 604",
+        "nombre": "RECURSOS AUDIOVISUALES Y SOFTWARE EDUCATIVO",
+        "caracteristicas": "Gastos efectuados en la compra de software interactivo, licencias informáticas educativas y material de soporte audiovisual necesarios para el aprendizaje de los alumnos.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Software educativo interactivo",
+            "CD audiovisuales con contenido pedagógico",
+            "Software adaptado o especializado para la comunicación o aprendizaje de alumnos con NEE"
+        ],
+        "advertencias_sistema": [
+            "Para imputar software bajo la Subvención Escolar Preferencial (SEP), se debe observar lo dispuesto en los dictámenes N°47 de 2018 y N°74 de 2025.",
+            "Para recursos PIE, el software no debe constituir un programa genérico de uso común; debe contar con adaptaciones específicas validadas por informes técnicos profesionales.",
+            "No es posible financiar con recursos PIE software destinado a gestiones administrativas o de control interno de dicho programa."
+        ]
+    },
+    {
+        "codigo": "410 605",
+        "nombre": "MATERIAL Y RECURSOS DIDÁCTICOS",
+        "caracteristicas": "Registro de gastos asociados a la adquisición de materiales físicos de consumo e insumos de apoyo pedagógico estructurados, diseñados o adaptados para facilitar el proceso de enseñanza y aprendizaje directo de los alumnos.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, de uso exclusivo de párvulos y estudiantes con NEE).",
+        "ejemplos_compra": [
+            "Lápices, marcadores, papel, pizarras, plasticina, hilo y cartulinas",
+            "Rompecabezas, bloques lógicos, audio libros con cuentos, mapas, fotos, láminas y videos",
+            "Materiales en sistema braille o adaptados en relieve",
+            "Grips de agarre ergonómico, sujetadores o engrosadores de lápices",
+            "Pinceles, crayones o plumones de grosor determinado para ayuda visual o motriz",
+            "Tijeras de mesa con base adaptada o tijeras de bucle",
+            "Materia prima para elaboración de cuadernos de comunicación, agendas visuales, pictogramas o material visual de lengua de señas"
+        ],
+        "advertencias_sistema": [
+            "Se excluye explícitamente de esta cuenta cualquier tipo de material destinado a labores administrativas o de oficina.",
+            "Para compras con recursos PIE, los materiales didácticos deben ser de uso exclusivo para párvulos o estudiantes con NEE.",
+            "Los recursos didácticos fabricados o comprados con recursos PIE deben ser distintos a los mínimos exigidos para obtener y mantener el Reconocimiento Oficial del Estado.",
+            "Las materias primas para la confección interna de material didáctico adaptado requieren justificación técnica que acredite su diseño exclusivo para apoyos específicos."
+        ]
+    },
+    {
+        "codigo": "410 606",
+        "nombre": "BIBLIOTECAS, LIBROS Y REVISTAS",
+        "caracteristicas": "Gastos en adquisición de libros de lectura, textos complementarios, publicaciones periódicas, suscripciones a bibliotecas digitales o físicas y equipamiento menor para salas de lectura.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Libros de lectura complementaria de uso general",
+            "Suscripciones a libros o revistas digitales con fines educativos",
+            "Audiolibros, textos en macrotipo o en sistema braille",
+            "Libros con pictogramas, texturas o adaptados en lectura fácil",
+            "Libros seleccionados con medidas específicas de accesibilidad (letras ampliadas, contrastes de colores, imágenes no mezcladas con texto)"
+        ],
+        "advertencias_sistema": [
+            "En el caso de recursos PIE, los libros o material de lectura adquiridos deben contar con adaptaciones específicas que aseguren la accesibilidad universal del alumnado integrado."
+        ]
+    },
+    {
+        "codigo": "410 607",
+        "nombre": "EVENTOS EDUCATIVOS Y CULTURALES",
+        "caracteristicas": "Gastos generados por la organización y participación activa de la comunidad escolar en actividades educativas, recreativas, culturales y de conmemoración cívica, debidamente planificadas.",
+        "diferenciacion_publico": "Comunidad educativa, con especial énfasis en estudiantes (con recursos SEP, priorizando alumnos prioritarios y preferentes).",
+        "ejemplos_compra": [
+            "Entradas y traslados para visitas a museos o zoológicos",
+            "Giras de estudio y visitas de campo con objetivos pedagógicos claros",
+            "Material de apoyo para la conmemoración de efemérides en el establecimiento",
+            "Gastos de realización de actividades de aniversario institucional, fiestas patrias o celebraciones de la cultura escolar (Día del Alumno, Día del Profesor, etc.)"
+        ],
+        "advertencias_sistema": [
+            "Las actividades recreativas y conmemorativas financiadas con subvención general deben respetar las restricciones y directrices indicadas en el Dictamen N° 26 de 2016.",
+            "Bajo la subvención SEP, las actividades deben estar explícitamente programadas en el PME, tener carácter pedagógico y contar con participación o beneficio de los alumnos prioritarios.",
+            "Todas las actividades de esta cuenta deben respaldarse con programas detallados, listas de asistencia, pasajes, material didáctico utilizado, facturas o boletas y comprobantes de pago bancarios."
+        ]
+    },
+    {
+        "codigo": "410 608",
+        "nombre": "EVALUACIÓN DIAGNÓSTICA",
+        "caracteristicas": "Gastos operacionales y honorarios profesionales destinados a la aplicación y análisis de pruebas e instrumentos de diagnóstico integral para estudiantes.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (para recursos PIE, focalizado en alumnos integrados con NEE).",
+        "ejemplos_compra": [
+            "Instrumentos de evaluación diagnóstica estandarizados",
+            "Honorarios profesionales de especialistas idóneos para la aplicación de diagnósticos",
+            "Consultas y evaluaciones clínicas efectuadas tanto en el establecimiento como en consultas externas"
+        ],
+        "advertencias_sistema": [
+            "La contratación de especialistas bajo recursos PIE exige que el profesional cuente con su título idóneo y esté inscrito en el Registro de Profesionales para la Evaluación y Diagnóstico del Ministerio de Educación.",
+            "No se permite, bajo ninguna circunstancia, la compra de medicamentos con cargo a esta cuenta.",
+            "El profesional externo debe emitir boleta de honorarios o factura a nombre de la entidad sostenedora, detallando la atención, nombre, RUT del alumno y entregar un informe de evaluación respectivo."
+        ]
+    },
+    {
+        "codigo": "410 609",
+        "nombre": "OTROS GASTOS EN RECURSOS DE APRENDIZAJE",
+        "caracteristicas": "Gastos en recursos, materiales y equipamientos pedagógicos menores que no se clasifican en las cuentas precedentes de la categoría 410 600.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (para recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Equipos portátiles de termolaminación (termolaminadoras)",
+            "Máquinas anilladoras o espiraladoras de uso educativo",
+            "Insumos asociados tales como micas termolaminadoras o espirales plásticos para anillar"
+        ],
+        "advertencias_sistema": [
+            "Para imputar la adquisición de termolaminadoras o anilladoras a recursos PIE, estas deben ser utilizadas exclusivamente para crear, elaborar o adaptar material específico para estudiantes con NEE.",
+            "La adquisición de insumos para termolaminado o anillado con recursos PIE debe rendirse en proporción real al material didáctico adaptado elaborado, manteniendo una bitácora y registros verificables."
+        ]
+    },
+    {
+        "codigo": "410 701",
+        "nombre": "EQUIPOS DE FOTOGRAFÍA Y FILMACIÓN",
+        "caracteristicas": "Gastos generados por la compra de cámaras y accesorios audiovisuales destinados a la ejecución, diagnóstico o documentación de actividades netamente pedagógicas.",
+        "diferenciacion_publico": "Docentes y estudiantes (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Cámaras fotográficas digitales estándar",
+            "Equipos de filmación y videograbadoras de uso escolar",
+            "Cámaras fotográficas adaptadas con conmutadores accesorios para sustituir el botón disparador"
+        ],
+        "advertencias_sistema": [
+            "Para el uso de recursos PIE, el equipamiento de fotografía y filmación debe contar con un informe técnico-pedagógico que justifique su pertinencia y el nivel de adaptación para alumnos con NEE."
+        ]
+    },
+    {
+        "codigo": "410 702",
+        "nombre": "PIZARRAS INTERACTIVAS",
+        "caracteristicas": "Desembolsos orientados a la adquisición de pantallas de proyección táctil interactiva, pizarras interactivas y accesorios informáticos homologados para las salas de clases.",
+        "diferenciacion_publico": "Estudiantes y docentes del establecimiento.",
+        "ejemplos_compra": [
+            "Pizarras digitales interactivas",
+            "Módulos táctiles interactivos de proyección escolar"
+        ],
+        "advertencias_sistema": [
+            "En caso de rendir con recursos PIE, se requiere que el equipamiento se someta a las normativas de educación especial (Decreto N° 170/2009) y cuente con la validación de un informe técnico-pedagógico."
+        ]
+    },
+    {
+        "codigo": "410 703",
+        "nombre": "EQUIPOS INFORMÁTICOS Y LICENCIAS",
+        "caracteristicas": "Desembolsos efectuados en la adquisición de hardware informático y licencias operativas de software para fines estrictamente pedagógicos y de aprendizaje estudiantil.",
+        "diferenciacion_publico": "Estudiantes y docentes (en recursos PIE, exclusivo para alumnos con NEE).",
+        "ejemplos_compra": [
+            "Computadores de escritorio y laptops (Notebooks, Netbooks)",
+            "Tabletas digitales (Tablets) para uso educativo",
+            "Licencias informáticas de software interactivo o educativo",
+            "Equipamientos informáticos con interfaces nativas o herramientas preconfiguradas de accesibilidad para NEE"
+        ],
+        "advertencias_sistema": [
+            "El software, hardware y servicios de carácter tecnológico imputados a la Subvención Escolar Preferencial (SEP) deben someterse a los dictámenes N°47 de 2018 y N°74 de 2025.",
+            "Para compras asociadas a recursos PIE, las computadoras y tabletas deben destinarse al uso exclusivo de estudiantes con NEE, ya sea en el aula regular u otros espacios escolares inclusivos."
+        ]
+    },
+    {
+        "codigo": "410 704",
+        "nombre": "EQUIPOS REPRODUCTORES DE IMAGEN",
+        "caracteristicas": "Adquisición de pantallas, proyectores y reproductores multimedia necesarios para complementar las metodologías visuales de enseñanza.",
+        "diferenciacion_publico": "Estudiantes y docentes (en recursos PIE, exclusivo para alumnos con NEE).",
+        "ejemplos_compra": [
+            "Televisores y monitores de reproducción de video escolar",
+            "Reproductores de DVD o Blu-ray",
+            "Equipos de proyección (Data Show)",
+            "Proyectores interactivos con soporte pedagógico adaptado"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos de este equipamiento a recursos PIE, no debe tratarse de equipos comunes del establecimiento; deben contar con adaptaciones o complementos específicos para el apoyo exclusivo de estudiantes con NEE."
+        ]
+    },
+    {
+        "codigo": "410 705",
+        "nombre": "EQUIPOS MULTICOPIADORES",
+        "caracteristicas": "Adquisición de equipamiento de copiado, digitalización e impresión de documentos escolares para fines formativos y de apoyo curricular.",
+        "diferenciacion_publico": "Comunidad escolar en general (en recursos PIE, de uso exclusivo de alumnos con NEE).",
+        "ejemplos_compra": [
+            "Impresoras de escritorio y multifuncionales",
+            "Fotocopiadoras de alto rendimiento",
+            "Escáneres de documentos",
+            "Impresoras con sistema braille",
+            "Impresoras 3D destinadas a la creación de materiales educativos adaptados"
+        ],
+        "advertencias_sistema": [
+            "Para compras asociadas a recursos PIE, el equipamiento multicopiador no debe corresponder a herramientas de uso común del colegio; debe ser de tipo especializado para la confección exclusiva de materiales adaptados."
+        ]
+    },
+    {
+        "codigo": "410 706",
+        "nombre": "EQUIPOS DE AMPLIFICACIÓN Y SONIDO",
+        "caracteristicas": "Gastos generados por la adquisición de equipos de reproducción de audio, amplificadores y periféricos de sonorización con fines formativos y de apoyo en aula.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Radios, reproductores portátiles y equipos de audio",
+            "Amplificadores y parlantes de sonido",
+            "Micrófonos inalámbricos y de diadema",
+            "Sistemas de amplificación y sonido especializados o adaptados para deficiencias de audición"
+        ],
+        "advertencias_sistema": [
+            "Los gastos cargados a recursos PIE en esta cuenta deben estar estrictamente fundamentados en equipos de audio especializados que cuenten con adaptaciones para asegurar la accesibilidad y participación de los alumnos con NEE."
+        ]
+    },
+    {
+        "codigo": "410 707",
+        "nombre": "OTROS GASTOS EN EQUIPAMIENTO DE APOYO PEDAGÓGICO",
+        "caracteristicas": "Gastos asociados a la compra de equipos e insumos de estimulación pedagógica, sensorial o motriz no contemplados en las cuentas del rubro 410 700.",
+        "diferenciacion_publico": "Estudiantes (para recursos PIE, estudiantes con Necesidades Educativas Especiales).",
+        "ejemplos_compra": [
+            "Pesas digitales y huinchas métricas",
+            "Cajones multipropósito (escaleras de psicomotricidad)",
+            "Balones terapéuticos de kinesiología y bandas elásticas",
+            "Cojines sensoriales y pelotas antiestrés",
+            "Cascos protectores de uso escolar y mantas de peso",
+            "Equipamiento de acondicionamiento de salas multisensoriales",
+            "Elementos de estimulación para rincones o zonas de calma"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos de equipamiento sensorial a recursos PIE, se requiere contar con informes técnicos que avalen la pertinencia pedagógica.",
+            "La estimulación sensorial y contención emocional no se limita a salas terapéuticas exclusivas, promoviéndose su utilización y habilitación dentro del aula común.",
+            "Todos los desembolsos de esta cuenta deben fundamentarse con boletas, facturas y justificarse bajo criterios de razonabilidad y valores de mercado, prohibiendo transacciones entre personas relacionadas."
+        ]
+    },
+    {
+        "codigo": "410 801",
+        "nombre": "UNIFORMES Y VESTUARIO",
+        "caracteristicas": "Adquisición de vestuario formal, uniformes y ropa de trabajo escolar complementaria de propiedad o uso directo de los alumnos.",
+        "diferenciacion_publico": "Estudiantes del establecimiento.",
+        "ejemplos_compra": [
+            "Uniformes escolares, camisas y zapatos",
+            "Delantales de trabajo escolar, pecheras y overoles pedagógicos",
+            "Vestuario deportivo exclusivo para los alumnos participantes de talleres deportivos formales inscritos en el PME"
+        ],
+        "advertencias_sistema": [
+            "La adquisición generalizada de uniformes escolares comunes para la totalidad de la matrícula no es financiable con recursos SEP por no considerarse una mejora pedagógica directa.",
+            "No se permite, bajo recursos SEP, financiar la adquisición de bandanas, guantes o accesorios personalizados con el logo del colegio.",
+            "Todos los gastos de vestuario escolar deben contar con boletas o facturas, y planillas de entrega que incluyan la nómina de alumnos con su firma de recepción conforme."
+        ]
+    },
+    {
+        "codigo": "410 802",
+        "nombre": "OTROS GASTOS ALUMNOS",
+        "caracteristicas": "Desembolsos orientados a la entrega de incentivos de rendimiento o permanencia escolar, así como de insumos y utensilios de higiene o apoyo para la vida diaria de los alumnos en el contexto escolar.",
+        "diferenciacion_publico": "Estudiantes (párvulos, estudiantes con NEE o en condiciones de vulnerabilidad o riesgo).",
+        "ejemplos_compra": [
+            "Patos urinarios, pañales desechables y sondas médicas de uso diario en el colegio",
+            "Relojes de pulsera sencillos o incentivos de bajo costo entregados como premio por puntualidad o asistencia",
+            "Equipamientos tecnológicos menores, herramientas o insumos artísticos entregados como incentivos de proyectos escolares específicos descritos en el PME"
+        ],
+        "advertencias_sistema": [
+            "Los elementos de protección personal del personal de aseo o asistentes que realizan labores de higiene (guantes, pecheras, cofias, delantales de personal) deben rendirse en la cuenta de personal 410 304 y no en esta cuenta.",
+            "Los incentivos entregados a alumnos deben regirse de acuerdo a los criterios definidos en el Dictamen N° 26 de 2016 de la Superintendencia de Educación.",
+            "No se permite cargar a esta cuenta el financiamiento o copago de preuniversitarios externos de preparación de pruebas de admisión universitaria.",
+            "Para respaldar incentivos o insumos se debe contar con un programa de la actividad con objetivos claros, nóminas de alumnos receptores con firma de entrega conforme, cursos, fechas y registros fotográficos."
+        ]
+    },
+    {
+        "codigo": "410 803",
+        "nombre": "TALLERES EXTRAPROGRAMÁTICOS",
+        "caracteristicas": "Gastos generados por el pago de honorarios a personas naturales para la ejecución de talleres recreativos, artísticos, científicos y deportivos complementarios a la jornada escolar regular.",
+        "diferenciacion_publico": "Estudiantes del establecimiento.",
+        "ejemplos_compra": [
+            "Honorarios para monitores de talleres de gimnasia artística o fútbol",
+            "Honorarios para profesores de talleres de astronomía, robótica o ajedrez",
+            "Honorarios para relatores de talleres de reciclaje, gastronomía, teatro, folklore, música o educación ambiental"
+        ],
+        "advertencias_sistema": [
+            "La ejecución de los talleres extraprogramáticos solo puede contratarse con personas naturales. Queda estrictamente prohibida la contratación de personas jurídicas en esta cuenta.",
+            "Los gastos de esta cuenta deben respaldarse obligatoriamente con boletas de honorarios, informes mensuales de prestación de servicios, planificaciones de los talleres, nóminas de participantes y registros de asistencia firmados."
+        ]
+    },
+    {
+        "codigo": "410 804",
+        "nombre": "CONTRATACIÓN DE APOYO DE ESPECIALISTAS",
+        "caracteristicas": "Gastos destinados a la contratación de profesionales y especialistas externos para la realización de evaluaciones diagnósticas y complementos de adecuación curricular pedagógica.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos PIE, alumnos integrados con NEE).",
+        "ejemplos_compra": [
+            "Honorarios por servicios de psicólogos clínicos o escolares",
+            "Honorarios de psicopedagogos, fonoaudiólogos y terapeutas ocupacionales",
+            "Honorarios de médicos neurólogos, trabajadores sociales u otros especialistas para diagnósticos de ingreso o egreso"
+        ],
+        "advertencias_sistema": [
+            "Este tipo de contrataciones externas no debe tener por objeto la entrega de tratamientos médicos regulares ni atenciones clínicas continuas de salud.",
+            "Los profesionales de apoyo que se contraten de manera estable para dar soporte regular a las NEE deben estar contratados formalmente e incorporados en las cuentas de remuneraciones correspondientes del personal.",
+            "Bajo la subvención SEP, la contratación excepcional de psicólogos o asistentes sociales debe estar exclusivamente destinada al área de Convivencia Escolar y alineada con las acciones descritas en el PME.",
+            "Todos los especialistas contratados deben contar con título profesional idóneo y estar debidamente autorizados e inscritos en el Registro de Profesionales del Ministerio de Educación."
+        ]
+    },
+    {
+        "codigo": "410 805",
+        "nombre": "APOYO AL ESTUDIANTE",
+        "caracteristicas": "Gastos operacionales y de implementación asociados a acciones preventivas del riesgo de deserción escolar, destinadas a promover la retención en el sistema escolar (exclusivo Subvención Pro Retención).",
+        "diferenciacion_publico": "Estudiantes beneficiarios identificados en riesgo de deserción escolar.",
+        "ejemplos_compra": [
+            "Talleres de apoyo académico o escolar para padres y apoderados",
+            "Organización de campeonatos deportivos de permanencia escolar",
+            "Adquisición de medicamentos específicos (solo si se agotaron instancias previas en los servicios públicos de salud o JUNAEB)",
+            "Adquisición de computadores, notebooks o tablets útiles para asegurar el proceso de aprendizaje continuo de estudiantes vulnerables"
+        ],
+        "advertencias_sistema": [
+            "Esta cuenta está habilitada únicamente para la imputación de gastos relacionados con la Subvención Pro Retención."
+        ]
+    },
+    {
+        "codigo": "410 806",
+        "nombre": "ÚTILES ESCOLARES",
+        "caracteristicas": "Desembolsos incurridos para la compra de materiales básicos e insumos escolares destinados al uso directo del estudiante en las actividades de aula.",
+        "diferenciacion_publico": "Estudiantes del establecimiento (en recursos SEP, prioritarios y preferentes).",
+        "ejemplos_compra": [
+            "Cuadernos de estudio",
+            "Lápices, colores, gomas de borrar y reglas",
+            "Témperas, pinceles escolares y pegamentos"
+        ],
+        "advertencias_sistema": [
+            "En el caso de utilizar recursos SEP, la compra de útiles escolares debe estar explícitamente justificada y vinculada a la implementación de las metas y acciones plasmadas en el PME."
+        ]
+    },
+    {
+        "codigo": "410 901",
+        "nombre": "TRANSPORTE ESCOLAR",
+        "caracteristicas": "Gastos fijos generados por la contratación del servicio permanente de traslado de los alumnos entre sus domicilios de residencia y el establecimiento educacional (viajes de ida y regreso).",
+        "diferenciacion_publico": "Estudiantes del establecimiento.",
+        "ejemplos_compra": [
+            "Pago mensual de contratos vigentes por prestación de servicio de transporte escolar",
+            "Compra de vehículo de transporte escolar (en casos excepcionales amparados por confianza legítima)",
+            "Arriendo de vehículo escolar por plazo indefinido (en casos de confianza legítima)"
+        ],
+        "advertencias_sistema": [
+            "Las contrataciones por traslado permanente deben estar respaldadas con nóminas completas de alumnos transportados, el horario de recorridos y la ruta autorizada del medio de transporte.",
+            "El servicio contratado y los vehículos correspondientes deben contar con inscripción habilitante vigente en el Registro Nacional de Servicios de Transporte Remunerado de Escolares (Ministerio de Transportes).",
+            "El financiamiento del transporte permanente mediante recursos SEP es restrictivo y excepcional, requiriendo justificación por confianza legítima, pertenencia a Proyecto TER (Transporte Escolar Rural) o glosas de la Ley de Presupuestos para ruralidad."
+        ]
+    },
+    {
+        "codigo": "410 902",
+        "nombre": "MATERIALES DE OFICINA",
+        "caracteristicas": "Gastos generados por la adquisición de insumos, papelería y artículos de escritorio comunes de uso cotidiano en las dependencias administrativas del establecimiento.",
+        "diferenciacion_publico": "Personal administrativo, directivo y docente para la gestión interna.",
+        "ejemplos_compra": [
+            "Papel blanco para fotocopias e impresoras",
+            "Carpetas de archivo, archivadores y fundas de plástico",
+            "Corcheteras, perforadoras, tijeras de oficina y grapas",
+            "Insumos de escritorio comunes (lápices de pasta, borradores, marcadores de pizarra comunes)"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "410 903",
+        "nombre": "REPRODUCCIÓN DE DOCUMENTOS",
+        "caracteristicas": "Gastos por servicios de fotocopiado, impresión o digitalización de documentos necesarios para la gestión administrativa del colegio o la entrega de guías y evaluaciones.",
+        "diferenciacion_publico": "Comunidad escolar.",
+        "ejemplos_compra": [
+            "Servicios de fotocopiado e impresiones masivas",
+            "Reproducción de documentos en soportes o formatos digitales",
+            "Reproducción de materiales impresos adaptados específicamente para estudiantes con NEE (con recursos PIE)"
+        ],
+        "advertencias_sistema": [
+            "Si el gasto se imputa a la subvención SEP, debe estar vinculado a una acción de mejora escolar previamente aprobada en el PME.",
+            "En caso de cargarse a recursos PIE, la reproducción debe limitarse estrictamente a materiales adaptados específicos para estudiantes integrados con NEE."
+        ]
+    },
+    {
+        "codigo": "410 904",
+        "nombre": "ALIMENTACIÓN",
+        "caracteristicas": "Gastos relacionados con la compra o provisión de colaciones, refrigerios y comidas preparadas destinadas a los integrantes de la comunidad escolar durante actividades oficiales.",
+        "diferenciacion_publico": "Estudiantes, docentes, directivos, padres y apoderados.",
+        "ejemplos_compra": [
+            "Colaciones y comidas preparadas para jornadas de perfeccionamiento o capacitación interna",
+            "Refrigerios para estudiantes en el marco de salidas pedagógicas, giras o eventos educativos del PME",
+            "Provisión de alimentación complementaria como medida adicional de retención escolar (con recursos Pro Retención)"
+        ],
+        "advertencias_sistema": [
+            "Con recursos SEP, los gastos de alimentación se aceptan únicamente si provienen de la realización de capacitaciones, talleres o salidas pedagógicas formales detalladas en el PME.",
+            "Para la Subvención Pro Retención, la alimentación debe destinarse exclusivamente como apoyo adicional para los alumnos beneficiarios del programa."
+        ]
+    },
+    {
+        "codigo": "410 905",
+        "nombre": "INSUMOS COMPUTACIONALES",
+        "caracteristicas": "Gastos operacionales para la compra de componentes informáticos, periféricos reemplazables y consumibles necesarios para computadoras del establecimiento.",
+        "diferenciacion_publico": "Docentes, personal administrativo y estudiantes (en recursos PIE, de uso adaptado para alumnos con NEE).",
+        "ejemplos_compra": [
+            "Teclados, mouse comunes, pendrives y toners de impresión",
+            "Bandejas para tablets o microscopios digitales de mano",
+            "Audífonos con cancelación activa de ruido o sistemas de insonorización",
+            "Brazos articulados, Smart braille y líneas braille",
+            "Huinchas de medir parlantes y punteros cefálicos",
+            "Brazos de sobremesa y teclados para niños (teclados junior)",
+            "Grabadoras de voz con niveles step by step, paneles luminosos circulares y switches de tipo jelly bean, varilla o smoothie"
+        ],
+        "advertencias_sistema": [
+            "Bajo recursos PIE, la adquisición de periféricos generales (mouse, teclados, pendrives, etc.) se autoriza únicamente si se trata de modelos adaptados o especializados para la inclusión de estudiantes con NEE."
+        ]
+    },
+    {
+        "codigo": "410 906",
+        "nombre": "COMBUSTIBLE Y PEAJES",
+        "caracteristicas": "Egresos incurridos en la compra de combustibles y pago de peajes en rutas terrestres, derivados de traslados vehiculares específicos de los alumnos o personal.",
+        "diferenciacion_publico": "Estudiantes, docentes u otros integrantes de la comunidad escolar en traslados.",
+        "ejemplos_compra": [
+            "Combustible para vehículos oficiales de transporte escolar del colegio",
+            "Peajes terrestres incurridos durante la realización de salidas educativas autorizadas",
+            "Combustible consumido en vehículos para traslados derivados de capacitaciones PIE específicas"
+        ],
+        "advertencias_sistema": [
+            "Se requiere conservar bitácoras y documentación de respaldo de cada viaje que justifique la vinculación directa de los traslados con la actividad realizada.",
+            "Se debe identificar con total claridad y registrar de forma diferenciada la cantidad de combustible pagada con cada una de las subvenciones vigentes.",
+            "El financiamiento de combustible para transporte con recursos SEP se limita exclusivamente a las condiciones establecidas en los Dictámenes N° 22 y N° 42 de la Superintendencia."
+        ]
+    },
+    {
+        "codigo": "410 907",
+        "nombre": "MATERIALES Y ÚTILES DE ASEO",
+        "caracteristicas": "Gastos generados por la compra de insumos sanitarios, químicos y herramientas de limpieza necesarios para el correcto aseo del local.",
+        "diferenciacion_publico": "Comunidad escolar en general.",
+        "ejemplos_compra": [
+            "Bolsas de basura de diferentes capacidades",
+            "Líquidos desinfectantes, cloro, detergentes y desodorantes ambientales",
+            "Escobas, trapeadores, paños de microfibra, esponjas y carros de limpieza"
+        ],
+        "advertencias_sistema": [
+            "La adquisición de materiales y útiles de aseo está estrictamente prohibida bajo la subvención SEP por no alinearse con su objeto pedagógico. Estos insumos deben ser financiados exclusivamente con Subvención General."
+        ]
+    },
+    {
+        "codigo": "410 908",
+        "nombre": "PUBLICIDAD",
+        "caracteristicas": "Gastos destinados a la contratación de medios de difusión o soportes de publicidad para promover la matrícula escolar, dar a conocer el proyecto institucional o eventos del colegio.",
+        "diferenciacion_publico": "Comunidad externa y apoderados.",
+        "ejemplos_compra": [
+            "Diseño e impresión de folletos informativos, dípticos y volantes de matrícula",
+            "Pendones publicitarios y letreros exteriores del establecimiento",
+            "Prospectos y avisos informativos sobre la oferta pedagógica"
+        ],
+        "advertencias_sistema": [
+            "Este gasto en publicidad y difusión institucional no está permitido bajo la Subvención Escolar Preferencial (SEP), de acuerdo con lo instruido en el Dictamen N° 19 de 2015 de la Superintendencia."
+        ]
+    },
+    {
+        "codigo": "410 909",
+        "nombre": "PASAJES",
+        "caracteristicas": "Gastos de transporte urbano o interurbano público y privado para funcionarios del establecimiento que deban movilizarse para realizar trámites o comisiones de servicio oficiales.",
+        "diferenciacion_publico": "Personal y funcionarios del establecimiento.",
+        "ejemplos_compra": [
+            "Pasajes de taxis y radiotaxis",
+            "Boletos de buses urbanos, colectivos, metro o micro",
+            "Pasajes de locomoción interurbana para visitas de acompañamiento técnico-pedagógico del PME"
+        ],
+        "advertencias_sistema": [
+            "Para rendirse a la subvención SEP, los traslados deben constituir gastos indispensables, proporcionales y estar asociados de forma directa a acciones del PME (por ejemplo, visitas de acompañamiento técnico-pedagógico o visitas técnicas).",
+            "No se permite imputar pasajes con cargo a recursos SEP para la realización de trámites administrativos generales de oficina u operaciones del sostenedor.",
+            "Se aconseja generar y anexar planillas de control detalladas por cada salida (con nombre, RUT, fecha, recorrido y justificación pedagógica o administrativa), respaldadas con el respectivo pasaje o boleto.",
+            "Para recursos PIE, la movilización o pasajes solo se acepta si el motivo de traslado es la capacitación del personal en NEE."
+        ]
+    },
+    {
+        "codigo": "410 910",
+        "nombre": "OTROS GASTOS DE OPERACIÓN",
+        "caracteristicas": "Cuenta comodín de la categoría 410 900 para registrar gastos operativos necesarios que no encajan en las subcategorías precedentes.",
+        "diferenciacion_publico": "Comunidad escolar en general.",
+        "ejemplos_compra": [
+            "Pago de publicaciones en diarios oficiales o medios de prensa exigidas legalmente para licitaciones públicas de servicios ATE",
+            "Otros gastos operativos de carácter menor"
+        ],
+        "advertencias_sistema": [
+            "Los desembolsos declarados en esta cuenta para subvenciones con fines especiales (SEP, PIE, etc.) deben cumplir estrictamente con toda la normativa que las regula.",
+            "En el caso de imputar a la subvención SEP, la acción debe estar expresamente justificada, detallada e incorporada en las dimensiones del PME."
+        ]
+    },
+    {
+        "codigo": "410 911",
+        "nombre": "GASTOS MUNICIPALES, IMPUESTOS Y DONACIONES ORIGINADAS EN CUMPLIMIENTO DE EXIGENCIAS LEGALES",
+        "caracteristicas": "Egresos obligatorios destinados al pago de tributos municipales, permisos estatales y donaciones obligatorias exigidas por ley para la operación del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Patentes comerciales de funcionamiento",
+            "Permisos de edificación y recepción de obras",
+            "Derechos por servicios de aseo municipal del local escolar",
+            "Donaciones de Inclusión Laboral efectuadas en cumplimiento de la Ley N°21.015 (Art. 157 ter letra b del Código del Trabajo)"
+        ],
+        "advertencias_sistema": [
+            "Queda prohibido financiar donaciones voluntarias originadas por mera liberalidad del sostenedor con recursos de cualquier subvención del Estado.",
+            "Deberá registrarse en esta cuenta el egreso de los recursos por donaciones que el sostenedor deba restituir legalmente a la respectiva municipalidad (bajo la Ley N°19.247)."
+        ]
+    },
+    {
+        "codigo": "410 912",
+        "nombre": "CRÉDITOS FINANCIEROS",
+        "caracteristicas": "Registro del pago de las amortizaciones y cuotas periódicas de créditos de origen bancario o mutuos contratados para la adquisición o mejoramiento del inmueble educativo.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Pago de cuotas de créditos hipotecarios bancarios contraídos para adquirir los inmuebles donde funciona el establecimiento",
+            "Pago de cuotas de créditos destinados a realizar mejoras útiles o necesarias en la infraestructura escolar"
+        ],
+        "advertencias_sistema": [
+            "Las operaciones financieras deben realizarse exclusivamente con instituciones financieras públicas o privadas que se encuentren reguladas por la Comisión para el Mercado Financiero (CMF).",
+            "Es requisito de integridad contable haber registrado previamente los ingresos por la obtención de dichos créditos en la subcategoría correspondientes de ingresos."
+        ]
+    },
+    {
+        "codigo": "410 913",
+        "nombre": "GASTOS BANCARIOS",
+        "caracteristicas": "Gastos financieros asociados a comisiones de administración, mantención de cuentas corrientes e instrumentos de garantía bancaria exigidos para la operación del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Comisiones mensuales por mantención de cuenta corriente bancaria",
+            "Gastos por confección y emisión de talonarios de cheques",
+            "Costos por emisión de boletas de garantía u otros instrumentos de resguardo similares"
+        ],
+        "advertencias_sistema": [
+            "Se aceptará el pago de gastos bancarios con cargo a la Subvención Escolar Preferencial (SEP) únicamente a aquellas entidades sostenedoras que posean y operen una cuenta corriente bancaria exclusiva para la administración de dichos fondos."
+        ]
+    },
+    {
+        "codigo": "410 914",
+        "nombre": "DEVOLUCIÓN APOYO INICIO ACTIVIDAD",
+        "caracteristicas": "Mecanismo de recuperación de recursos propios invertidos por sostenedores de colegios particulares subvencionados para cubrir gastos operacionales durante el periodo en que, habiendo obtenido el Reconocimiento Oficial, no percibieron de inmediato la Subvención General.",
+        "diferenciacion_publico": "No aplica (gestión financiera del sostenedor).",
+        "ejemplos_compra": [
+            "Giro de fondos por concepto de recuperación de gastos operacionales incurridos en el periodo de desfase del Reconocimiento Oficial"
+        ],
+        "advertencias_sistema": [
+            "Este concepto aplica de manera exclusiva para establecimientos de dependencia Particular Subvencionada.",
+            "Para efectos de fiscalización, el sostenedor debe mantener los respaldos de gastos correspondientes realizados originalmente en su oportunidad, debiendo registrar el ingreso correlativo en la subcategoría 311104."
+        ]
+    },
+    {
+        "codigo": "410 916",
+        "nombre": "CONTRATACIÓN DE SEGUROS",
+        "caracteristicas": "Adquisición de pólizas de seguros destinadas a proteger la infraestructura, bienes materiales y vehículos escolares ante siniestros.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Primas de seguros contra incendios para el inmueble escolar",
+            "Pólizas de seguros generales para equipamiento del establecimiento",
+            "Seguros obligatorios (SOAP) para furgones y vehículos de transporte escolar"
+        ],
+        "advertencias_sistema": [
+            "Los gastos de seguros se rinden con cargo a la Subvención General y General AC."
+        ]
+    },
+    {
+        "codigo": "410 917",
+        "nombre": "DEVOLUCIONES DE FONDOS PÚBLICOS",
+        "caracteristicas": "Registro de transacciones financieras destinadas al reintegro de saldos no ejecutados de subvenciones, aportes o convenios públicos a los organismos estatales emisores.",
+        "diferenciacion_publico": "No aplica (gestión financiera).",
+        "ejemplos_compra": [
+            "Reintegro de saldos de subvenciones públicas remanentes no utilizadas a la orden de instituciones del Estado"
+        ],
+        "advertencias_sistema": [
+            "El respaldo requerido corresponde exclusivamente al documento oficial de egreso (comprobante de transferencia, depósito o boleta bancaria) que acredite la transacción con la institución pública destinataria."
+        ]
+    },
+    {
+        "codigo": "410 918",
+        "nombre": "TRASLADO DE ESTUDIANTES POR ACTIVIDAD ESCOLAR",
+        "caracteristicas": "Gastos generados por la contratación temporal y ocasional de servicios de transporte escolar para traslados vinculados directamente al desarrollo de talleres, salidas pedagógicas o actividades recreativas fuera del local.",
+        "diferenciacion_publico": "Párvulos y estudiantes del establecimiento.",
+        "ejemplos_compra": [
+            "Contratación ocasional de buses para trasladar estudiantes a campeonatos deportivos intercolegiales",
+            "Arriendo de transporte para visitas grupales de alumnos a museos o salidas educativas específicas"
+        ],
+        "advertencias_sistema": [
+            "Esta cuenta se diferencia de la 410 901 (Transporte Escolar) porque cubre traslados transitorios y ocasionales vinculados a actividades pedagógicas específicas, no de carácter permanente domicilio-establecimiento.",
+            "Los servicios contratados deben justificarse con las nóminas de alumnos autorizados participantes, programas oficiales de las actividades y boletas o facturas según corresponda.",
+            "Los vehículos contratados deben estar al día con la normativa del Ministerio de Transportes para transporte remunerado de escolares.",
+            "Si la entidad sostenedora es de dependencia municipal o Servicio Local de Educación Pública (SLEP), se debe dar estricto cumplimiento al régimen especial de contratación pública (Ley N°19.886).",
+            "Para financiar traslados con recursos SEP, el transporte debe estar directamente vinculado y ser imprescindible para una actividad principal SEP contenida y programada en el PME."
+        ]
+    },
+    {
+        "codigo": "411 001",
+        "nombre": "INTERNET",
+        "caracteristicas": "Gastos periódicos mensuales facturados por el servicio de acceso a red internet para el establecimiento educacional.",
+        "diferenciacion_publico": "Comunidad escolar en general (docentes, estudiantes y administrativos).",
+        "ejemplos_compra": [
+            "Pago mensual de la factura de internet de banda ancha del colegio"
+        ],
+        "advertencias_sistema": [
+            "No está permitido realizar el pago de servicios de consumo básico (incluido internet) con cargo a Fondo Fijo o Caja Chica.",
+            "En el caso particular de la subvención SEP, solo se permite imputar gastos de implementación y adecuación de conectividad (ej. instalación de cableado de red o puntos de acceso) cuando resulte indispensable para el PME."
+        ]
+    },
+    {
+        "codigo": "411 002",
+        "nombre": "AGUA",
+        "caracteristicas": "Desembolsos por el consumo de agua potable, alcantarillado, pago de derechos de agua o compra de agua a terceros para el local escolar.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Facturas de agua potable y servicios de desagües",
+            "Compra de agua mediante camiones aljibe para abastecimiento",
+            "Pago de derechos por el uso de aguas para el local"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar servicios básicos de agua potable con cargo a Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 003",
+        "nombre": "GAS",
+        "caracteristicas": "Gastos por consumo de gas envasado licuado, gas de cañería o gas natural requeridos para sistemas de calefacción, calderas, maquinaria o equipos de laboratorio.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Consumo facturado de gas de cañería",
+            "Adquisición de cilindros de gas licuado para comedores o laboratorios",
+            "Recarga de gas natural para calderas o sistemas de calefacción"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar consumos de gas con cargo a Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 004",
+        "nombre": "ELECTRICIDAD",
+        "caracteristicas": "Gastos asociados al consumo de energía eléctrica del establecimiento en todas sus dependencias (salas, oficinas, gimnasios, baños).",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Pago mensual de facturas de consumo eléctrico del establecimiento"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar facturas de suministro eléctrico con cargo a Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 005",
+        "nombre": "SERVICIO DE CORRESPONDENCIA (CORREOS)",
+        "caracteristicas": "Egresos generados por el envío de correspondencia oficial, encomiendas de materiales e insumos a través de empresas postales públicas o privadas.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Gastos de despacho de cartas certificadas de administración",
+            "Envío de encomiendas o insumos educativos a otros puntos del país",
+            "Mensajería y correspondencia corporativa del establecimiento"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar este tipo de despachos postales recurrentes con cargo a Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 006",
+        "nombre": "TELEFONÍA (MÓVIL Y FIJA)",
+        "caracteristicas": "Gastos periódicos mensuales de planes de telecomunicaciones telefónicas fijas o móviles asignadas al establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo (apoyo a la gestión escolar).",
+        "ejemplos_compra": [
+            "Servicios mensuales de telefonía fija en oficinas",
+            "Planes mensuales de telefonía celular móvil institucional de directivos o personal del local"
+        ],
+        "advertencias_sistema": [
+            "No corresponde efectuar el pago de facturas telefónicas con cargo a Fondo Fijo o Caja Chica.",
+            "El uso de las líneas telefónicas declaradas debe estar justificado en la entrega de apoyo directo a la gestión del establecimiento y atención del alumnado."
+        ]
+    },
+    {
+        "codigo": "411 007",
+        "nombre": "COMBUSTIBLE O FUENTE DE ENERGÍA PARA CALEFACCIÓN",
+        "caracteristicas": "Compra de recursos y combustibles específicos destinados exclusivamente a alimentar sistemas de calefacción ambiental o calderas térmicas del local.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Adquisición de leña, pellet, turba o madera",
+            "Petróleo diésel para sistemas de calefacción central",
+            "Parafina (kerosene) o bencina para estufas escolares"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar el abastecimiento de combustibles para calefacción general mediante el Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 008",
+        "nombre": "OTROS GASTOS SERVICIOS BÁSICOS",
+        "caracteristicas": "Registro de gastos asociados a suministros de consumos básicos del establecimiento que no encajen en las cuentas anteriores del rubro 411 000.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Otros consumos básicos o suministros específicos no descritos previamente"
+        ],
+        "advertencias_sistema": [
+            "No corresponde pagar servicios básicos con cargo a Fondo Fijo o Caja Chica."
+        ]
+    },
+    {
+        "codigo": "411 101",
+        "nombre": "CONTRATACIÓN SERVICIOS DE ASEO Y JARDINERÍA",
+        "caracteristicas": "Gastos por la contratación de empresas externas o prestadores independientes para la mantención de áreas verdes, limpieza de dependencias y control de plagas.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Servicios externos de aseo para espacios interiores y exteriores",
+            "Servicios de jardinería y mantenimiento de áreas verdes",
+            "Servicios de control sanitario, desinsectación, desratización, desinfección y sanitización del recinto escolar"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 102",
+        "nombre": "CONTRATACIÓN SERVICIOS DE SEGURIDAD",
+        "caracteristicas": "Servicios contratados para resguardo, televigilancia y protección física de las instalaciones, dependencias y bienes del establecimiento escolar.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Servicios externos de guardias de seguridad o vigilantes privados",
+            "Servicios de monitoreo de alarmas y mantenimiento de cámaras de vigilancia",
+            "Habilitación o arriendo de sistemas de cercos electrificados o portones eléctricos"
+        ],
+        "advertencias_sistema": [
+            "Quienes ejerzan funciones de asistentes de la educación encargados de tareas de seguridad deben cumplir rigurosamente con los requisitos de idoneidad moral y psicológica."
+        ]
+    },
+    {
+        "codigo": "411 103",
+        "nombre": "CONTRATACIÓN OTROS SERVICIOS EXTERNOS",
+        "caracteristicas": "Gastos por servicios profesionales o técnicos externos no clasificables en cuentas del rubro de servicios generales.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Servicios de asesoría legal y representación jurídica",
+            "Trámites, firmas y certificaciones notariales",
+            "Asesorías informáticas o contables no recurrentes",
+            "Honorarios a profesionales externos por servicios de capacitación general no ATE"
+        ],
+        "advertencias_sistema": [
+            "Para ser aceptados, estos gastos requieren la entrega efectiva de un producto, informe o servicio verificable que quedará sujeto a revisión.",
+            "Para imputar gastos a la Subvención SEP AC en esta cuenta, debe tratarse exclusivamente de desembolsos centralizados orientados al apoyo administrativo, financiero o técnico-pedagógico para la gestión del PME.",
+            "No es factible financiar con cargo a subvención general ni subvenciones especiales la adquisición, tenencia o mantención de animales destinados a tareas de vigilancia (ej. perros guardianes), debiendo realizarse la protección del recinto mediante servicios de seguridad convencionales homologados."
+        ]
+    },
+    {
+        "codigo": "411 201",
+        "nombre": "MULTAS E INTERESES FISCALES Y PREVISIONALES",
+        "caracteristicas": "Registro de pagos pecuniarios efectuados por la entidad sostenedora por concepto de multas, recargos e intereses de mora tras infracciones de normativas laborales, previsionales o municipales.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Pago de multas impuestas por el Departamento de Obras Municipales",
+            "Recargos e intereses de mora derivados de pagos previsionales fuera de plazo de los trabajadores"
+        ],
+        "advertencias_sistema": [
+            "Esta cuenta no debe utilizarse para registrar multas cursadas por la Superintendencia de Educación, ya que estas se descuentan de forma directa de la liquidación de las subvenciones."
+        ]
+    },
+    {
+        "codigo": "411 401",
+        "nombre": "ARRIENDO DE LOCAL ESCOLAR",
+        "caracteristicas": "Gastos incurridos por el arriendo de la planta física o inmuebles necesarios para albergar las dependencias y funcionamiento de la labor educativa diaria del colegio.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Pago del canon mensual por arriendo de local escolar"
+        ],
+        "advertencias_sistema": [
+            "Los contratos de arriendo y sus gastos asociados deben cumplir estrictamente con el artículo cuarto transitorio de la Ley de Inclusión Escolar (Ley N°20.845) y lo indicado en el Dictamen N° 66 de 2023.",
+            "Al ser considerado un gasto operacional e indispensable de funcionamiento del colegio, no es financiable bajo recursos de subvenciones especiales (debe pagarse con Subvención General).",
+            "Si el dueño del inmueble es el responsable por contrato de ejecutar mejoras al local, los montos pagados por dichas mejoras deben ser descontados del canon de arriendo rendido en esta cuenta y reflejarse en la cuenta 411 404."
+        ]
+    },
+    {
+        "codigo": "411 402",
+        "nombre": "ARRIENDO DE OFICINAS Y/O DEPENDENCIAS DE ADMINISTRACIÓN",
+        "caracteristicas": "Gastos destinados al arriendo de oficinas e instalaciones físicas dedicadas exclusivamente a las funciones directivas de la Administración Superior del sostenedor.",
+        "diferenciacion_publico": "Personal y directivos de la Administración Superior.",
+        "ejemplos_compra": [
+            "Canon de arriendo de oficinas de administración central del sostenedor"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos de este tipo bajo la subvención AC SEP, las oficinas arrendadas deben utilizarse para acciones contempladas en el PME de los establecimientos."
+        ]
+    },
+    {
+        "codigo": "411 403",
+        "nombre": "ARRIENDO DE OTROS BIENES INMUEBLES",
+        "caracteristicas": "Gastos por el arriendo transitorio de espacios físicos, terrenos o recintos exteriores necesarios para el desarrollo de actividades específicas del colegio.",
+        "diferenciacion_publico": "Estudiantes y comunidad escolar.",
+        "ejemplos_compra": [
+            "Arriendo temporal de gimnasios o canchas para encuentros deportivos del colegio",
+            "Arriendo de teatros o auditorios para galas artísticas escolares",
+            "Arriendo de espacios especiales para actividades de la comunidad educativa"
+        ],
+        "advertencias_sistema": [
+            "Bajo la Subvención Escolar Preferencial (SEP), se autoriza imputar arriendos en esta cuenta únicamente cuando sea indispensable para ejecutar actividades del PME que no puedan ser desarrolladas en el aula regular ni en las dependencias comunes del colegio."
+        ]
+    },
+    {
+        "codigo": "411 404",
+        "nombre": "MEJORAS ÚTILES Y NECESARIAS EN LOCAL ESCOLAR ARRENDADO",
+        "caracteristicas": "Registro de gastos invertidos en reparaciones de conservación (necesarias) o adición de valor (útiles) al local escolar arrendado que, por contrato o ley, deben ser deducidas del canon de arriendo pagado al propietario.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Agregar una multicancha nueva al recinto arrendado (mejora útil)",
+            "Construcción o habilitación de un gimnasio en el colegio (mejora útil)",
+            "Reparación estructural de vigas, techumbres, pisos o cielos del local (mejora necesaria)",
+            "Renovación o reparación de la red eléctrica general del local (mejora necesaria)"
+        ],
+        "advertencias_sistema": [
+            "Debe cumplirse el descuento contable y el desglose matemático: el monto total de la mejora descontada al dueño debe registrarse en esta cuenta 411 404, deduciendo ese mismo valor de la cuenta 411 401 (Arriendo de Local Escolar).",
+            "En caso de que las obras sean de cargo exclusivo del sostenedor por acuerdo contractual (sin descuento al dueño), estas deben registrarse en las cuentas de infraestructura del rubro 411 600.",
+            "Para rendir gastos en mejoras con recursos SEP, no debe tratarse de reparaciones que constituyan requisitos mínimos exigidos legalmente para obtener o mantener el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "411 501",
+        "nombre": "ARRIENDO DE EQUIPOS INFORMÁTICOS",
+        "caracteristicas": "Gastos destinados al arriendo (leasing o renting) de computadores, tabletas e impresoras, bajo estrictos criterios de eficiencia del gasto frente a la opción de compra.",
+        "diferenciacion_publico": "Estudiantes y docentes (en recursos PIE, de uso para estudiantes con NEE).",
+        "ejemplos_compra": [
+            "Arriendo mensual de computadores de escritorio para la sala de informática",
+            "Arriendo de notebooks para docentes",
+            "Arriendo de tablets para los alumnos en aula",
+            "Arriendo de equipos de computación con interfaces nativas de accesibilidad para NEE"
+        ],
+        "advertencias_sistema": [
+            "Para justificar el arriendo de equipamiento informático, el sostenedor debe fundamentar que dicha opción resulta económicamente más eficiente que la compra directa.",
+            "Si se financia con recursos SEP, los equipos arrendados deben estar directamente vinculados a la ejecución de metas pedagógicas contenidas en el PME.",
+            "Para recursos PIE, el equipamiento arrendado debe contar con adaptaciones específicas y ser de uso exclusivo para estudiantes integrados con NEE."
+        ]
+    },
+    {
+        "codigo": "411 502",
+        "nombre": "ARRIENDO DE MAQUINARIAS Y EQUIPOS",
+        "caracteristicas": "Desembolsos por el arrendamiento temporal o permanente de equipos técnicos y maquinarias necesarios para la operación o actividades del colegio.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Arriendo de generadores eléctricos móviles para el establecimiento",
+            "Arriendo de maquinaria de mantenimiento para áreas verdes",
+            "Arriendo de equipos especializados y adaptados para la movilidad o terapia de estudiantes con NEE (con recursos PIE)"
+        ],
+        "advertencias_sistema": [
+            "Para rendir con recursos PIE, las maquinarias o equipos arrendados deben ser de carácter especializado para favorecer la participación de alumnos con NEE en el marco del Decreto N° 170/2009."
+        ]
+    },
+    {
+        "codigo": "411 503",
+        "nombre": "ARRIENDO DE MOBILIARIO",
+        "caracteristicas": "Desembolsos para el arriendo de muebles, escritorios y elementos de ambientación requeridos para las actividades regulares o eventos pedagógicos del colegio.",
+        "diferenciacion_publico": "Estudiantes, docentes o administración.",
+        "ejemplos_compra": [
+            "Arriendo de sillas y mesas para actividades del establecimiento",
+            "Arriendo de mobiliario de oficina temporal",
+            "Arriendo de mobiliario adaptado para necesidades especiales (con recursos PIE)"
+        ],
+        "advertencias_sistema": [
+            "En caso de rendir bajo recursos PIE, el mobiliario arrendado debe contar con adaptaciones que aseguren su uso directo por parte de estudiantes con NEE."
+        ]
+    },
+    {
+        "codigo": "411 504",
+        "nombre": "ARRIENDO DE OTROS BIENES MUEBLES",
+        "caracteristicas": "Desembolsos por concepto de arriendo de otros bienes muebles no clasificados en las cuentas anteriores de la categoría 411 500.",
+        "diferenciacion_publico": "Comunidad escolar en general.",
+        "ejemplos_compra": [
+            "Arriendo de equipamiento menor u otros bienes muebles para uso del colegio"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 601",
+        "nombre": "MANTENIMIENTO Y REPARACIÓN DE INFRAESTRUCTURA",
+        "caracteristicas": "Gastos en obras menores, reparaciones preventivas, remodelaciones y mantención regular de la estructura física del establecimiento para asegurar la habitabilidad.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Trabajos de pintura en salas y muros exteriores",
+            "Reparación de techumbres, canaletas y filtraciones de techos",
+            "Remodelaciones interiores de salas u oficinas",
+            "Instalación de revestimientos de pisos (alfombras, piso flotante)",
+            "Trabajos de cerrajería en puertas y ventanas",
+            "Habilitación o reparación de sistemas de aire acondicionado, calefacción eléctrica, central o radiante",
+            "Artefactos de gas conectados con circuito estanco"
+        ],
+        "advertencias_sistema": [
+            "Para imputar gastos a la Subvención Escolar Preferencial (SEP), se debe dar cumplimiento a los dictámenes N°41 y N°45, prohibiendo financiar reparaciones destinadas a cubrir las exigencias mínimas obligatorias para mantener el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "411 602",
+        "nombre": "CONSTRUCCIÓN DE INFRAESTRUCTURA (OBRA GRUESA)",
+        "caracteristicas": "Gastos destinados a la construcción de obras civiles nuevas dentro del establecimiento, alterando el plano o distribución original de la planta física.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Construcción de nuevas salas de clases",
+            "Construcción de un casino o comedor estudiantil",
+            "Construcción de oficinas administrativas nuevas",
+            "Construcción de multicanchas o espacios deportivos nuevos"
+        ],
+        "advertencias_sistema": [
+            "Cualquier construcción nueva altera los planos y el sostenedor debe iniciar los trámites correspondientes para no poner en riesgo el Reconocimiento Oficial del establecimiento.",
+            "La Subvención Escolar Preferencial (SEP) prohíbe el financiamiento de construcciones de obra gruesa que constituyan exigencias mínimas del Mineduc para mantener el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "411 603",
+        "nombre": "TERMINACIONES DE INFRAESTRUCTURA",
+        "caracteristicas": "Gastos asociados a la fase de acabados interiores o exteriores de una obra gruesa, mejorando la habitabilidad y estética del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Instalación de pavimentos, cerámicas, baldosas y gradas",
+            "Instalación de cielos falsos y paneles de yeso-cartón",
+            "Trabajos de revestimiento y acabados de pintura en fachadas",
+            "Revestimiento de muros interiores y terminaciones"
+        ],
+        "advertencias_sistema": [
+            "Al igual que en obra gruesa, para imputar gastos de terminaciones a recursos SEP se debe acreditar que la obra se asocia a una meta del PME y que no forma parte de las exigencias mínimas para el Reconocimiento Oficial del Estado."
+        ]
+    },
+    {
+        "codigo": "411 604",
+        "nombre": "INSTALACIONES ELÉCTRICAS, ILUMINACIÓN Y SISTEMAS DE CALEFACCIÓN",
+        "caracteristicas": "Gastos por reparaciones o compra de artefactos de iluminación, redes eléctricas y calefacción del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Compra de ampolletas y tubos fluorescentes de repuesto",
+            "Adquisición de lámparas e iluminación para salas y patios",
+            "Reparación de circuitos eléctricos generales del local",
+            "Adquisición e instalación de artefactos de calefacción estancos, calefacción central, eléctrica, radiante o aire acondicionado (bajo Dictamen N°45)"
+        ],
+        "advertencias_sistema": [
+            "La compra de equipos térmicos, aire acondicionado o radiadores con cargo a recursos SEP debe ajustarse estrictamente a las condiciones autorizadas en el Dictamen N° 45 de 2018."
+        ]
+    },
+    {
+        "codigo": "411 605",
+        "nombre": "INSTALACIONES DE GAS",
+        "caracteristicas": "Gastos generados por la reparación, mantención y pruebas de hermeticidad de las redes de gas licuado o natural en el establecimiento u oficinas administrativas.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Reparación de filtraciones en cañerías de gas",
+            "Mantención y renovación de llaves de paso de gas en cocinas y laboratorios",
+            "Pruebas de hermeticidad y mantención general de redes de gas"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 606",
+        "nombre": "INSTALACIONES DE AGUA",
+        "caracteristicas": "Gastos de reparación y mantenimiento correctivo de las redes de agua potable, grifería, cañerías y sistemas de distribución interna de agua.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Reparación de cañerías rotas de agua en patios o salas",
+            "Cambio de grifos, llaves de paso de agua y flotadores de estanques",
+            "Reparación de filtraciones de agua generales del local"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 607",
+        "nombre": "ALCANTARILLADOS O POZOS SÉPTICOS",
+        "caracteristicas": "Egresos destinados a la reparación, limpieza y desobstrucción de redes de alcantarillado, cámaras de inspección, colectores de aguas servidas o pozos sépticos del colegio.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Servicio de desobstrucción de cámaras de alcantarillado",
+            "Reparación de tuberías subterráneas de desagüe de aguas servidas",
+            "Mantenimiento, vaciado y desinfección periódica de pozos sépticos en recintos rurales"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 608",
+        "nombre": "CIERRES PERIMETRALES Y OBRAS COMPLEMENTARIAS",
+        "caracteristicas": "Gastos por reparación de cercos divisorios, panderetas, rejas de seguridad y portones perimetrales de seguridad del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Reparación de tramos dañados de rejas perimetrales o cercos de alambre",
+            "Mantención y soldadura de portones exteriores de seguridad",
+            "Reparación de cierres perimetrales de hormigón o muros divisorios"
+        ],
+        "advertencias_sistema": [
+            "No está permitido imputar a la subvención SEP gastos de reparación en cierres perimetrales que correspondan a exigencias obligatorias del Mineduc para mantener el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "411 609",
+        "nombre": "SERVICIOS HIGIÉNICOS",
+        "caracteristicas": "Gastos relacionados con la reparación, mantención y acondicionamiento general de los servicios sanitarios y vestuarios del establecimiento.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Renovación de cañerías de agua y desagüe de baños",
+            "Instalación de cerámicas de piso o muro en baños",
+            "Reemplazo de inodoros, urinarios, lavamanos, griferías y espejos de pared",
+            "Reparación de duchas y calderas de agua caliente para vestuarios"
+        ],
+        "advertencias_sistema": []
+    },
+    {
+        "codigo": "411 610",
+        "nombre": "ELIMINACIÓN DE BARRERAS ARQUITÉCTONICAS DE MENOR ENVERGADURA",
+        "caracteristicas": "Gastos en obras menores de accesibilidad e infraestructura orientadas a facilitar el tránsito y movilidad de personas en situación de discapacidad.",
+        "diferenciacion_publico": "Estudiantes con necesidades especiales o movilidad reducida.",
+        "ejemplos_compra": [
+            "Eliminación de bordillos en aceras y nivelación de pavimentos",
+            "Construcción de rampas de hormigón en escaleras",
+            "Instalación de salvaescaleras mecánicos",
+            "Modificación de puertas para ensanchar los accesos de salas o baños"
+        ],
+        "advertencias_sistema": [
+            "Para financiar obras de accesibilidad con recursos SEP, los trabajos deben superar las exigencias mínimas fijadas en la Ordenanza General de Urbanismo y Construcciones (OGUC) que son obligatorias para el Reconocimiento Oficial.",
+            "Para recursos PIE, las obras deben efectuarse en conformidad al artículo 86 letra d) del Decreto N°170 de 2009 para facilitar el aprendizaje de alumnos con NEE."
+        ]
+    },
+    {
+        "codigo": "411 701",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE BIENES MUEBLES",
+        "caracteristicas": "Egresos destinados a la mantención, reparación o calibración de bienes muebles, equipamientos técnicos de talleres y aparatos del establecimiento.",
+        "diferenciacion_publico": "Comunidad escolar.",
+        "ejemplos_compra": [
+            "Reparación de escritorios, estantes, mesas de oficina o casilleros",
+            "Mantenimiento correctivo de fotocopiadoras o escáneres",
+            "Reparación y calibración de relojes de control de asistencia de personal",
+            "Mantención o cambio de ampolletas de proyectores (Data Show)",
+            "Recarga de extintores contra incendios",
+            "Mantención de herramientas y maquinarias de uso en talleres"
+        ],
+        "advertencias_sistema": [
+            "Para financiar con recursos SEP la mantención de bienes muebles, se exige que estos hayan sido adquiridos originalmente con cargo a la misma subvención y que sean distintos a los exigidos para el Reconocimiento Oficial."
+        ]
+    },
+    {
+        "codigo": "411 702",
+        "nombre": "REPUESTOS, MANTENIMIENTO Y REPARACIÓN DE VEHÍCULOS",
+        "caracteristicas": "Gastos generados por servicios mecánicos, compra de repuestos y mantención de vehículos de propiedad del establecimiento educativo para actividades escolares o de transporte.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Compra de repuestos automotrices (neumáticos, baterías, pastillas de freno)",
+            "Servicios de taller mecánico para vehículos del colegio",
+            "Mantención de vehículos escolares o tractores de uso agrícola pedagógico"
+        ],
+        "advertencias_sistema": [
+            "Se debe adjuntar, además de las facturas o boletas, un informe detallado con la patente del vehículo que recibió el servicio y la descripción de los trabajos ejecutados.",
+            "Con recursos SEP, solo se autorizan gastos en mantención o reparación de vehículos de transporte escolar si el vehículo fue comprado durante el periodo de confianza legítima (21 de mayo de 2011 al 31 de diciembre de 2013)."
+        ]
+    },
+    {
+        "codigo": "411 703",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE EQUIPOS COMPUTACIONALES",
+        "caracteristicas": "Gastos de mantención preventiva o correctiva de hardware informático, redes del colegio o computadoras de administración.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Servicio de reparación de computadores de escritorio y laptops del establecimiento",
+            "Mantenimiento preventivo de impresoras (limpieza de cabezales, cambio de rodillos)",
+            "Servicio de soporte técnico para reinstalación de software de uso docente o administrativo",
+            "Mantenimiento de redes de laboratorios de informática"
+        ],
+        "advertencias_sistema": [
+            "Para financiar con cargo a recursos SEP, se debe tratar de mantención de equipamiento informático comprado originalmente con fondos de la misma subvención, distinto al exigido para el Reconocimiento Oficial y alineado al PME."
+        ]
+    },
+    {
+        "codigo": "411 704",
+        "nombre": "MANTENCIÓN Y REPARACIÓN DE MOBILIARIO ESCOLAR",
+        "caracteristicas": "Gastos generados por la restauración, soldadura, barnizado y mantención de muebles de uso estudiantil dentro de las salas de clases o bibliotecas.",
+        "diferenciacion_publico": "Estudiantes.",
+        "ejemplos_compra": [
+            "Servicio de soldadura de patas de sillas o mesas de alumnos",
+            "Reparación de cubiertas de madera de mesas escolares",
+            "Mantención de pizarras, estantes o libreros del aula escolar"
+        ],
+        "advertencias_sistema": [
+            "Para imputar estos gastos a recursos SEP, debe tratarse del mantenimiento de mobiliario que fue adquirido originalmente mediante fondos SEP, excluyendo mobiliario básico exigido para el Reconocimiento Oficial del Estado."
+        ]
+    },
+    {
+        "codigo": "411 801",
+        "nombre": "ADQUISICIÓN DE BIENES INMUEBLES",
+        "caracteristicas": "Registro de gastos correspondientes a la compra de terrenos, propiedades inmobiliarias destinadas a la labor educativa o el pago de amortizaciones de créditos hipotecarios asociados.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Compra de terrenos colindantes para ampliación del establecimiento",
+            "Compra de propiedades inmobiliarias para el funcionamiento del colegio",
+            "Pago de cuotas de créditos hipotecarios para la compra del inmueble educativo"
+        ],
+        "advertencias_sistema": [
+            "Esta cuenta es financiable únicamente mediante la Subvención General."
+        ]
+    },
+    {
+        "codigo": "411 802",
+        "nombre": "ADQUISICIÓN DE MOBILIARIO",
+        "caracteristicas": "Desembolsos destinados a la compra de mobiliario educativo duradero para equipar aulas, oficinas pedagógicas, bibliotecas o internados.",
+        "diferenciacion_publico": "Estudiantes y docentes del establecimiento.",
+        "ejemplos_compra": [
+            "Adquisición de sillas y mesas de uso escolar",
+            "Compra de pizarras fijas para las salas de clases",
+            "Compra de estanterías y casilleros de uso pedagógico",
+            "Adquisición de camas, literas y cómodas para internados escolares"
+        ],
+        "advertencias_sistema": [
+            "Bajo la subvención SEP, solo se autoriza la adquisición de mobiliario de carácter específico y particular que forme parte de un proyecto de aula detallado, excluyendo mobiliario básico exigido por el Reconocimiento Oficial.",
+            "No se permite financiar con recursos SEP mobiliario común o de uso administrativo general, los cuales deben cubrirse con cargo a la Subvención General."
+        ]
+    },
+    {
+        "codigo": "411 803",
+        "nombre": "ADQUISICIÓN DE VEHÍCULO",
+        "caracteristicas": "Gastos generados por la compra de vehículos motorizados destinados de forma exclusiva al transporte de alumnos o logística operativa del colegio.",
+        "diferenciacion_publico": "No aplica a beneficiario directo.",
+        "ejemplos_compra": [
+            "Compra de furgón escolar homologado para transporte de estudiantes",
+            "Compra de camión o tractor para labores de talleres agrícolas del establecimiento"
+        ],
+        "advertencias_sistema": [
+            "La adquisición de vehículos motorizados es financiable exclusivamente con recursos de la Subvención General y General AC."
+        ]
+    },
+    {
+        "codigo": "411 804",
+        "nombre": "ADQUISICIÓN DE OTROS BIENES MUEBLES NO PEDAGÓGICOS",
+        "caracteristicas": "Compra de bienes duraderos no destinados directamente al proceso de aula, requeridos para el soporte administrativo o mantención del local.",
+        "diferenciacion_publico": "Personal administrativo, de soporte o servicios generales.",
+        "ejemplos_compra": [
+            "Compra de escritorios y sillas ergonómicas de oficina para administración",
+            "Compra de archivadores metálicos e impresoras administrativas de oficina",
+            "Compra de herramientas eléctricas, hidrolavadoras o cortadoras de césped para mantenimiento"
+        ],
+        "advertencias_sistema": [
+            "Si estos bienes no pedagógicos se entregan a la administración central del PME mediante recursos SEP, estos deben estar destinados exclusivamente a dar soporte logístico o de gestión directa del plan."
+        ]
+    },
+    {
+        "codigo": "700 001",
+        "nombre": "EGRESOS POR RECURSOS CENTRALIZADOS",
+        "caracteristicas": "Registro de transferencias financieras internas realizadas desde el establecimiento escolar (RBD) hacia la administración central del sostenedor, destinadas a costear gastos de remuneraciones, suministros u operaciones de carácter centralizado.",
+        "diferenciacion_publico": "No aplica a beneficiario directo (soporte logístico y administrativo).",
+        "ejemplos_compra": [
+            "Transferencia de fondos SEP desde la cuenta del colegio a la cuenta corriente de la administración central",
+            "Transferencia de recursos de Subvención General a la administración central para pago centralizado de nóminas"
+        ],
+        "advertencias_sistema": [
+            "Los recursos destinados a la administración central de la SEP no pueden superar bajo ninguna circunstancia el 10% de los ingresos anuales por este concepto para los Servicios Locales de Educación Pública (SLEP).",
+            "La suma total de las transferencias realizadas desde el colegio debe ser equivalente a los gastos efectivamente ejecutados por la administración central, debiendo mantener un saldo final de la administración central igual a $0 al cierre del período.",
+            "Si al finalizar el periodo de rendición las cuentas de la administración central (General y SEP) se encuentran en estado de 'NO RENDIDO', los fondos transferidos deberán ser reintegrados de inmediato a las cuentas del establecimiento escolar."
+        ]
+    }
+]
