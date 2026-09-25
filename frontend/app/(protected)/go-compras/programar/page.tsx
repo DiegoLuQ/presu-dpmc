@@ -76,7 +76,7 @@ const COLUMNAS_MAESTRA = [
     { key: 'total', label: 'Monto Presupuestado' },
     { key: 'cantidad_real', label: 'Cantidad Real' },
     { key: 'monto_real', label: 'Monto Real' },
-    { key: 'centro_costos', label: 'Subvención' },
+    { key: 'centro_costos', label: 'Centro de Costos' },
     { key: 'observacion', label: 'Observación' },
     { key: 'fecha', label: 'Fecha Solicitud' },
     { key: 'origen', label: 'Origen' },
@@ -124,7 +124,7 @@ const COLUMNAS_ACTA = [
     { key: 'cantidad', label: 'Cant. Presupuestada' },
     { key: 'cantidad_real', label: 'Cantidad Real' },
     { key: 'monto_real', label: 'P. Real / Monto Real' },
-    { key: 'centro_costos', label: 'Subvención' },
+    { key: 'centro_costos', label: 'Centro de Costos' },
     { key: 'observacion', label: 'Observación' },
     { key: 'estado', label: 'Estado' },
 ] as const;
@@ -2867,7 +2867,7 @@ export default function ProgramarComprasPage() {
                                             {isColVisible('total') && renderSortTh('total', 'Monto Presup.')}
                                             {isColVisible('cantidad_real') && renderSortTh('cantidad_real', 'Cant. Real', 'text-emerald-800 bg-emerald-50/30')}
                                             {isColVisible('monto_real') && renderSortTh('monto_real', 'Monto Real', 'text-emerald-800 bg-emerald-50/30')}
-                                            {isColVisible('centro_costos') && renderSortTh('centro_costos', 'C. Costos')}
+                                            {isColVisible('centro_costos') && renderSortTh('centro_costos', 'Centro de Costos')}
                                             {isColVisible('observacion') && renderSortTh('observacion', 'Observación')}
                                             {isColVisible('fecha') && renderSortTh('fecha', 'Fecha Solicitud')}
                                             {isColVisible('origen') && renderSortTh('origen', 'Origen')}
