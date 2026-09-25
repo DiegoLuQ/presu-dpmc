@@ -112,21 +112,28 @@ export default function Sidebar() {
 
   return (
     <aside className={`fixed left-0 top-0 bottom-0 ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-white/80 backdrop-blur-xl shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-white/40 flex flex-col z-40 transition-all duration-300`}>
+      {/* Botón flotante para colapsar/expandir en el riel divisorio */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className="absolute -right-3.5 top-7 z-50 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-primary hover:border-primary/40 rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-md hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
+        title={sidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+        aria-label={sidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+      >
+        <ChevronLeft 
+          size={14} 
+          strokeWidth={2.5} 
+          className={`transition-transform duration-300 group-hover:text-primary ${sidebarCollapsed ? 'rotate-180 text-primary' : 'rotate-0 text-gray-400'}`} 
+        />
+      </button>
+
       {/* Brand area */}
-      <div className="p-6 border-b border-gray-100/50 flex items-center justify-between">
+      <div className={`border-b border-gray-100/50 flex items-center ${sidebarCollapsed ? 'justify-center p-4 py-5' : 'justify-start p-6'} transition-all duration-300`}>
         <div className="flex items-center gap-3 text-primary">
-          <div className="p-2 bg-primary/10 rounded-xl">
+          <div className="p-2 bg-primary/10 rounded-xl shrink-0">
             <School size={28} strokeWidth={2.5} />
           </div>
-          {!sidebarCollapsed && <span className="font-extrabold text-xl tracking-tight">MCDP ERP</span>}
+          {!sidebarCollapsed && <span className="font-extrabold text-xl tracking-tight truncate whitespace-nowrap">MCDP ERP</span>}
         </div>
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="p-2 text-gray-400 hover:text-primary hover:bg-gray-50 rounded-xl transition-all"
-          title={sidebarCollapsed ? 'Expandir' : 'Colapsar'}
-        >
-          {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </button>
       </div>
 
       {/* Navigation */}
@@ -153,6 +160,7 @@ export default function Sidebar() {
               <div key={item.label} className="space-y-1">
                 <button
                   onClick={() => toggleMenu(item.label)}
+                  title={sidebarCollapsed ? item.label : undefined}
                   className={`flex items-center justify-between w-full ${sidebarCollapsed ? 'px-2 justify-center' : 'px-4'} py-3 rounded-xl transition-all duration-200 group ${isActive || isOpen
                     ? 'text-primary font-medium bg-primary/5'
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-medium'
@@ -195,6 +203,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href!}
+              title={sidebarCollapsed ? item.label : undefined}
               className={`flex items-center gap-3 ${sidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl transition-all duration-200 group ${isActive
                 ? 'bg-primary text-white shadow-md shadow-primary/30 font-medium'
                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-medium'
@@ -208,7 +217,7 @@ export default function Sidebar() {
       </nav>
 
       {/* User Profile & Logout */}
-      <div className={`p-4 border-t border-gray-100/50 m-4 bg-gray-50/50 rounded-2xl ${sidebarCollapsed ? 'p-2' : ''}`}>
+      <div className={`border-t border-gray-100/50 bg-gray-50/50 rounded-2xl transition-all duration-300 ${sidebarCollapsed ? 'p-2 m-2' : 'p-4 m-4'}`}>
         {!sidebarCollapsed && (
           <div className="flex flex-col mb-4">
             <span className="text-sm font-semibold text-gray-800 truncate">
@@ -240,7 +249,8 @@ export default function Sidebar() {
 
         <button
           onClick={logout}
-          className={`flex items-center justify-center gap-2 ${sidebarCollapsed ? 'w-full p-2' : 'w-full px-4 py-2.5'} bg-white border border-gray-200 text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-all shadow-sm text-sm font-medium`}
+          title={sidebarCollapsed ? 'Cerrar Sesión' : undefined}
+          className={`flex items-center justify-center gap-2 ${sidebarCollapsed ? 'w-full p-2.5' : 'w-full px-4 py-2.5'} bg-white border border-gray-200 text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-all shadow-sm text-sm font-medium`}
         >
           <LogOut size={18} />
           {!sidebarCollapsed && <span>Cerrar Sesión</span>}
