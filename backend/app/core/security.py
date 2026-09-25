@@ -1,13 +1,37 @@
+import hashlib
 from datetime import datetime, timedelta
 from typing import Any, Union
 from jose import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt", "sha256_crypt", "md5_crypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password:
+        return False
+    # 1. Comprobación directa si estaba en texto plano
+    if plain_password == hashed_password:
+        return True
+    # 2. Comprobación con passlib (bcrypt, $2y$, etc.)
+    try:
+        if pwd_context.verify(plain_password, hashed_password):
+            return True
+    except Exception:
+        pass
+    # 3. Comprobación MD5 estándar (común en sistemas PHP antiguos)
+    try:
+        if hashlib.md5(plain_password.encode('utf-8')).hexdigest().lower() == hashed_password.lower():
+            return True
+    except Exception:
+        pass
+    # 4. Comprobación SHA256 estándar
+    try:
+        if hashlib.sha256(plain_password.encode('utf-8')).hexdigest().lower() == hashed_password.lower():
+            return True
+    except Exception:
+        pass
+    return False
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
