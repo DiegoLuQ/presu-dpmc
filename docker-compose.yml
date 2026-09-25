@@ -1,72 +1,63 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: mcdp_mysql
-    restart: always
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-mcdp_db}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_segura}
-      MYSQL_USER: ${MYSQL_USER:-mcdp_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mcdp_password_segura}
-    ports:
-      - "127.0.0.1:3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD:-root_password_segura}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mcdp_backend
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
+    # nginx-proxy enrutará el tráfico por la red interna red_produccion
     environment:
-      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-mcdp_user}:${MYSQL_PASSWORD:-mcdp_password_segura}@db:3306/${MYSQL_DATABASE:-mcdp_db}
-      JWT_SECRET: ${JWT_SECRET:-cambiar_por_clave_secreta_jwt_produccion_2026}
-      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-ezp8IStyzdPXcdOx_fEuOXZ_2dePRtY98zO61uOVOBY=}
-      ALLOW_ORIGINS: '["https://ppc.dpmc.cl", "http://ppc.dpmc.cl", "http://localhost:3000", "http://localhost:3001"]'
-      PROJECT_NAME: "MCDP PPA"
-    ports:
-      - "127.0.0.1:8001:8000"
+      - PORT=8000
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      - AI_ENCRYPTION_KEY=${AI_ENCRYPTION_KEY}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-["https://ppc.dpmc.cl", "http://ppc.dpmc.cl"]}
+      - PROJECT_NAME=${PROJECT_NAME:-MCDP PPA}
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PATH=/api/
+    networks:
+      - red_produccion
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: /api
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
     container_name: mcdp_frontend
     restart: always
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PATH=/
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    networks:
+      - red_produccion
     depends_on:
       - backend
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-    ports:
-      - "127.0.0.1:3001:3000"
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: mcdp_phpmyadmin
-    restart: always
-    ports:
-      - "127.0.0.1:8080:80"
-    environment:
-      - PMA_ARBITRARY=1
-      - PMA_HOST=db
-    depends_on:
-      - db
+# (Opcional) Si decides levantar MySQL en un contenedor propio para este proyecto:
+#  db:
+#    image: mysql:8.0
+#    container_name: mcdp_mysql
+#    restart: always
+#    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
+#    environment:
+#      MYSQL_DATABASE: ${MYSQL_DATABASE:-mcdp_db}
+#      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+#      MYSQL_USER: ${MYSQL_USER:-mcdp_user}
+#      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+#    volumes:
+#      - mysql_data:/var/lib/mysql
+#    networks:
+#      - red_produccion
 
-volumes:
-  mysql_data:
+networks:
+  red_produccion:
+    external: true
