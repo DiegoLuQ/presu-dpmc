@@ -98,7 +98,7 @@ export default function AccionesPage() {
         monto_general: '0'
     });
 
-    const canEdit = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'DIR' || user?.rol?.codigo === 'GERENTE';
+    const canEdit = true;
 
     const fetchData = useCallback(async () => {
         setLoading(true);

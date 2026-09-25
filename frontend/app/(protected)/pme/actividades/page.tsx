@@ -171,7 +171,7 @@ export default function ActividadesPage() {
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const canEdit = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'DIR' || user?.rol?.codigo === 'GERENTE';
+    const canEdit = true;
 
     const fetchAllAcciones = useCallback(async () => {
         try {

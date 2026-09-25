@@ -132,7 +132,7 @@ export default function GestionPMEPage() {
         return { acciones: pme?.acciones_count || 0, actividades: pme?.actividades_count || 0 };
     };
 
-    const canEdit = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'DIR' || user?.rol?.codigo === 'GERENTE';
+    const canEdit = true;
 
     return (
         <div className="animate-in fade-in duration-500">
