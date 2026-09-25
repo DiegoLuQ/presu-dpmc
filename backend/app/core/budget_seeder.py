@@ -102,24 +102,25 @@ def seed_budget():
         
         db.commit()
 
-        # 4. PME / Actions / Activities for Colegio Macaya (ID: 1)
-        pme = db.query(PME).filter(PME.id_colegio == 1, PME.year == 2026).first()
-        if not pme:
-            pme = PME(id_colegio=1, year=2026)
-            db.add(pme)
-            db.flush()
-            
-            accion = Accion(id_pme=pme.id_pme, nombre_accion="Mejora Aprendizaje Significativo", estado="EN PROCESO")
-            db.add(accion)
-            db.flush()
-            
-            act1 = Actividad(id_accion=accion.id_accion, nombre_actividad="Taller de Reforzamiento", dimension="PEDAGÓGICA")
-            act2 = Actividad(id_accion=accion.id_accion, nombre_actividad="Adquisición de Materiales", dimension="RECURSOS")
-            db.add(act1)
-            db.add(act2)
-            print("Added PME Structure for 2026")
-        
-        db.commit()
+        # 4. PME / Actions / Activities for Colegio (solo si existe al menos un colegio)
+        colegio = db.query(Colegio).filter(Colegio.id_colegio == 1).first() or db.query(Colegio).first()
+        if colegio:
+            pme = db.query(PME).filter(PME.id_colegio == colegio.id_colegio, PME.year == 2026).first()
+            if not pme:
+                pme = PME(id_colegio=colegio.id_colegio, year=2026)
+                db.add(pme)
+                db.flush()
+                
+                accion = Accion(id_pme=pme.id_pme, nombre_accion="Mejora Aprendizaje Significativo", estado="EN PROCESO")
+                db.add(accion)
+                db.flush()
+                
+                act1 = Actividad(id_accion=accion.id_accion, nombre_actividad="Taller de Reforzamiento", dimension="PEDAGÓGICA")
+                act2 = Actividad(id_accion=accion.id_accion, nombre_actividad="Adquisición de Materiales", dimension="RECURSOS")
+                db.add(act1)
+                db.add(act2)
+                print("Added PME Structure for 2026")
+            db.commit()
 
         # 5. Dummy Budget Requests - solo si existen los datos necesarios
         user_admin = db.query(User).filter(User.id_user == 1).first()

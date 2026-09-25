@@ -63,18 +63,25 @@ app.add_middleware(
     max_age=600,
 )
 
-# Include Routers
-app.include_router(auth.router)
-app.include_router(catalogos.router)
-app.include_router(roles.router)
-app.include_router(users.router)
-app.include_router(budget.router)
-app.include_router(requerimientos.router)
-app.include_router(pme.router)
-app.include_router(ai_config.router)
-app.include_router(convocatorias.router)
+# Include Routers (se registran con y sin prefijo /api para dar soporte a nginx-proxy y desarrollo local)
+all_routers = [
+    auth.router,
+    catalogos.router,
+    roles.router,
+    users.router,
+    budget.router,
+    requerimientos.router,
+    pme.router,
+    ai_config.router,
+    convocatorias.router,
+]
+
+for r in all_routers:
+    app.include_router(r)
+    app.include_router(r, prefix="/api")
 
 @app.get("/")
+@app.get("/api")
 def read_root():
     return {"message": "Welcome to MCDP School ERP API"}
 
