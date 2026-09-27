@@ -329,6 +329,8 @@ export interface PedidoExterno {
   destino?: string;
   id_actividad_pme?: number;
   actividad_pme_nombre?: string;
+  id_grupo_recurso?: number;
+  grupo_nombre?: string;
   estado_jefe: 'pendiente' | 'aceptado' | 'rechazado' | 'importado';
   comentario_jefe?: string;
   id_cat_recurso?: number;

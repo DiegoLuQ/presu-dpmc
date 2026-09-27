@@ -23,6 +23,10 @@ interface AuthContextType {
     colegios: Colegio[];
     colegioActivo: number | null;
     setColegioActivo: (id: number) => void;
+    // Modal de perfil y cambio de contraseña (para todos los usuarios)
+    modalPerfilAbierto: boolean;
+    abrirModalPerfil: () => void;
+    cerrarModalPerfil: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [colegios, setColegios] = useState<Colegio[]>([]);
     const [colegioActivo, setColegioActivoState] = useState<number | null>(null);
+    const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false);
+    const abrirModalPerfil = () => setModalPerfilAbierto(true);
+    const cerrarModalPerfil = () => setModalPerfilAbierto(false);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -196,7 +203,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSidebarCollapsed,
             colegios,
             colegioActivo,
-            setColegioActivo
+            setColegioActivo,
+            modalPerfilAbierto,
+            abrirModalPerfil,
+            cerrarModalPerfil
         }}>
             {children}
         </AuthContext.Provider>

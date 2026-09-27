@@ -28,7 +28,7 @@ from app.db.session import get_db
 from app.models import (
     PreConvocatoria, PrePedidoExterno,
     SolicitudPresupuesto, PresupuestoDetalle,
-    Subarea, Area, User, CategoriaRecurso, Recurso,
+    Subarea, Area, User, CategoriaRecurso, Recurso, GrupoRecurso,
     Actividad, Accion, PME, CategoriaCodigoContable, Subvencion, OrgConfig
 )
 from app.api.auth import get_current_user
@@ -58,6 +58,7 @@ class PedidoCreate(BaseModel):
     destino: Optional[str] = None              # funcionario | alumno | premio | mantencion | otro
     id_actividad_pme: Optional[int] = None     # actividad del PME asociada (opcional)
     id_recurso: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
     pin: Optional[str] = None   # requerido si la convocatoria tiene PIN
 
 
@@ -77,6 +78,7 @@ class PedidoDatosPayload(BaseModel):
     actividad_evento: Optional[str] = None
     destino: Optional[str] = None
     id_actividad_pme: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
     fecha_ejecucion: Optional[str] = None
 
 
@@ -95,6 +97,7 @@ class PedidoPublicoEditar(BaseModel):
     actividad_evento: Optional[str] = None
     destino: Optional[str] = None
     id_actividad_pme: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
     pin: Optional[str] = None
 
 
@@ -117,6 +120,8 @@ def _build_pedido(p: PrePedidoExterno) -> dict:
         "destino":            p.destino,
         "id_actividad_pme":   p.id_actividad_pme,
         "actividad_pme_nombre": p.actividad_pme_nombre,
+        "id_grupo_recurso":   p.id_grupo_recurso,
+        "grupo_nombre":       p.grupo.nombre if p.grupo else None,
         "estado_jefe":        p.estado_jefe,
         "comentario_jefe":    p.comentario_jefe,
         "id_cat_recurso":     p.id_cat_recurso,
@@ -381,6 +386,8 @@ def editar_pedido_datos(
             pedido.id_actividad_pme, pedido.actividad_pme_nombre = _resolver_actividad_pme(
                 payload.id_actividad_pme, conv.id_colegio, db
             )
+    if payload.id_grupo_recurso is not None:
+        pedido.id_grupo_recurso = payload.id_grupo_recurso if payload.id_grupo_recurso > 0 else None
 
     if payload.fecha_ejecucion is not None:
         try:
@@ -535,8 +542,8 @@ def importar_pedidos_aceptados(
                 id_recurso_final = recurso_existente.id_recurso
             else:
                 # Determinar el grupo del recurso basado en la categoría
-                id_grupo_final = 1  # General por defecto
-                if p.id_cat_recurso:
+                id_grupo_final = p.id_grupo_recurso or 1  # Si el pedido especificó grupo, usarlo; sino General
+                if not p.id_grupo_recurso and p.id_cat_recurso:
                     # 1. Intentar buscar el grupo más común de esta categoría
                     most_common = db.query(Recurso.id_grupo_recurso, func.count(Recurso.id_recurso))\
                         .filter(Recurso.id_cat_recurso == p.id_cat_recurso, Recurso.id_grupo_recurso.isnot(None))\
@@ -601,6 +608,7 @@ def importar_pedidos_aceptados(
             codigo_cuenta=codigo_cuenta,
             id_actividad=p.id_actividad_pme,
             id_cat_recurso=p.id_cat_recurso,
+            id_grupo_recurso=p.id_grupo_recurso or id_grupo_final,
         )
         db.add(detalle)
         p.estado_jefe = "importado"
@@ -650,6 +658,17 @@ def get_convocatoria_publica(token: str, db: Session = Depends(get_db)):
         except Exception:
             mostrar_boton = True
 
+    # Grupos / Líneas de compra disponibles
+    grupos = db.query(GrupoRecurso).order_by(GrupoRecurso.nombre).all()
+    lineas = [
+        {
+            "id_grupo_recurso": g.id_grupo_recurso,
+            "nombre": g.nombre,
+            "descripcion": g.descripcion,
+        }
+        for g in grupos
+    ]
+
     return {
         "id_convocatoria":  c.id_convocatoria,
         "subarea_nombre":   c.subarea.nombre if c.subarea else "—",
@@ -661,6 +680,7 @@ def get_convocatoria_publica(token: str, db: Session = Depends(get_db)):
         "requiere_pin":     bool(c.pin),
         "tutoriales":       tutoriales,
         "mostrar_tutoriales": mostrar_boton,
+        "lineas":           lineas,
     }
 
 
@@ -682,12 +702,31 @@ def buscar_recursos_publico(token: str, q: str = "", db: Session = Depends(get_d
     )
     return [
         {
-            "id_recurso":  r.id_recurso,
-            "nombre":      r.nombre,
-            "descripcion": r.descripcion,
-            "formato":     r.formato,
+            "id_recurso":        r.id_recurso,
+            "nombre":            r.nombre,
+            "descripcion":       r.descripcion,
+            "formato":           r.formato,
+            "id_grupo_recurso":  r.id_grupo_recurso,
+            "grupo_nombre":      r.grupo.nombre if r.grupo else None,
         }
         for r in recursos
+    ]
+
+
+@router.get("/publica/{token}/lineas")
+def listar_lineas_publico(token: str, db: Session = Depends(get_db)):
+    """Lista las Líneas / Grupos de recursos disponibles para el formulario público."""
+    c = db.query(PreConvocatoria).filter(PreConvocatoria.token == token).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Formulario no encontrado")
+    grupos = db.query(GrupoRecurso).order_by(GrupoRecurso.nombre).all()
+    return [
+        {
+            "id_grupo_recurso": g.id_grupo_recurso,
+            "nombre": g.nombre,
+            "descripcion": g.descripcion,
+        }
+        for g in grupos
     ]
 
 
@@ -772,6 +811,7 @@ def crear_pedido_publico(token: str, payload: PedidoCreate, db: Session = Depend
         destino=(payload.destino or "").strip() or None,
         id_actividad_pme=id_act_pme,
         actividad_pme_nombre=nombre_act_pme,
+        id_grupo_recurso=payload.id_grupo_recurso if (payload.id_grupo_recurso and payload.id_grupo_recurso > 0) else None,
         estado_jefe="pendiente",
         clasificado_ia=False,
         creado_en=datetime.utcnow(),
@@ -843,6 +883,8 @@ def editar_pedido_publico(token: str, id_pedido: int, payload: PedidoPublicoEdit
             pedido.id_actividad_pme, pedido.actividad_pme_nombre = _resolver_actividad_pme(
                 payload.id_actividad_pme, pedido.convocatoria.id_colegio, db
             )
+    if payload.id_grupo_recurso is not None:
+        pedido.id_grupo_recurso = payload.id_grupo_recurso if payload.id_grupo_recurso > 0 else None
 
     db.commit()
     db.refresh(pedido)

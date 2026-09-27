@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import FloatingControls from '@/components/FloatingControls';
+import ModalPerfilUsuario from '@/components/perfil/ModalPerfilUsuario';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -46,6 +47,7 @@ export default function ProtectedLayout({
     <div className="min-h-screen bg-[#f8f9fa] relative" suppressHydrationWarning>
       <Sidebar />
       <FloatingControls />
+      <ModalPerfilUsuario />
       <main className={`${sidebarCollapsed ? 'ml-20' : 'ml-64'} ${isWideScreen ? 'px-4 sm:px-6 lg:px-8 py-6' : 'p-8'} min-h-screen transition-all duration-300`} suppressHydrationWarning>
         <div className={isWideScreen ? "w-full max-w-none" : "max-w-7xl mx-auto"} suppressHydrationWarning>
           {children}

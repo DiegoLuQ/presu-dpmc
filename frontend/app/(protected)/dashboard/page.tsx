@@ -3,9 +3,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { 
+import {
     Users, TrendingUp, AlertCircle, FileText, ShoppingCart,
-    DollarSign, PackageOpen, Percent, BellRing, Sparkles, Loader2, ArrowRight, Calendar
+    DollarSign, PackageOpen, Percent, BellRing, Sparkles, Loader2, ArrowRight, Calendar, KeyRound, ChevronRight
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { BudgetRequest, BudgetDetail, PresupuestoAnual } from '@/lib/types';
@@ -22,7 +22,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-    const { user, tienePermiso, puedeSeccion, isLoading } = useAuth();
+    const { user, tienePermiso, puedeSeccion, isLoading, abrirModalPerfil } = useAuth();
     const router = useRouter();
     const tieneDashboard = tienePermiso('dashboard', 'ver');
     // Si el usuario no puede ver el dashboard, se calcula su primer módulo accesible
@@ -116,7 +116,7 @@ export default function DashboardPage() {
         let totalAprobado = 0; // Presupuesto Sugerido ($16.237.177)
         let totalComprado = 0; // Se Completó ($10.149.977 - real de OTs completadas)
         let totalReal = 0;     // Total Real Proyectado (completados real + pendientes real)
-        let totalPendiente = 0; 
+        let totalPendiente = 0;
         let alertasCount = 0;
         let solicitudesPendientesCount = 0;
 
@@ -275,8 +275,43 @@ export default function DashboardPage() {
                         onClick={() => router.push('/go-compras/programar')}
                         className="px-5 py-2.5 bg-primary hover:bg-blue-600 text-white rounded-2xl text-sm font-bold flex items-center gap-2 transition-all shadow-md"
                     >
-                        Ir a Programar Compras <ArrowRight size={16} />
+                        Compras <ArrowRight size={16} />
                     </button>
+                    {/* Botón de Perfil Ejecutivo & Seguridad */}
+                    <button
+                        onClick={abrirModalPerfil}
+                        className="flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 bg-white hover:bg-slate-50 border border-gray-200/90 hover:border-primary/50 rounded-2xl shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer group active:scale-[0.98]"
+                        title="Mi cuenta: ver perfil y cambiar contraseña"
+                    >
+                        {/* Avatar con anillo y badge de estado activo */}
+                        <div className="relative shrink-0">
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-slate-900 via-primary to-blue-600 text-white flex items-center justify-center font-black text-xs shadow-xs group-hover:scale-105 transition-transform duration-200">
+                                {user?.nombre ? user.nombre.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                        </div>
+
+                        {/* Datos del usuario */}
+                        <div className="text-left hidden sm:block">
+                            <div className="text-xs font-bold text-gray-800 group-hover:text-primary transition-colors leading-tight flex items-center gap-1.5">
+                                <span className="truncate max-w-[130px]">{user?.nombre?.split(' ')[0] || 'Mi Perfil'}</span>
+                                <span className="inline-block text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 group-hover:bg-primary/10 group-hover:text-primary transition-colors uppercase tracking-wider">
+                                    {user?.rol?.codigo || 'USER'}
+                                </span>
+                            </div>
+                            <div className="text-[10px] font-medium text-gray-400 flex items-center gap-1 mt-0.5 group-hover:text-gray-600 transition-colors">
+                                <KeyRound size={10} className="text-gray-400 group-hover:text-primary transition-colors" />
+                                <span>Cambiar contraseña</span>
+                            </div>
+                        </div>
+
+                        {/* Icono de acceso rápido */}
+                        <div className="p-1 rounded-lg text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all hidden md:block">
+                            <ChevronRight size={14} strokeWidth={2.5} />
+                        </div>
+                    </button>
+
+
                 </div>
             </div>
 
@@ -350,9 +385,9 @@ export default function DashboardPage() {
                                         <span className="font-bold text-gray-900">{stats.porcentajeCumplimiento.toFixed(1)}%</span>
                                     </div>
                                     <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
-                                            style={{ width: `${Math.min(stats.porcentajeCumplimiento, 100)}%` }} 
+                                        <div
+                                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                                            style={{ width: `${Math.min(stats.porcentajeCumplimiento, 100)}%` }}
                                         />
                                     </div>
                                 </div>
@@ -384,11 +419,10 @@ export default function DashboardPage() {
 
                                 <div className="space-y-4">
                                     {alertsList.map((alert, idx) => (
-                                        <div key={idx} className={`p-4 rounded-2xl flex gap-3 text-xs border ${
-                                            alert.type === 'warning' ? 'bg-red-50/40 border-red-100 text-red-700' :
+                                        <div key={idx} className={`p-4 rounded-2xl flex gap-3 text-xs border ${alert.type === 'warning' ? 'bg-red-50/40 border-red-100 text-red-700' :
                                             alert.type === 'info' ? 'bg-blue-50/40 border-blue-100 text-blue-700' :
-                                            'bg-green-50/40 border-green-100 text-green-700'
-                                        }`}>
+                                                'bg-green-50/40 border-green-100 text-green-700'
+                                            }`}>
                                             <AlertCircle size={16} className="shrink-0 mt-0.5" />
                                             <p className="font-semibold leading-relaxed">{alert.text}</p>
                                         </div>
@@ -396,7 +430,7 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={() => router.push('/go-compras/kpis')}
                                 className="w-full py-3.5 mt-6 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-2xl transition-all flex items-center justify-center gap-1.5"
                             >

@@ -78,7 +78,45 @@ backend/app.log
 logs/
 
 # ------------------------------------------------------------------------------
-# 4. IDEs, Editors & Tools
+# 4. Hojas de Cálculo, Datos y Documentos Locales (Excel, CSV, Office)
+# ------------------------------------------------------------------------------
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.docx
+*.doc
+*.pptx
+*.pdf
+
+# ------------------------------------------------------------------------------
+# 5. Notas, Planes de Trabajo y Análisis Markdown (manteniendo READMEs y skills)
+# ------------------------------------------------------------------------------
+*.md
+!README.md
+!**/README.md
+!.agents/skills/**
+
+# Archivos de texto plano de notas personales / temporales
+*.txt
+!requirements.txt
+!**/requirements.txt
+
+# Carpetas o archivos de pruebas / manuales temporales
+descargas_manual_cuentas/
+Skills/multi_provider_ai_skill.md
+
+# Archivos comprimidos y respaldos
+*.zip
+*.tar.gz
+*.tar
+*.rar
+*.7z
+*.sql.bak
+*.sql.tmp
+
+# ------------------------------------------------------------------------------
+# 6. IDEs, Editors & Tools
 # ------------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
@@ -90,12 +128,15 @@ logs/
 *.sln
 *.sw?
 
-# Claude / Agent / Scratch local tools
+# Claude / Gemini / Agentes / Scratch local
 .claude/
+.gemini/
 scratch/
+**/scratch/
+**/.tempmediaStorage/
 
 # ------------------------------------------------------------------------------
-# 5. Operating System Files
+# 7. Operating System Files
 # ------------------------------------------------------------------------------
 # Windows
 Thumbs.db
@@ -111,7 +152,7 @@ nul
 ._*
 
 # ------------------------------------------------------------------------------
-# 6. Temporary & Backup Files
+# 8. Temporary & Backup Files
 # ------------------------------------------------------------------------------
 *.bak
 *.backup

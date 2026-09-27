@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, joinedload
 from typing import List, Optional
 from datetime import datetime, date
 import re
 import unicodedata
 from app.db.session import get_db
-from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
+from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
 from app.schemas.budget import (
     BudgetRequestCreate, BudgetRequestResponse,
     ContabilidadCreate, ContabilidadResponse,
@@ -19,6 +19,7 @@ from app.schemas.budget import (
     CatCodigoCreate, CatCodigoResponse, ResolucionSubcategoriaResponse, SubvencionResponse, SubvencionCreate,
     MapeoRecursoSubcategoriaCreate, MapeoRecursoSubcategoriaResponse,
     GrupoRecursoCreate, GrupoRecursoResponse,
+    MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
     AsignarCodigoDetalleRequest,
     PresupuestoAnualCreate, PresupuestoAnualUpdate, PresupuestoAnualResponse,
@@ -334,6 +335,17 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
         recurso_estado = detalle.recurso.estado or "ACTIVO"
         if detalle.recurso.categoria:
             categoria_nombre = detalle.recurso.categoria.nombre
+
+    if getattr(detalle, "id_grupo_recurso", None):
+        id_grupo_recurso = detalle.id_grupo_recurso
+        if getattr(detalle, "grupo_directo", None):
+            grupo_nombre = detalle.grupo_directo.nombre
+        elif db is not None:
+            from app.models import GrupoRecurso
+            g_obj = db.query(GrupoRecurso).filter(GrupoRecurso.id_grupo_recurso == id_grupo_recurso).first()
+            if g_obj:
+                grupo_nombre = g_obj.nombre
+    elif detalle.recurso:
         if detalle.recurso.grupo:
             id_grupo_recurso = detalle.recurso.grupo.id_grupo_recurso
             grupo_nombre = detalle.recurso.grupo.nombre
@@ -344,6 +356,7 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
                 g_obj = db.query(GrupoRecurso).filter(GrupoRecurso.id_grupo_recurso == id_grupo_recurso).first()
                 if g_obj:
                     grupo_nombre = g_obj.nombre
+
     # Fallback: categoría asignada directamente al detalle (p.ej. sugerida por IA al importar)
     if not categoria_nombre and detalle.categoria_directa:
         categoria_nombre = detalle.categoria_directa.nombre
@@ -518,6 +531,10 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
             recurso_estado = rec.estado or "ACTIVO"
             if rec.categoria:
                 categoria_nombre = rec.categoria.nombre
+        if getattr(detalle, "id_grupo_recurso", None):
+            id_grupo_recurso = detalle.id_grupo_recurso
+            grupo_nombre = grupos_map.get(id_grupo_recurso)
+        elif rec:
             if rec.grupo:
                 id_grupo_recurso = rec.grupo.id_grupo_recurso
                 grupo_nombre = rec.grupo.nombre
@@ -1480,7 +1497,8 @@ def create_solicitud(
             estado_aprobacion="Sin Revisar",
             id_subvencion=det.id_subvencion,
             destino_gasto=_destino_canonico(det.destino_gasto) or det.destino_gasto,
-            id_subarea=det.id_subarea
+            id_subarea=det.id_subarea,
+            id_grupo_recurso=det.id_grupo_recurso
         )
         db.add(db_det)
         if det.id_actividad:
@@ -1988,7 +2006,8 @@ def agregar_recursos_solicitud(
             estado_aprobacion="Sin Revisar",
             id_subvencion=det.id_subvencion,
             destino_gasto=_destino_canonico(det.destino_gasto) or det.destino_gasto,
-            id_subarea=det.id_subarea
+            id_subarea=det.id_subarea,
+            id_grupo_recurso=det.id_grupo_recurso
         )
         db.add(db_det)
         if det.id_actividad:
@@ -3182,6 +3201,129 @@ def bulk_delete_grupos_recurso(
     count = db.query(GrupoRecurso).filter(GrupoRecurso.id_grupo_recurso.in_(data.ids)).delete(synchronize_session=False)
     db.commit()
     return {"eliminados": count}
+
+
+# ── Motivos de Recurso Predeterminados (Configuración y Panel PPTO) ──────────
+
+@router.get("/motivos-recurso", response_model=List[MotivoRecursoResponse])
+def list_motivos_recurso(
+    include_inactive: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+):
+    q = db.query(MotivoRecurso).options(joinedload(MotivoRecurso.grupo))
+    if not include_inactive:
+        q = q.filter(MotivoRecurso.activo == True)
+    motivos = q.order_by(MotivoRecurso.orden.asc(), MotivoRecurso.id_motivo.asc()).all()
+    res = []
+    for m in motivos:
+        res.append(MotivoRecursoResponse(
+            id_motivo=m.id_motivo,
+            nombre=m.nombre,
+            descripcion=m.descripcion,
+            id_grupo_recurso=m.id_grupo_recurso,
+            grupo_nombre=m.grupo.nombre if m.grupo else None,
+            activo=m.activo,
+            orden=m.orden
+        ))
+    return res
+
+
+@router.post("/motivos-recurso", response_model=MotivoRecursoResponse)
+def create_motivo_recurso(
+    obj: MotivoRecursoCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+):
+    nombre_limpio = obj.nombre.strip()
+    if not nombre_limpio:
+        raise HTTPException(status_code=400, detail="El nombre del motivo es obligatorio")
+    ex = db.query(MotivoRecurso).filter(
+        func.lower(func.trim(MotivoRecurso.nombre)) == nombre_limpio.lower()
+    ).first()
+    if ex:
+        raise HTTPException(status_code=400, detail="Ya existe un motivo con este nombre")
+
+    db_obj = MotivoRecurso(
+        nombre=nombre_limpio,
+        descripcion=obj.descripcion.strip() if obj.descripcion else None,
+        id_grupo_recurso=obj.id_grupo_recurso,
+        activo=obj.activo,
+        orden=obj.orden
+    )
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return MotivoRecursoResponse(
+        id_motivo=db_obj.id_motivo,
+        nombre=db_obj.nombre,
+        descripcion=db_obj.descripcion,
+        id_grupo_recurso=db_obj.id_grupo_recurso,
+        grupo_nombre=db_obj.grupo.nombre if db_obj.grupo else None,
+        activo=db_obj.activo,
+        orden=db_obj.orden
+    )
+
+
+@router.put("/motivos-recurso/{id_motivo}", response_model=MotivoRecursoResponse)
+def update_motivo_recurso(
+    id_motivo: int,
+    obj: MotivoRecursoUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "editar"))
+):
+    motivo = db.query(MotivoRecurso).filter(MotivoRecurso.id_motivo == id_motivo).first()
+    if not motivo:
+        raise HTTPException(status_code=404, detail="Motivo no encontrado")
+
+    data = obj.dict(exclude_unset=True)
+    if "nombre" in data and data["nombre"] is not None:
+        nombre_limpio = data["nombre"].strip()
+        if not nombre_limpio:
+            raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+        ex = db.query(MotivoRecurso).filter(
+            func.lower(func.trim(MotivoRecurso.nombre)) == nombre_limpio.lower(),
+            MotivoRecurso.id_motivo != id_motivo
+        ).first()
+        if ex:
+            raise HTTPException(status_code=400, detail="Ya existe otro motivo con este nombre")
+        motivo.nombre = nombre_limpio
+
+    if "descripcion" in data:
+        motivo.descripcion = data["descripcion"].strip() if data["descripcion"] else None
+    if "id_grupo_recurso" in data:
+        motivo.id_grupo_recurso = data["id_grupo_recurso"]
+    if "activo" in data and data["activo"] is not None:
+        motivo.activo = data["activo"]
+    if "orden" in data and data["orden"] is not None:
+        motivo.orden = data["orden"]
+
+    db.commit()
+    db.refresh(motivo)
+    return MotivoRecursoResponse(
+        id_motivo=motivo.id_motivo,
+        nombre=motivo.nombre,
+        descripcion=motivo.descripcion,
+        id_grupo_recurso=motivo.id_grupo_recurso,
+        grupo_nombre=motivo.grupo.nombre if motivo.grupo else None,
+        activo=motivo.activo,
+        orden=motivo.orden
+    )
+
+
+@router.delete("/motivos-recurso/{id_motivo}")
+def delete_motivo_recurso(
+    id_motivo: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "eliminar"))
+):
+    motivo = db.query(MotivoRecurso).filter(MotivoRecurso.id_motivo == id_motivo).first()
+    if not motivo:
+        raise HTTPException(status_code=404, detail="Motivo no encontrado")
+
+    db.delete(motivo)
+    db.commit()
+    return {"message": "Motivo eliminado correctamente"}
 
 
 @router.get("/recursos", response_model=List[ResourceResponse])
@@ -4378,6 +4520,7 @@ class SolicitudModificacionCreate(BaseModel):
     valor_real_iva: Optional[float] = None
     centro_costos: Optional[str] = None
     observacion: Optional[str] = None
+    formato_unidad: Optional[str] = None
 
 class SolicitudModificacionRespuesta(BaseModel):
     accion: str  # APROBAR | RECHAZAR
@@ -4399,7 +4542,8 @@ def crear_solicitud_modificacion(
         "cantidad_real": payload.cantidad_real,
         "valor_real_iva": payload.valor_real_iva,
         "centro_costos": payload.centro_costos,
-        "observacion": payload.observacion
+        "observacion": payload.observacion,
+        "formato_unidad": payload.formato_unidad.strip().upper() if payload.formato_unidad else None
     }
 
     # Crear la solicitud de modificación en estado PENDIENTE con el payload completo en JSON
@@ -4452,6 +4596,7 @@ def listar_solicitudes_modificacion(
                 val_real_prop = parsed.get("valor_real_iva")
                 centro_costos_prop = parsed.get("centro_costos")
                 obs_prop = parsed.get("observacion")
+                formato_unidad_prop = parsed.get("formato_unidad")
         except Exception:
             pass
         
@@ -4463,6 +4608,7 @@ def listar_solicitudes_modificacion(
             "cantidad_real": det.cantidad_real if det else None,
             "cantidad_real_propuesta": cant_real_prop,
             "formato_unidad": det.formato_unidad if det else "",
+            "formato_unidad_propuesta": formato_unidad_prop,
             "valor_unitario_iva": det.valor_unitario_iva if det else 0,
             "total_iva": det.total_iva if det else 0,
             "valor_real_iva": det.valor_real_iva if det else None,
@@ -4521,6 +4667,8 @@ def responder_solicitud_modificacion(
                         sol.detalle.centro_costos = parsed.get("centro_costos")
                     if parsed.get("observacion"):
                         sol.detalle.observacion = parsed.get("observacion")
+                    if parsed.get("formato_unidad"):
+                        sol.detalle.formato_unidad = parsed.get("formato_unidad")
             except Exception:
                 pass
             sol.detalle.motivo = motivo_final

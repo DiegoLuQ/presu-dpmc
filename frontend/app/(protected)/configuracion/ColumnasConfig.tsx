@@ -7,6 +7,7 @@ import {
     BookOpen, Package, Layers, UploadCloud
 } from 'lucide-react';
 import api from '@/lib/api/client';
+import MotivosInsumoConfig from './MotivosInsumoConfig';
 
 export interface TutorialItem {
     id: string;
@@ -558,6 +559,9 @@ export default function ColumnasConfig() {
                     </div>
                 </div>
             )}
+
+            {/* Motivos Predeterminados de Insumos (Panel PPTO) con Grupo / Línea sugerido */}
+            {!loading && <MotivosInsumoConfig />}
 
             {/* 4. Tutoriales y Enlaces de Ayuda Exclusivos por Sección */}
             {!loading && (

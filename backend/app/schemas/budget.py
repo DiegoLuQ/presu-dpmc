@@ -50,6 +50,34 @@ class GrupoRecursoResponse(GrupoRecursoBase):
         from_attributes = True
 
 
+class MotivoRecursoBase(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    id_grupo_recurso: Optional[int] = None
+    activo: bool = True
+    orden: int = 0
+
+
+class MotivoRecursoCreate(MotivoRecursoBase):
+    pass
+
+
+class MotivoRecursoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    id_grupo_recurso: Optional[int] = None
+    activo: Optional[bool] = None
+    orden: Optional[int] = None
+
+
+class MotivoRecursoResponse(MotivoRecursoBase):
+    id_motivo: int
+    grupo_nombre: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class ResourceBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
@@ -116,6 +144,7 @@ class BudgetDetailBase(BaseModel):
     destino_gasto: str
     id_cargo: Optional[int] = None
     id_subarea: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
 
 
 
@@ -146,6 +175,7 @@ class BudgetDetailUpdate(BaseModel):
     destino_gasto: Optional[str] = None
     id_cargo: Optional[int] = None
     id_subarea: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
     estado_aprobacion: Optional[str] = None
     estado_compra: Optional[str] = None
 

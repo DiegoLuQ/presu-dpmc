@@ -61,7 +61,7 @@ interface FlatItem {
 }
 
 export default function SolicitudesPage() {
-    const { user, tienePermiso, puedeSeccion, isLoading: authLoading, setSidebarCollapsed } = useAuth();
+    const { user, tienePermiso, puedeSeccion, isLoading: authLoading, setSidebarCollapsed, colegioActivo } = useAuth();
     const router = useRouter();
 
     // Acceso restringido por lista blanca (Configuración › Accesos).
@@ -142,22 +142,52 @@ export default function SolicitudesPage() {
         }
     }, [authLoading, puedeVerSolicitudes, tienePermiso, puedeSeccion, router]);
 
-    // Restaurar filtros de localStorage al iniciar
+    // Inicializar filtros de colegio y año al entrar a la página
     useEffect(() => {
-        try {
-            const savedCol = localStorage.getItem('solicitudes-filter-colegio');
-            if (savedCol !== null) {
-                setSelectedColegio(savedCol);
-            } else if (user?.id_colegio) {
-                setSelectedColegio(String(user.id_colegio));
-            }
-            const savedYr = localStorage.getItem('solicitudes-filter-year');
-            if (savedYr !== null) {
+        if (!user) return;
+        let cancelado = false;
+
+        const initFilters = async () => {
+            try {
+                // Obtener presupuestos anuales registrados
+                const res = await api.get('/presupuesto/presupuestos-anuales');
+                if (cancelado) return;
+                const pptos: any[] = res.data || [];
+
+                const currentYr = new Date().getFullYear();
+                const savedYr = localStorage.getItem('solicitudes-filter-year') || String(currentYr);
                 setSelectedYear(savedYr);
+
+                // Presupuestos con estado 'activo' para el año seleccionado (o año actual)
+                const pptosActivos = pptos.filter((p: any) => 
+                    p.estado === 'activo' && (String(p.year) === String(savedYr) || String(p.year) === String(currentYr))
+                );
+                const colegiosConPptoActivo = Array.from(new Set(pptosActivos.map((p: any) => p.id_colegio)));
+
+                const esMulticolegio = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'SOS' || (user?.colegios && user.colegios.length > 1);
+
+                // Si el usuario tiene activo y se ve el presupuesto actual de ambos colegios:
+                // Se debe filtrar por todos los colegios ('')
+                if (esMulticolegio && colegiosConPptoActivo.length > 1) {
+                    setSelectedColegio('');
+                } else {
+                    // Sino, se filtra por el colegio del usuario (su colegio activo o su id_colegio asignado)
+                    const colUsuario = colegioActivo ? String(colegioActivo) : (user.id_colegio ? String(user.id_colegio) : '');
+                    setSelectedColegio(colUsuario);
+                }
+            } catch (err) {
+                if (cancelado) return;
+                const colUsuario = colegioActivo ? String(colegioActivo) : (user?.id_colegio ? String(user.id_colegio) : '');
+                setSelectedColegio(colUsuario);
+            } finally {
+                if (!cancelado) setFiltersLoaded(true);
             }
-        } catch {}
-        setFiltersLoaded(true);
-    }, [user]);
+        };
+
+        initFilters();
+
+        return () => { cancelado = true; };
+    }, [user, colegioActivo]);
 
     const handleColegioChange = (val: string) => {
         setSelectedColegio(val);
@@ -171,16 +201,14 @@ export default function SolicitudesPage() {
 
     // Cargar catálogo de colegios
     useEffect(() => {
-        if (user?.rol?.codigo === 'SOS' || user?.rol?.codigo === 'ADM') {
-            (async () => {
-                try {
-                    const res = await api.get('/catalogos/colegios');
-                    setColegios(res.data || []);
-                } catch (e) {
-                    console.error('Error fetching schools:', e);
-                }
-            })();
-        }
+        (async () => {
+            try {
+                const res = await api.get('/catalogos/colegios');
+                setColegios(res.data || []);
+            } catch (e) {
+                console.error('Error fetching schools:', e);
+            }
+        })();
     }, [user]);
 
     // Cargar subvenciones y motivos de rechazo
@@ -341,9 +369,9 @@ export default function SolicitudesPage() {
     };
 
     useEffect(() => {
-        if (!puedeVerSolicitudes) return;
+        if (!puedeVerSolicitudes || !filtersLoaded) return;
         fetchSolicitudes();
-    }, [puedeVerSolicitudes, fetchSolicitudes]);
+    }, [puedeVerSolicitudes, filtersLoaded, fetchSolicitudes]);
 
     const formatCLP = (value: number) => {
         return `$${Math.round(value || 0).toLocaleString('es-CL')}`;

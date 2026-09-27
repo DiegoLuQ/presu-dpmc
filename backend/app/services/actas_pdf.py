@@ -183,16 +183,9 @@ def _flowables_de_acta_entrega(acta_data: dict, estilos: dict, numero_pagina: in
 
     # 5. Línea Horizontal Inferior
     story.append(HRFlowable(width="100%", thickness=0.8, color=colors.black, spaceBefore=4, spaceAfter=4))
+    story.append(Spacer(1, 1.5 * mm))
 
-    # 6. Observación (si existe)
-    if observacion and observacion.strip():
-        obs_p = Paragraph(f"<b>Observación:</b> <i>{escapar(observacion)}</i>", estilos["body"])
-        story.append(obs_p)
-        story.append(Spacer(1, 2 * mm))
-    else:
-        story.append(Spacer(1, 1 * mm))
-
-    # 7. Detalle de Ítems Entregados (Compacto para soportar 15+ artículos)
+    # 6. Detalle de Ítems Entregados (Compacto para soportar 15+ artículos)
     item_rows = []
     for idx, it in enumerate(items, 1):
         cant = it.get("cantidad") or 1
@@ -227,12 +220,30 @@ def _flowables_de_acta_entrega(acta_data: dict, estilos: dict, numero_pagina: in
 
 
 def _draw_acta_footer(canvas, doc):
-    """Dibuja el bloque fijo 'Recibí Conforme' en el pie de la página."""
+    """Dibuja el bloque fijo 'Recibí Conforme' y la Observación en el pie de la página."""
     canvas.saveState()
     x_start = 15 * mm
     line_end = 125 * mm
-    
-    # Título Recibí Conforme
+    ancho_util = 215.9 * mm - (30 * mm)
+
+    # 1. Observación fijada justo encima de Recibí Conforme (con mayor tamaño y margen adecuado)
+    actas_list = getattr(doc, "_actas_data", [])
+    acta = actas_list[doc.page - 1] if 0 <= doc.page - 1 < len(actas_list) else {}
+    observacion = (acta.get("observacion") or "").strip()
+
+    if observacion:
+        estilo_obs = ParagraphStyle(
+            "FooterObs",
+            fontName="Helvetica",
+            fontSize=10.5,
+            leading=14,
+            textColor=colors.black,
+        )
+        obs_p = Paragraph(f"<b>Observación:</b> {escapar(observacion)}", estilo_obs)
+        w, h = obs_p.wrap(ancho_util, 25 * mm)
+        obs_p.drawOn(canvas, x_start, 43 * mm)
+
+    # 2. Título Recibí Conforme
     canvas.setFont("Helvetica-Bold", 9.5)
     canvas.setFillColor(colors.black)
     canvas.drawString(x_start, 35 * mm, "Recibí Conforme")
@@ -354,15 +365,16 @@ def generar_pdf_acta_entrega(actas_data: List[dict]) -> bytes:
     """Genera el buffer de bytes del PDF con 1 o más actas (cada una en su hoja)."""
     buffer = BytesIO()
     
-    # Tamaño carta con margen inferior de 40mm para el footer fijo de firma
+    # Tamaño carta con margen inferior de 54mm para el footer fijo de firma y observación
     doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
         leftMargin=15 * mm,
         rightMargin=15 * mm,
         topMargin=10 * mm,
-        bottomMargin=42 * mm,
+        bottomMargin=54 * mm,
     )
+    doc._actas_data = actas_data
     
     frame = Frame(
         doc.leftMargin,

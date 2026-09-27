@@ -155,3 +155,8 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     identifier: str
     password: str
+
+class CambiarPasswordRequest(BaseModel):
+    password_actual: str
+    password_nueva: str
+

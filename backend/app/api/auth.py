@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 
 from app.db.session import get_db
 from app.models import User, Cargo, Subarea
-from app.schemas.auth import LoginRequest, Token, UserResponse, TokenData
+from app.schemas.auth import LoginRequest, Token, UserResponse, TokenData, CambiarPasswordRequest
 from app.core.config import settings
 from app.core import security
 
@@ -143,3 +143,43 @@ async def get_permisos(
         # Secciones restringidas a las que este usuario tiene acceso.
         "secciones": secciones_permitidas(db, current_user),
     }
+
+@router.post("/cambiar-password")
+async def cambiar_password(
+    data: CambiarPasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permite a cualquier usuario autenticado cambiar su propia contraseña.
+    Disponible para todos los roles sin restricciones de permisos administrativos.
+    """
+    pwd_actual = data.password_actual or ""
+    pwd_nueva = (data.password_nueva or "").strip()
+
+    if not security.verify_password(pwd_actual, current_user.password or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual ingresada es incorrecta."
+        )
+
+    if len(pwd_nueva) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe tener al menos 6 caracteres."
+        )
+
+    if pwd_actual == pwd_nueva:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña no puede ser idéntica a la contraseña actual."
+        )
+
+    current_user.password = security.get_password_hash(pwd_nueva)
+    db.commit()
+
+    return {
+        "status": "ok",
+        "message": "Tu contraseña ha sido actualizada exitosamente."
+    }
+

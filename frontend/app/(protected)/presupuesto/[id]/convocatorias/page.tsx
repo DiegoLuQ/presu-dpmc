@@ -7,9 +7,11 @@ import api from '@/lib/api/client';
 import {
     ArrowLeft, Plus, Link2, Copy, Check, CheckCircle, XCircle,
     Loader2, Package, Users, Download, ChevronDown,
-    ChevronUp, X, RotateCcw, Pencil, Lock, Trash2, SlidersHorizontal
+    ChevronUp, X, RotateCcw, Pencil, Lock, Trash2, SlidersHorizontal,
+    HelpCircle
 } from 'lucide-react';
 import { Convocatoria, PedidoExterno, Cargo, BudgetRequest, FORMATOS_UNIDAD, MESES } from '@/lib/types';
+import { GuiaConvocatoriasModal } from '@/components/presupuesto/GuiaConvocatoriasModal';
 
 const fmt = (n: number) =>
     new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
@@ -76,6 +78,7 @@ export default function ConvocatoriasPage() {
         mes: true,
     });
     const [showColumnasMenu, setShowColumnasMenu] = useState(false);
+    const [modalAyuda, setModalAyuda] = useState(false);
 
     const fetchPedidos = useCallback(async (id_conv: number) => {
         setLoadingPedidos(id_conv);
@@ -351,6 +354,15 @@ export default function ConvocatoriasPage() {
                     </div>
                     <div className="ml-auto flex items-center gap-2 relative">
                         <button
+                            type="button"
+                            onClick={() => setModalAyuda(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 border border-blue-200 text-blue-700 text-xs font-bold rounded-xl bg-blue-50/70 hover:bg-blue-100 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Ver guía y explicación de cada botón"
+                        >
+                            <HelpCircle size={15} />
+                            Ayuda
+                        </button>
+                        <button
                             onClick={() => setShowColumnasMenu(s => !s)}
                             className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 text-xs font-semibold rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all"
                         >
@@ -561,6 +573,11 @@ export default function ConvocatoriasPage() {
                                                                             <div className="font-semibold text-gray-800">{p.nombre_recurso}</div>
                                                                             {p.descripcion && <div className="text-gray-400 text-[11px]">{p.descripcion}</div>}
                                                                             <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                                                {p.grupo_nombre && (
+                                                                                    <span className="px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-medium" title={`Línea: ${p.grupo_nombre}`}>
+                                                                                        Línea: {p.grupo_nombre}
+                                                                                    </span>
+                                                                                )}
                                                                                 {p.actividad_pme_nombre && (
                                                                                     <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-medium" title={p.actividad_pme_nombre}>
                                                                                         PME: {p.actividad_pme_nombre.length > 30 ? p.actividad_pme_nombre.slice(0, 30) + '…' : p.actividad_pme_nombre}
@@ -883,6 +900,9 @@ export default function ConvocatoriasPage() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Ayuda y Guía de Botones */}
+            <GuiaConvocatoriasModal isOpen={modalAyuda} onClose={() => setModalAyuda(false)} />
         </div>
     );
 }

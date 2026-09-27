@@ -4,9 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
     Plus, CheckCircle, AlertCircle, Loader2, Package, Lock, Search,
-    SlidersHorizontal, Pencil, Trash2, X, Info, Video, ExternalLink, Copy, Check
+    SlidersHorizontal, Pencil, Trash2, X, Info, Video, ExternalLink, Copy, Check,
+    HelpCircle
 } from 'lucide-react';
 import { FORMATOS_UNIDAD, TIPOS_FECHA, MESES } from '@/lib/types';
+import { GuiaConvocadoModal } from '@/components/presupuesto/GuiaConvocadoModal';
 
 const getApiUrl = () => {
     if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
@@ -24,6 +26,12 @@ export interface TutorialLink {
     descripcion?: string;
 }
 
+export interface LineaRecurso {
+    id_grupo_recurso: number;
+    nombre: string;
+    descripcion?: string;
+}
+
 interface ConvocatoriaInfo {
     id_convocatoria: number;
     subarea_nombre: string;
@@ -35,6 +43,7 @@ interface ConvocatoriaInfo {
     requiere_pin: boolean;
     tutoriales?: TutorialLink[];
     mostrar_tutoriales?: boolean;
+    lineas?: LineaRecurso[];
 }
 
 interface RecursoSugerido {
@@ -42,6 +51,8 @@ interface RecursoSugerido {
     nombre: string;
     descripcion?: string;
     formato?: string;
+    id_grupo_recurso?: number;
+    grupo_nombre?: string;
 }
 
 interface ActividadPME {
@@ -63,6 +74,8 @@ interface PedidoEnviado {
     destino?: string;
     id_actividad_pme?: number;
     actividad_pme_nombre?: string;
+    id_grupo_recurso?: number;
+    grupo_nombre?: string;
     estado_jefe?: 'pendiente' | 'aceptado' | 'rechazado' | 'importado';
 }
 
@@ -89,32 +102,45 @@ const destinoLabel = (v?: string) => {
     return DESTINOS.find(d => d.value === norm)?.label || v;
 };
 
-// Campo "¿Para quién / qué es?" con select + ayuda contextual y "saber más"
+// Campo "¿Para quién / qué es?" con select + ayuda contextual y popover "saber más"
 function DestinoField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
     const [showInfo, setShowInfo] = useState(false);
     return (
-        <div>
-            <div className="flex items-center gap-1.5 mb-1">
-                <label className="block text-xs font-semibold text-gray-700">¿Para quién / qué es? <span className="text-red-500">*</span></label>
+        <div className="relative">
+            <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">
+                    ¿Para quién / qué es? <span className="text-red-500">*</span>
+                </label>
                 <button
                     type="button"
                     onClick={() => setShowInfo(s => !s)}
-                    className={`inline-flex items-center gap-1 text-[11px] font-semibold transition-colors ${showInfo ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
                     title="Ver qué significa cada opción"
                 >
-                    <Info size={13} /> Saber más
+                    <Info size={12} /> Saber más
                 </button>
             </div>
+
             {showInfo && (
-                <div className="mb-2 p-3 rounded-xl bg-blue-50 border border-blue-100 space-y-1.5">
-                    {DESTINOS.map(d => (
-                        <div key={d.value} className="text-[11px] leading-snug">
-                            <span className="font-bold text-blue-800">{d.label}:</span>{' '}
-                            <span className="text-blue-700/90">{d.desc}</span>
+                <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowInfo(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 z-40 space-y-2.5 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+                            <span className="text-xs font-bold text-gray-800">Opciones de Destino</span>
+                            <button onClick={() => setShowInfo(false)} className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer">
+                                <X size={14} />
+                            </button>
                         </div>
-                    ))}
-                </div>
+                        {DESTINOS.map(d => (
+                            <div key={d.value} className="text-[11px] leading-snug">
+                                <span className="font-bold text-gray-900">{d.label}:</span>{' '}
+                                <span className="text-gray-600">{d.desc}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
+
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
@@ -122,15 +148,16 @@ function DestinoField({ value, onChange }: { value: string; onChange: (v: string
             >
                 {DESTINOS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
             </select>
-            {destinoDesc(value) && (
-                <p className="mt-1 text-[11px] text-gray-500 leading-snug">{destinoDesc(value)}</p>
-            )}
+            <p className="mt-1 text-[11px] text-gray-400 line-clamp-1" title={destinoDesc(value)}>
+                {destinoDesc(value) || 'Selecciona el destinatario principal.'}
+            </p>
         </div>
     );
 }
 
 // Columnas configurables de la tabla (la columna "Recurso" siempre se muestra)
 const COLUMNS: { key: keyof typeof DEFAULT_COLS; label: string }[] = [
+    { key: 'linea', label: 'Línea' },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'cantidad', label: 'Cantidad' },
     { key: 'precio', label: 'Precio unit.' },
@@ -139,7 +166,7 @@ const COLUMNS: { key: keyof typeof DEFAULT_COLS; label: string }[] = [
     { key: 'destino', label: 'Destino' },
     { key: 'actividad_pme', label: 'Actividad PME' },
 ];
-const DEFAULT_COLS = { descripcion: true, cantidad: true, precio: true, total: true, motivo: true, destino: true, actividad_pme: false };
+const DEFAULT_COLS = { linea: true, descripcion: true, cantidad: true, precio: true, total: true, motivo: true, destino: true, actividad_pme: false };
 type ColState = typeof DEFAULT_COLS;
 
 const COLS_STORAGE_KEY = 'pedidos_columnas';
@@ -158,6 +185,7 @@ const emptyForm = () => ({
     destino: DESTINO_DEFAULT,
     id_actividad_pme: 0,
     actividad_pme_nombre: '',
+    id_grupo_recurso: 0,
     id_recurso: null as number | null,
 });
 
@@ -250,6 +278,7 @@ export default function FormularioPedidoPage() {
 
     const [info, setInfo] = useState<ConvocatoriaInfo | null>(null);
     const [loadingInfo, setLoadingInfo] = useState(true);
+    const [lineas, setLineas] = useState<LineaRecurso[]>([]);
     const [form, setForm] = useState(emptyForm());
     const [enviando, setEnviando] = useState(false);
     const [error, setError] = useState('');
@@ -273,29 +302,58 @@ export default function FormularioPedidoPage() {
 
     // Edición / eliminación de un recurso ya enviado
     const [editPedido, setEditPedido] = useState<PedidoEnviado | null>(null);
-    const [editForm, setEditForm] = useState({ nombre_recurso: '', descripcion: '', formato_unidad: 'unidad', cantidad: '', precio_estimado: '', motivo: '', destino: DESTINO_DEFAULT, id_actividad_pme: 0, actividad_pme_nombre: '' });
+    const [editForm, setEditForm] = useState({
+        nombre_recurso: '',
+        descripcion: '',
+        formato_unidad: 'unidad',
+        cantidad: '',
+        precio_estimado: '',
+        motivo: '',
+        destino: DESTINO_DEFAULT,
+        id_actividad_pme: 0,
+        actividad_pme_nombre: '',
+        id_grupo_recurso: 0,
+    });
     const [guardandoEdit, setGuardandoEdit] = useState(false);
     const [errorEdit, setErrorEdit] = useState('');
     const [eliminando, setEliminando] = useState<number | null>(null);
 
-    // Modal de tutoriales
+    // Modal de tutoriales y guía
     const [modalTutoriales, setModalTutoriales] = useState(false);
+    const [modalGuia, setModalGuia] = useState(false);
     const [copiadoTut, setCopiadoTut] = useState<string | null>(null);
 
-    // Cargar info de la convocatoria
+    // Cargar info de la convocatoria y líneas
     useEffect(() => {
         fetch(`${API}/convocatorias/publica/${token}`)
             .then(r => r.json())
-            .then(d => setInfo(d))
+            .then(d => {
+                setInfo(d);
+                if (d && Array.isArray(d.lineas) && d.lineas.length > 0) {
+                    setLineas(d.lineas);
+                }
+            })
             .catch(() => setInfo(null))
             .finally(() => setLoadingInfo(false));
+
+        fetch(`${API}/convocatorias/publica/${token}/lineas`)
+            .then(r => (r.ok ? r.json() : []))
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setLineas(data);
+                }
+            })
+            .catch(() => { });
     }, [token]);
 
     // Cargar preferencias de columnas y pedidos enviados desde localStorage
     useEffect(() => {
         try {
             const rawCols = localStorage.getItem(COLS_STORAGE_KEY);
-            if (rawCols) setCols({ ...DEFAULT_COLS, ...JSON.parse(rawCols) });
+            if (rawCols) {
+                const parsed = JSON.parse(rawCols);
+                setCols({ ...DEFAULT_COLS, ...parsed, linea: parsed.linea !== undefined ? parsed.linea : true });
+            }
         } catch { /* ignore */ }
         try {
             const rawEnv = localStorage.getItem(enviadosKey(token));
@@ -381,8 +439,10 @@ export default function FormularioPedidoPage() {
         setForm(f => ({
             ...f,
             nombre_recurso: r.nombre,
+            descripcion: r.descripcion || f.descripcion,
             formato_unidad: r.formato && FORMATOS_UNIDAD.some(x => x.value === r.formato) ? r.formato! : f.formato_unidad,
             id_recurso: r.id_recurso,
+            id_grupo_recurso: r.id_grupo_recurso || f.id_grupo_recurso,
         }));
         setMostrarSug(false);
         setSugerencias([]);
@@ -420,6 +480,7 @@ export default function FormularioPedidoPage() {
             destino: form.destino,
             id_actividad_pme: form.id_actividad_pme || undefined,
             id_recurso: form.id_recurso || undefined,
+            id_grupo_recurso: form.id_grupo_recurso ? Number(form.id_grupo_recurso) : undefined,
             pin: info?.requiere_pin ? pin.trim() : undefined,
         };
         try {
@@ -457,6 +518,7 @@ export default function FormularioPedidoPage() {
             destino: normalizeDestino(p.destino),
             id_actividad_pme: p.id_actividad_pme || 0,
             actividad_pme_nombre: p.actividad_pme_nombre || '',
+            id_grupo_recurso: p.id_grupo_recurso || 0,
         });
         setErrorEdit('');
     };
@@ -482,6 +544,7 @@ export default function FormularioPedidoPage() {
                     motivo: editForm.motivo.trim(),
                     destino: editForm.destino,
                     id_actividad_pme: editForm.id_actividad_pme || 0,
+                    id_grupo_recurso: editForm.id_grupo_recurso ? Number(editForm.id_grupo_recurso) : 0,
                     pin: info?.requiere_pin ? pin.trim() : undefined,
                 }),
             });
@@ -606,7 +669,7 @@ export default function FormularioPedidoPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 py-8 px-4">
-            <div className="max-w-6xl mx-auto space-y-5">
+            <div className="max-w-7xl mx-auto space-y-6">
 
                 {/* Header */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -626,18 +689,29 @@ export default function FormularioPedidoPage() {
                             </div>
                         </div>
 
-                        {info.mostrar_tutoriales !== false && (
+                        <div className="flex items-center gap-2.5 self-start sm:self-center flex-wrap">
                             <button
                                 type="button"
-                                onClick={() => setModalTutoriales(true)}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all self-start sm:self-center"
+                                onClick={() => setModalGuia(true)}
+                                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-blue-50/80 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                                title="Guía de ayuda y explicación de la solicitud"
                             >
-                                <Video size={16} /> Ver tutoriales {(info.tutoriales?.length ?? 0) > 0 ? `(${info.tutoriales!.length})` : ''}
+                                <HelpCircle size={16} /> Guía de Ayuda
                             </button>
-                        )}
+
+                            {info.mostrar_tutoriales !== false && (
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTutoriales(true)}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <Video size={16} /> Ver tutoriales {(info.tutoriales?.length ?? 0) > 0 ? `(${info.tutoriales!.length})` : ''}
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <p className="text-xs text-gray-500">
-                        Agrega un recurso a la vez. Cada recurso que agregues queda guardado en la lista de la derecha para revisión del jefe de área.
+                        Agrega un recurso a la vez. Cada recurso que agregues queda guardado en la lista de abajo para revisión del jefe de área.
                     </p>
                     <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
                         <span>Formulario válido hasta:</span>
@@ -647,137 +721,192 @@ export default function FormularioPedidoPage() {
                     </div>
                 </div>
 
-                {/* Layout: formulario (izq) + listado (der) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                {/* Formulario Nuevo Recurso - Diseño Estructurado y Elegante */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-150 overflow-hidden">
+                    {/* Header del formulario */}
+                    <div className="px-6 py-4.5 bg-gradient-to-r from-blue-50/50 via-indigo-50/30 to-white border-b border-gray-150 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                                <Plus size={16} />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold text-gray-900">Agregar Nuevo Recurso</h2>
+                                <p className="text-xs text-gray-500">Completa la información del ítem para incorporarlo a tu lista</p>
+                            </div>
+                        </div>
+                        <span className="text-[11px] font-semibold text-gray-400 bg-white border border-gray-200 px-2.5 py-1 rounded-lg shadow-xs">
+                            Paso 1 de 2: Carga de insumos
+                        </span>
+                    </div>
 
-                    {/* Formulario */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4 lg:sticky lg:top-6">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Nuevo recurso</span>
-
+                    <div className="p-6 space-y-6">
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 flex items-center gap-1.5">
-                                <AlertCircle size={13} /> {error}
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 flex items-center gap-2">
+                                <AlertCircle size={15} className="shrink-0" />
+                                <span>{error}</span>
                             </div>
                         )}
 
-                        {/* Nombre con autocompletado */}
-                        <div className="relative">
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre del recurso <span className="text-red-500">*</span></label>
-                            <div className="relative">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                                <input
-                                    type="text"
-                                    value={form.nombre_recurso}
-                                    onChange={e => onNombreChange(e.target.value)}
-                                    onFocus={() => { if (sugerencias.length) setMostrarSug(true); }}
-                                    onBlur={() => setTimeout(() => setMostrarSug(false), 150)}
-                                    placeholder="Ej: Balón de vóley"
-                                    autoComplete="off"
-                                    className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                />
-                                {buscando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 animate-spin" />}
-
-                                {mostrarSug && sugerencias.length > 0 && (
-                                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                        {sugerencias.map(r => (
-                                            <button
-                                                key={r.id_recurso}
-                                                type="button"
-                                                onMouseDown={() => elegirRecurso(r)}
-                                                className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
-                                            >
-                                                <div className="text-sm font-medium text-gray-800">{r.nombre}</div>
-                                                {r.descripcion && <div className="text-[11px] text-gray-400 line-clamp-1">{r.descripcion}</div>}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <p className="text-[11px] text-gray-400 mt-1">
-                                Escribe <span className="font-semibold text-gray-500">solo el nombre del recurso</span>, sin marcas ni detalles. Ej: «Balón de vóley», no «Balón de vóley marca X». Los detalles van en la descripción.
-                            </p>
-                        </div>
-
-                        {/* Descripción */}
+                        {/* Bloque 1: Identificación del Recurso */}
                         <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Descripción - Detalle del Recurso</label>
-                            <input
-                                type="text"
-                                value={form.descripcion}
-                                onChange={e => set('descripcion', e.target.value)}
-                                placeholder="Marca, color, características, especificaciones..."
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                            />
+                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                                1. Identificación del Producto o Insumo
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="relative">
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Nombre del recurso <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                                        <input
+                                            type="text"
+                                            value={form.nombre_recurso}
+                                            onChange={e => onNombreChange(e.target.value)}
+                                            onFocus={() => { if (sugerencias.length) setMostrarSug(true); }}
+                                            onBlur={() => setTimeout(() => setMostrarSug(false), 150)}
+                                            placeholder="Ej: Balón de vóley, Resma de papel, etc."
+                                            autoComplete="off"
+                                            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all bg-white"
+                                        />
+                                        {buscando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 animate-spin" />}
+
+                                        {mostrarSug && sugerencias.length > 0 && (
+                                            <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                                                {sugerencias.map(r => (
+                                                    <button
+                                                        key={r.id_recurso}
+                                                        type="button"
+                                                        onMouseDown={() => elegirRecurso(r)}
+                                                        className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                                                    >
+                                                        <div className="text-sm font-medium text-gray-800">{r.nombre}</div>
+                                                        {r.descripcion && <div className="text-[11px] text-gray-400 line-clamp-1">{r.descripcion}</div>}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 mt-1">Solo el nombre genérico, sin marcas ni modelos.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Descripción y Especificaciones <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={form.descripcion}
+                                        onChange={e => set('descripcion', e.target.value)}
+                                        placeholder="Marca sugerida, tamaño, color, especificaciones técnicas..."
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all bg-white"
+                                    />
+                                    <p className="text-[11px] text-gray-400 mt-1">Detalles de calidad o características preferidas.</p>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Formato / Cantidad / Precio */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Formato</label>
-                                <select
-                                    value={form.formato_unidad}
-                                    onChange={e => set('formato_unidad', e.target.value)}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
-                                >
-                                    {FORMATOS_UNIDAD.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                                </select>
+                        {/* Bloque 2: Clasificación y Destino */}
+                        <div className="pt-2 border-t border-gray-100">
+                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                                2. Clasificación Institucional y Destino
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Cantidad <span className="text-red-500">*</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={form.cantidad}
-                                    onChange={e => set('cantidad', e.target.value)}
-                                    placeholder="0"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Precio unit. C/Iva <span className="text-red-500">*</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={form.precio_estimado}
-                                    onChange={e => set('precio_estimado', e.target.value)}
-                                    placeholder="$0"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Línea de Compra <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <select
+                                        value={form.id_grupo_recurso || ''}
+                                        onChange={e => setForm(f => ({ ...f, id_grupo_recurso: e.target.value ? Number(e.target.value) : 0 }))}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+                                    >
+                                        <option value="">-- Sin Línea Asignada --</option>
+                                        {lineas.map(l => (
+                                            <option key={l.id_grupo_recurso} value={l.id_grupo_recurso}>
+                                                {l.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-[11px] text-gray-400 line-clamp-1">Agrupa ítems afines para compras unificadas.</p>
+                                </div>
+
+                                <DestinoField value={form.destino} onChange={v => set('destino', v)} />
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Actividad del PME <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <PmeAutocomplete
+                                        token={token}
+                                        valueNombre={form.actividad_pme_nombre}
+                                        onSelect={(id, nombre) => setForm(f => ({ ...f, id_actividad_pme: id, actividad_pme_nombre: nombre }))}
+                                    />
+                                    <p className="mt-1 text-[11px] text-gray-400 line-clamp-1">Vincula el gasto a una acción de mejora educativa.</p>
+                                </div>
                             </div>
                         </div>
 
-                        {form.cantidad && form.precio_estimado && (
-                            <p className="text-xs text-gray-500">
-                                Total estimado: <span className="font-bold text-gray-800">{fmt(parseFloat(form.cantidad) * parseFloat(form.precio_estimado))}</span>
-                            </p>
-                        )}
-
-                        {/* Fecha */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Tipo de fecha</label>
-                                <select
-                                    value={form.tipo_fecha}
-                                    onChange={e => set('tipo_fecha', e.target.value)}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
-                                >
-                                    {TIPOS_FECHA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                </select>
+                        {/* Bloque 3: Cantidad, Costo y Fecha */}
+                        <div className="pt-2 border-t border-gray-100">
+                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                3. Cantidad, Precio y Planificación
                             </div>
-                            <div>
-                                {form.tipo_fecha === 'fecha_especifica' ? (
-                                    <>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha <span className="text-red-500">*</span></label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Formato / Unidad</label>
+                                    <select
+                                        value={form.formato_unidad}
+                                        onChange={e => set('formato_unidad', e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+                                    >
+                                        {FORMATOS_UNIDAD.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Cantidad <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={form.cantidad}
+                                        onChange={e => set('cantidad', e.target.value)}
+                                        placeholder="0"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Precio unitario c/IVA <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={form.precio_estimado}
+                                        onChange={e => set('precio_estimado', e.target.value)}
+                                        placeholder="$0"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Mes en que se necesita
+                                    </label>
+                                    {form.tipo_fecha === 'fecha_especifica' ? (
                                         <input
                                             type="date"
                                             value={form.fecha_especifica}
                                             onChange={e => set('fecha_especifica', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
                                         />
-                                    </>
-                                ) : (
-                                    <>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Mes de inicio</label>
+                                    ) : (
                                         <select
                                             value={form.mes}
                                             onChange={e => set('mes', e.target.value)}
@@ -785,160 +914,181 @@ export default function FormularioPedidoPage() {
                                         >
                                             {MESES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                                         </select>
-                                    </>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Motivo — obligatorio, destacado en rojo */}
-                        <div className="rounded-xl border border-red-200 bg-red-50/40 p-3">
-                            <label className="block text-xs font-bold text-red-600 mb-1">Motivo / justificación <span className="text-red-500">*</span> (obligatorio) / Actividad / Evento</label>
-                            <textarea
-                                rows={2}
-                                value={form.motivo}
-                                onChange={e => set('motivo', e.target.value)}
-                                placeholder="¿Para qué se necesita este recurso? Explica brevemente la justificación."
-                                className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 resize-none bg-white"
-                            />
+                        {/* Bloque 4: Justificación Obligatoria */}
+                        <div className="pt-2 border-t border-gray-100">
+                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                4. Justificación y Utilidad del Recurso
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Motivo / Justificación de la necesidad <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={form.motivo}
+                                    onChange={e => set('motivo', e.target.value)}
+                                    placeholder="Explica para qué actividad, clase, evento o labor se utilizará este insumo (ej: Material para salidas a terreno de ciencias)..."
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none bg-white placeholder:text-gray-400"
+                                />
+                            </div>
                         </div>
+                    </div>
 
-                        {/* Destino del recurso */}
-                        <DestinoField value={form.destino} onChange={v => set('destino', v)} />
-
-                        {/* Actividad del PME — opcional, con búsqueda */}
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Actividad del PME <span className="text-gray-400 font-normal">(opcional)</span></label>
-                            <PmeAutocomplete
-                                token={token}
-                                valueNombre={form.actividad_pme_nombre}
-                                onSelect={(id, nombre) => setForm(f => ({ ...f, id_actividad_pme: id, actividad_pme_nombre: nombre }))}
-                            />
+                    {/* Footer del Formulario con Resumen y Botón de Acción */}
+                    <div className="px-6 py-4 bg-gray-50/80 border-t border-gray-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-xs shadow-xs">
+                                <span className="text-gray-500">Total estimado de este ítem: </span>
+                                <span className="font-extrabold text-blue-700 text-sm">
+                                    {form.cantidad && form.precio_estimado
+                                        ? fmt(parseFloat(form.cantidad) * parseFloat(form.precio_estimado))
+                                        : '$0'}
+                                </span>
+                            </div>
                         </div>
 
                         <button
                             onClick={agregar}
                             disabled={enviando}
-                            className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow"
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {enviando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                            Agregar recurso
+                            Agregar recurso a la solicitud
                         </button>
                     </div>
+                </div>
 
-                    {/* Listado */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
-                            <div className="text-sm font-bold text-gray-800">
-                                Recursos solicitados
-                                <span className="ml-2 text-xs font-medium text-gray-400">({enviados.length})</span>
-                            </div>
-                            {/* Selector de columnas */}
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowColMenu(s => !s)}
-                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <SlidersHorizontal size={14} /> Columnas
-                                </button>
-                                {showColMenu && (
-                                    <>
-                                        <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
-                                        <div className="absolute right-0 mt-1 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
-                                            {COLUMNS.map(c => (
-                                                <label key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={cols[c.key]}
-                                                        onChange={() => toggleCol(c.key)}
-                                                        className="accent-blue-600"
-                                                    />
-                                                    {c.label}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                {/* Debajo: Listado a ancho completo */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+                        <div className="text-sm font-bold text-gray-800">
+                            Recursos solicitados
+                            <span className="ml-2 text-xs font-medium text-gray-400">({enviados.length})</span>
                         </div>
+                        {/* Selector de columnas */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowColMenu(s => !s)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <SlidersHorizontal size={14} /> Columnas
+                            </button>
+                            {showColMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
+                                    <div className="absolute right-0 mt-1 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
+                                        {COLUMNS.map(c => (
+                                            <label key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={cols[c.key]}
+                                                    onChange={() => toggleCol(c.key)}
+                                                    className="accent-blue-600"
+                                                />
+                                                {c.label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
 
-                        {enviados.length > 0 && (
-                            <div className="px-5 py-2.5 bg-green-50 border-b border-green-100 flex items-center gap-2 text-green-700 text-xs font-medium">
-                                <CheckCircle size={14} />
-                                {enviados.length} {enviados.length === 1 ? 'recurso guardado' : 'recursos guardados'} · Total: <span className="font-bold">{fmt(totalEnviado)}</span>
-                            </div>
-                        )}
+                    {enviados.length > 0 && (
+                        <div className="px-5 py-2.5 bg-green-50 border-b border-green-100 flex items-center gap-2 text-green-700 text-xs font-medium">
+                            <CheckCircle size={14} />
+                            {enviados.length} {enviados.length === 1 ? 'recurso guardado' : 'recursos guardados'} · Total: <span className="font-bold">{fmt(totalEnviado)}</span>
+                        </div>
+                    )}
 
-                        {enviados.length === 0 ? (
-                            <div className="py-14 text-center text-sm text-gray-400 px-6">
-                                <Package size={32} className="mx-auto mb-3 text-gray-200" />
-                                Aún no has agregado recursos. Completa el formulario y presiona «Agregar recurso».
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="bg-gray-50 text-gray-500 font-semibold">
-                                            <th className="px-4 py-3 text-left">Recurso</th>
-                                            {cols.descripcion && <th className="px-3 py-3 text-left">Descripción</th>}
-                                            {cols.cantidad && <th className="px-3 py-3 text-right">Cant.</th>}
-                                            {cols.precio && <th className="px-3 py-3 text-right">Precio</th>}
-                                            {cols.total && <th className="px-3 py-3 text-right">Total</th>}
-                                            {cols.motivo && <th className="px-3 py-3 text-left">Motivo</th>}
-                                            {cols.destino && <th className="px-3 py-3 text-left">Destino</th>}
-                                            {cols.actividad_pme && <th className="px-3 py-3 text-left">Actividad PME</th>}
-                                            <th className="px-3 py-3 text-center">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {enviados.map(p => (
-                                            <tr key={p.id_pedido} className="hover:bg-gray-50/60 transition-colors">
-                                                <td className="px-4 py-3 font-semibold text-gray-800">{p.nombre_recurso}</td>
-                                                {cols.descripcion && <td className="px-3 py-3 text-gray-500 max-w-[160px]"><span className="line-clamp-2">{p.descripcion || '—'}</span></td>}
-                                                {cols.cantidad && <td className="px-3 py-3 text-right text-gray-700 whitespace-nowrap">{p.cantidad} {p.formato_unidad}</td>}
-                                                {cols.precio && <td className="px-3 py-3 text-right text-gray-700">{fmt(p.precio_estimado)}</td>}
-                                                {cols.total && <td className="px-3 py-3 text-right font-semibold text-gray-900">{fmt(p.total)}</td>}
-                                                {cols.motivo && <td className="px-3 py-3 text-gray-600 max-w-[180px]"><span className="line-clamp-2">{p.motivo}</span></td>}
-                                                {cols.destino && <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{destinoLabel(p.destino)}</td>}
-                                                {cols.actividad_pme && <td className="px-3 py-3 text-gray-600 max-w-[160px]"><span className="line-clamp-2">{p.actividad_pme_nombre || '—'}</span></td>}
-                                                <td className="px-3 py-3">
-                                                    {(!p.estado_jefe || p.estado_jefe === 'pendiente') ? (
-                                                        <div className="flex items-center gap-1 justify-center">
-                                                            <button
-                                                                onClick={() => abrirEditar(p)}
-                                                                title="Editar recurso"
-                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                                            >
-                                                                <Pencil size={13} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => eliminarPedido(p)}
-                                                                disabled={eliminando === p.id_pedido}
-                                                                title="Eliminar recurso"
-                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                                            >
-                                                                {eliminando === p.id_pedido ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                                                            </button>
-                                                        </div>
+                    {enviados.length === 0 ? (
+                        <div className="py-14 text-center text-sm text-gray-400 px-6">
+                            <Package size={32} className="mx-auto mb-3 text-gray-200" />
+                            Aún no has agregado recursos. Completa el formulario y presiona «Agregar recurso».
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="bg-gray-50 text-gray-500 font-semibold">
+                                        <th className="px-4 py-3 text-left">Recurso</th>
+                                        {cols.linea && <th className="px-3 py-3 text-left">Línea</th>}
+                                        {cols.descripcion && <th className="px-3 py-3 text-left">Descripción</th>}
+                                        {cols.cantidad && <th className="px-3 py-3 text-right">Cant.</th>}
+                                        {cols.precio && <th className="px-3 py-3 text-right">Precio</th>}
+                                        {cols.total && <th className="px-3 py-3 text-right">Total</th>}
+                                        {cols.motivo && <th className="px-3 py-3 text-left">Motivo</th>}
+                                        {cols.destino && <th className="px-3 py-3 text-left">Destino</th>}
+                                        {cols.actividad_pme && <th className="px-3 py-3 text-left">Actividad PME</th>}
+                                        <th className="px-3 py-3 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {enviados.map(p => (
+                                        <tr key={p.id_pedido} className="hover:bg-gray-50/60 transition-colors">
+                                            <td className="px-4 py-3 font-semibold text-gray-800">{p.nombre_recurso}</td>
+                                            {cols.linea && (
+                                                <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                                                    {p.grupo_nombre ? (
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100/60 text-indigo-700 font-semibold text-[11px]">
+                                                            {p.grupo_nombre}
+                                                        </span>
                                                     ) : (
-                                                        <div className="flex justify-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${p.estado_jefe === 'aceptado' ? 'bg-green-100 text-green-700'
-                                                                : p.estado_jefe === 'rechazado' ? 'bg-red-100 text-red-700'
-                                                                    : 'bg-blue-100 text-blue-700'
-                                                                }`}>
-                                                                {p.estado_jefe === 'aceptado' ? 'Aceptado'
-                                                                    : p.estado_jefe === 'rechazado' ? 'Rechazado'
-                                                                        : 'Importado'}
-                                                            </span>
-                                                        </div>
+                                                        <span className="text-gray-400 italic text-[11px]">Sin línea</span>
                                                     )}
                                                 </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+                                            )}
+                                            {cols.descripcion && <td className="px-3 py-3 text-gray-500 max-w-[160px]"><span className="line-clamp-2">{p.descripcion || '—'}</span></td>}
+                                            {cols.cantidad && <td className="px-3 py-3 text-right text-gray-700 whitespace-nowrap">{p.cantidad} {p.formato_unidad}</td>}
+                                            {cols.precio && <td className="px-3 py-3 text-right text-gray-700">{fmt(p.precio_estimado)}</td>}
+                                            {cols.total && <td className="px-3 py-3 text-right font-semibold text-gray-900">{fmt(p.total)}</td>}
+                                            {cols.motivo && <td className="px-3 py-3 text-gray-600 max-w-[180px]"><span className="line-clamp-2">{p.motivo}</span></td>}
+                                            {cols.destino && <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{destinoLabel(p.destino)}</td>}
+                                            {cols.actividad_pme && <td className="px-3 py-3 text-gray-600 max-w-[160px]"><span className="line-clamp-2">{p.actividad_pme_nombre || '—'}</span></td>}
+                                            <td className="px-3 py-3">
+                                                {(!p.estado_jefe || p.estado_jefe === 'pendiente') ? (
+                                                    <div className="flex items-center gap-1 justify-center">
+                                                        <button
+                                                            onClick={() => abrirEditar(p)}
+                                                            title="Editar recurso"
+                                                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                        >
+                                                            <Pencil size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => eliminarPedido(p)}
+                                                            disabled={eliminando === p.id_pedido}
+                                                            title="Eliminar recurso"
+                                                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {eliminando === p.id_pedido ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex justify-center">
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${p.estado_jefe === 'aceptado' ? 'bg-green-100 text-green-700'
+                                                            : p.estado_jefe === 'rechazado' ? 'bg-red-100 text-red-700'
+                                                                : 'bg-blue-100 text-blue-700'
+                                                            }`}>
+                                                            {p.estado_jefe === 'aceptado' ? 'Aceptado'
+                                                                : p.estado_jefe === 'rechazado' ? 'Rechazado'
+                                                                    : 'Importado'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 <p className="text-center text-xs text-gray-400 pb-4">
@@ -982,6 +1132,23 @@ export default function FormularioPedidoPage() {
                                     onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
                                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Línea <span className="text-gray-400 font-normal">(Clasificación / Grupo)</span>
+                                </label>
+                                <select
+                                    value={editForm.id_grupo_recurso || ''}
+                                    onChange={e => setEditForm(f => ({ ...f, id_grupo_recurso: e.target.value ? Number(e.target.value) : 0 }))}
+                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                >
+                                    <option value="">-- Sin Línea Asignada (Opcional) --</option>
+                                    {lineas.map(l => (
+                                        <option key={l.id_grupo_recurso} value={l.id_grupo_recurso}>
+                                            {l.nombre}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
@@ -1092,62 +1259,62 @@ export default function FormularioPedidoPage() {
                         ) : (
                             <div className="mt-4 overflow-y-auto space-y-3 pr-1 flex-1">
                                 {info.tutoriales.map((tut, i) => {
-                                const isVideo = tut.url.includes('youtube.com') || tut.url.includes('youtu.be') || tut.url.includes('loom.com') || tut.url.includes('vimeo.com');
+                                    const isVideo = tut.url.includes('youtube.com') || tut.url.includes('youtu.be') || tut.url.includes('loom.com') || tut.url.includes('vimeo.com');
 
-                                return (
-                                    <div key={tut.id || i} className="border border-gray-200 hover:border-blue-300 rounded-2xl p-4 bg-white hover:bg-blue-50/20 transition-all shadow-xs flex flex-col justify-between gap-3">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h4 className="text-sm font-bold text-gray-900">{tut.titulo}</h4>
-                                                    {isVideo ? (
-                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
-                                                            Video
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                                            Enlace
-                                                        </span>
+                                    return (
+                                        <div key={tut.id || i} className="border border-gray-200 hover:border-blue-300 rounded-2xl p-4 bg-white hover:bg-blue-50/20 transition-all shadow-xs flex flex-col justify-between gap-3">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <h4 className="text-sm font-bold text-gray-900">{tut.titulo}</h4>
+                                                        {isVideo ? (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                                                Video
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                                                Enlace
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {tut.descripcion && (
+                                                        <p className="text-xs text-gray-600 leading-relaxed">{tut.descripcion}</p>
                                                     )}
                                                 </div>
-                                                {tut.descripcion && (
-                                                    <p className="text-xs text-gray-600 leading-relaxed">{tut.descripcion}</p>
-                                                )}
                                             </div>
-                                        </div>
 
-                                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
-                                            <span className="text-[11px] text-gray-400 font-mono truncate max-w-[260px]" title={tut.url}>
-                                                {tut.url}
-                                            </span>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(tut.url);
-                                                        setCopiadoTut(tut.url);
-                                                        setTimeout(() => setCopiadoTut(null), 2000);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 hover:border-gray-300 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                                                >
-                                                    {copiadoTut === tut.url ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
-                                                    {copiadoTut === tut.url ? 'Copiado' : 'Copiar'}
-                                                </button>
-                                                <a
-                                                    href={tut.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
-                                                >
-                                                    <ExternalLink size={13} /> Ver tutorial
-                                                </a>
+                                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                                                <span className="text-[11px] text-gray-400 font-mono truncate max-w-[260px]" title={tut.url}>
+                                                    {tut.url}
+                                                </span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(tut.url);
+                                                            setCopiadoTut(tut.url);
+                                                            setTimeout(() => setCopiadoTut(null), 2000);
+                                                        }}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 hover:border-gray-300 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        {copiadoTut === tut.url ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
+                                                        {copiadoTut === tut.url ? 'Copiado' : 'Copiar'}
+                                                    </button>
+                                                    <a
+                                                        href={tut.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
+                                                    >
+                                                        <ExternalLink size={13} /> Ver tutorial
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
                             <button
@@ -1160,6 +1327,9 @@ export default function FormularioPedidoPage() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Guía de Ayuda para el Convocado */}
+            <GuiaConvocadoModal isOpen={modalGuia} onClose={() => setModalGuia(false)} />
         </div>
     );
 }

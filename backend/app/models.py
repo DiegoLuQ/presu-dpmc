@@ -212,6 +212,19 @@ class GrupoRecurso(Base):
     descripcion = Column(Text, nullable=True)
 
     recursos = relationship("Recurso", back_populates="grupo")
+    motivos = relationship("MotivoRecurso", back_populates="grupo")
+
+
+class MotivoRecurso(Base):
+    __tablename__ = "pre_motivo_recurso"
+    id_motivo = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(255), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    id_grupo_recurso = Column(Integer, ForeignKey("pre_grupo_recurso.id_grupo_recurso"), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    orden = Column(Integer, default=0)
+
+    grupo = relationship("GrupoRecurso", back_populates="motivos")
 
 
 class Recurso(Base):
@@ -430,6 +443,8 @@ class PresupuestoDetalle(Base):
     # Categoría directa: usada cuando el detalle no está enlazado a un recurso
     # del catálogo (p.ej. importado de convocatoria, donde la IA sugirió la categoría).
     id_cat_recurso = Column(Integer, ForeignKey("pre_categoria_recurso.id_cat_recurso"), nullable=True)
+    # Grupo directo: asignado directamente en el detalle (útil para ítems nuevos o personalizados)
+    id_grupo_recurso = Column(Integer, ForeignKey("pre_grupo_recurso.id_grupo_recurso"), nullable=True)
 
     solicitud = relationship("SolicitudPresupuesto", back_populates="detalles")
     recurso = relationship("Recurso", back_populates="presupuesto_detalles")
@@ -437,6 +452,7 @@ class PresupuestoDetalle(Base):
     cuenta = relationship("CuentaMatrizReglas")
     subvencion = relationship("Subvencion")
     cargo_detalle = relationship("Cargo", foreign_keys=[id_cargo])
+    grupo_directo = relationship("GrupoRecurso", foreign_keys=[id_grupo_recurso])
 
     @property
     def id_subarea(self):
@@ -586,6 +602,7 @@ class PrePedidoExterno(Base):
     comentario_jefe  = Column(Text, nullable=True)
     id_cat_recurso   = Column(Integer, ForeignKey("pre_categoria_recurso.id_cat_recurso"), nullable=True)
     id_recurso       = Column(Integer, ForeignKey("pre_recurso.id_recurso"), nullable=True)
+    id_grupo_recurso = Column(Integer, ForeignKey("pre_grupo_recurso.id_grupo_recurso"), nullable=True)
     categoria_nombre_ia = Column(String(255), nullable=True)
     clasificado_ia   = Column(Boolean, default=False)
     creado_en        = Column(DateTime, default=datetime.utcnow)
@@ -593,6 +610,7 @@ class PrePedidoExterno(Base):
     convocatoria = relationship("PreConvocatoria", back_populates="pedidos")
     categoria    = relationship("CategoriaRecurso", foreign_keys=[id_cat_recurso])
     recurso      = relationship("Recurso", foreign_keys=[id_recurso])
+    grupo        = relationship("GrupoRecurso", foreign_keys=[id_grupo_recurso])
 
 
 # --- MÓDULO IA (ai_) ---

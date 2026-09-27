@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { MODULOS, permisoSeccion, seccionKey } from '@/lib/permissions/registry';
@@ -65,7 +66,7 @@ const MENU_ITEMS: MenuItem[] = MODULOS.map((mod) => {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, tienePermiso, puedeSeccion, sidebarCollapsed, setSidebarCollapsed, colegios, colegioActivo, setColegioActivo } = useAuth();
+  const { user, logout, tienePermiso, puedeSeccion, sidebarCollapsed, setSidebarCollapsed, colegios, colegioActivo, setColegioActivo, abrirModalPerfil } = useAuth();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   // Un permiso `modulo.accion` está activo si el rol lo tiene (o su wildcard `modulo.*`).
@@ -246,6 +247,15 @@ export default function Sidebar() {
             </select>
           </div>
         )}
+
+        <button
+          onClick={abrirModalPerfil}
+          title={sidebarCollapsed ? 'Mi Perfil & Cambiar Contraseña' : undefined}
+          className={`flex items-center justify-center gap-2 mb-2 ${sidebarCollapsed ? 'w-full p-2.5' : 'w-full px-4 py-2.5'} bg-white border border-gray-200 text-gray-700 hover:text-primary hover:border-primary/40 hover:bg-primary/5 rounded-xl transition-all shadow-2xs text-xs font-bold cursor-pointer group`}
+        >
+          <KeyRound size={16} className="text-gray-400 group-hover:text-primary transition-colors" />
+          {!sidebarCollapsed && <span>Cambiar Contraseña</span>}
+        </button>
 
         <button
           onClick={logout}

@@ -677,9 +677,12 @@ export default function AgregarRecursosPage() {
     const solicitudId = searchParams.get('id');
     // Clave de borrador en localStorage: recursos aún no confirmados (sin check).
     const borradorKey = solicitudId ? `borrador_recursos_${solicitudId}` : null;
+    // Clave de persistencia para el Panel de Insumo PPTO en localStorage ("cada vez que pase algo").
+    const panelStorageKey = solicitudId ? `borrador_panel_insumo_${solicitudId}` : null;
     // Marca que la carga inicial (con restauración de borrador) ya ocurrió,
     // para no sobrescribir el localStorage antes de hidratar.
     const hidratadoRef = useRef(false);
+    const panelHidratadoRef = useRef(false);
 
     const [accesoPlantillaExcel, setAccesoPlantillaExcel] = useState<'oculto' | 'solo_admin' | 'todos'>('todos');
     const puedeVerPlantillaExcel = Boolean(accesoPlantillaExcel === 'todos' || (accesoPlantillaExcel === 'solo_admin' && esAdmin));
@@ -718,6 +721,10 @@ export default function AgregarRecursosPage() {
     const [todasActividades, setTodasActividades] = useState<ActividadBuscar[]>([]);
     const [searchPMEModal, setSearchPMEModal] = useState('');
     const [filtroDimensionPME, setFiltroDimensionPME] = useState('');
+    const [busquedaActividadPME, setBusquedaActividadPME] = useState('');
+    const [selectActividadPMEOpen, setSelectActividadPMEOpen] = useState(false);
+    const selectActividadPMERef = useRef<HTMLDivElement>(null);
+    const [borradorRestaurado, setBorradorRestaurado] = useState(false);
     const [filtroColegioPME, setFiltroColegioPME] = useState('');
     const [showPMEResults, setShowPMEResults] = useState(false);
     const [selectedHistorial, setSelectedHistorial] = useState<number[]>([]);
@@ -752,8 +759,17 @@ export default function AgregarRecursosPage() {
     const [showClasificacionInfo, setShowClasificacionInfo] = useState(false);
     const [detalleInsumoModal, setDetalleInsumoModal] = useState<{ item: DetallePresupuestoForm; index: number } | null>(null);
     const [catalogoDetalleModal, setCatalogoDetalleModal] = useState<RecursoOption | null>(null);
+    const [motivosOficiales, setMotivosOficiales] = useState<{
+        id_motivo: number;
+        nombre: string;
+        descripcion?: string | null;
+        id_grupo_recurso?: number | null;
+        grupo_nombre?: string | null;
+        activo: boolean;
+        orden: number;
+    }[]>([]);
 
-    // Lista de motivos ya utilizados en esta solicitud (con conteo) para autocompletar y evitar inconsistencias
+    // Lista de motivos sugeridos (oficiales del sistema + historial y usados en esta solicitud)
     const motivosSugeridos = useMemo(() => {
         const counts = new Map<string, number>();
         recursosActual.forEach(r => {
@@ -764,10 +780,14 @@ export default function AgregarRecursosPage() {
             const m = (h.motivo || '').trim();
             if (m && !counts.has(m)) counts.set(m, 1);
         });
+        motivosOficiales.forEach(mo => {
+            const m = (mo.nombre || '').trim();
+            if (m && !counts.has(m)) counts.set(m, 0);
+        });
         return Array.from(counts.entries())
             .map(([motivo, count]) => ({ motivo, count }))
             .sort((a, b) => b.count - a.count);
-    }, [recursosActual, historialRecursos]);
+    }, [recursosActual, historialRecursos, motivosOficiales]);
 
     // Lista unificada de motivos disponibles ordenada alfabéticamente (A-Z) para selectores en tabla
     const motivosOrdenadosAlfabetico = useMemo(() => {
@@ -780,8 +800,27 @@ export default function AgregarRecursosPage() {
             const m = (h.motivo || '').trim();
             if (m) setMotivos.add(m);
         });
+        motivosOficiales.forEach(mo => {
+            const m = (mo.nombre || '').trim();
+            if (m) setMotivos.add(m);
+        });
         return Array.from(setMotivos).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-    }, [recursosActual, historialRecursos]);
+    }, [recursosActual, historialRecursos, motivosOficiales]);
+
+    // Motivos creados o utilizados previamente por el usuario actual (excluyendo los registrados oficiales)
+    const motivosUsuario = useMemo(() => {
+        const setOficiales = new Set(motivosOficiales.map(mo => mo.nombre.trim().toLowerCase()));
+        const setMotivos = new Set<string>();
+        recursosActual.forEach(r => {
+            const m = (r.motivo || '').trim();
+            if (m && !setOficiales.has(m.toLowerCase())) setMotivos.add(m);
+        });
+        historialRecursos.forEach(h => {
+            const m = (h.motivo || '').trim();
+            if (m && !setOficiales.has(m.toLowerCase())) setMotivos.add(m);
+        });
+        return Array.from(setMotivos).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    }, [recursosActual, historialRecursos, motivosOficiales]);
 
     // Información del PME vigente utilizado (año y colegio de la solicitud)
     const pmeInfo = useMemo(() => {
@@ -945,30 +984,53 @@ export default function AgregarRecursosPage() {
         destino_gasto: '',
         id_subvencion: null as number | null,
         dimension_pme: null as string | null,
-        id_subarea: null as number | null
+        id_subarea: null as number | null,
+        id_grupo_recurso: null as number | null
     });
 
-    // Detector de similitud para advertir errores de tipeo (ej: Kermes vs Kermez)
-    const motivoSimilar = useMemo(() => {
-        const actual = (formularioRecurso.motivo || '').trim().toLowerCase();
-        if (!actual || actual.length < 3) return null;
-        return motivosSugeridos.find(({ motivo }) => {
-            const mLower = motivo.toLowerCase();
-            if (mLower === actual) return false;
-            // Coincidencia parcial o similar
-            return mLower.includes(actual) || actual.includes(mLower);
-        }) || null;
-    }, [formularioRecurso.motivo, motivosSugeridos]);
+    // Determina si el formulario del panel contiene datos de borrador ingresados por el usuario
+    const tieneContenidoBorrador = (form: typeof formularioRecurso) => {
+        if (!form) return false;
+        return Boolean(
+            (form.nombre_producto && form.nombre_producto.trim() !== '') ||
+            (form.motivo && form.motivo.trim() !== '') ||
+            (form.descripcion && form.descripcion.trim() !== '') ||
+            (Number(form.valor_unitario_iva) > 0) ||
+            (form.id_recurso !== null && form.id_recurso !== undefined) ||
+            (form.id_actividad !== null && form.id_actividad !== undefined) ||
+            (form.destino_gasto && form.destino_gasto.trim() !== '') ||
+            (form.id_subvencion !== null && form.id_subvencion !== undefined) ||
+            (form.id_subarea !== null && form.id_subarea !== undefined) ||
+            (form.id_grupo_recurso !== null && form.id_grupo_recurso !== undefined)
+        );
+    };
 
-    // Estados y refs para Autocompletado de Nombre de Insumo y Motivo
+    // Aplica un motivo predeterminado y auto-asigna el grupo/línea sugerido si existe
+    const aplicarMotivo = (motivoTexto: string) => {
+        const oficial = motivosOficiales.find(
+            mo => mo.nombre.trim().toLowerCase() === motivoTexto.trim().toLowerCase()
+        );
+        setFormularioRecurso(prev => {
+            const next = { ...prev, motivo: motivoTexto };
+            if (oficial?.id_grupo_recurso) {
+                next.id_grupo_recurso = oficial.id_grupo_recurso;
+                setGrupoSeleccionado(oficial.id_grupo_recurso);
+            }
+            return next;
+        });
+    };
+
+    // Cambia el grupo/línea explícitamente seleccionado
+    const cambiarGrupo = (idGrupo: number | null) => {
+        setFormularioRecurso(prev => ({ ...prev, id_grupo_recurso: idGrupo }));
+        setGrupoSeleccionado(idGrupo);
+    };
+
+    // Estados y refs para Autocompletado de Nombre de Insumo
     const [nombreInsumoFocused, setNombreInsumoFocused] = useState(false);
     const [nombreInsumoFocused2, setNombreInsumoFocused2] = useState(false);
-    const [motivoFocused, setMotivoFocused] = useState(false);
-    const [motivoFocused2, setMotivoFocused2] = useState(false);
     const insumoDropdownRef = useRef<HTMLDivElement>(null);
     const insumoDropdownRef2 = useRef<HTMLDivElement>(null);
-    const motivoDropdownRef = useRef<HTMLDivElement>(null);
-    const motivoDropdownRef2 = useRef<HTMLDivElement>(null);
 
     // Cerrar dropdowns de autocompletado al hacer clic fuera
     useEffect(() => {
@@ -979,11 +1041,8 @@ export default function AgregarRecursosPage() {
             if (insumoDropdownRef2.current && !insumoDropdownRef2.current.contains(event.target as Node)) {
                 setNombreInsumoFocused2(false);
             }
-            if (motivoDropdownRef.current && !motivoDropdownRef.current.contains(event.target as Node)) {
-                setMotivoFocused(false);
-            }
-            if (motivoDropdownRef2.current && !motivoDropdownRef2.current.contains(event.target as Node)) {
-                setMotivoFocused2(false);
+            if (selectActividadPMERef.current && !selectActividadPMERef.current.contains(event.target as Node)) {
+                setSelectActividadPMEOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -1016,12 +1075,24 @@ export default function AgregarRecursosPage() {
         return resultados.slice(0, 5);
     }, [formularioRecurso.nombre_producto, recursosActual, historialRecursos]);
 
-    // Filtrado de motivos en tiempo real según lo escrito
-    const motivosFiltrados = useMemo(() => {
-        const q = (formularioRecurso.motivo || '').trim().toLowerCase();
-        if (!q) return motivosSugeridos.slice(0, 10);
-        return motivosSugeridos.filter(m => m.motivo.toLowerCase().includes(q));
-    }, [formularioRecurso.motivo, motivosSugeridos]);
+    // Actividades PME para el selector de la Fase 3:
+    // - Si no se elige ninguna dimensión, aparecen todas las actividades del PME actual del colegio.
+    // - Si se elige una dimensión, se filtra por esa dimensión.
+    // - Permite búsqueda y filtrado rápido en tiempo real por palabra o letra.
+    const actividadesPMEParaSelect = useMemo(() => {
+        let list = todasActividades;
+        if (filtroDimensionPME) {
+            list = list.filter(a => (a.dimension || '').toUpperCase() === filtroDimensionPME.toUpperCase());
+        }
+        const q = busquedaActividadPME.trim().toLowerCase();
+        if (q) {
+            list = list.filter(a =>
+                a.nombre.toLowerCase().includes(q) ||
+                (a.dimension && a.dimension.toLowerCase().includes(q))
+            );
+        }
+        return list;
+    }, [todasActividades, filtroDimensionPME, busquedaActividadPME]);
 
     const [showSugerirModal, setShowSugerirModal] = useState(false);
     const [sugerirForm, setSugerirForm] = useState({
@@ -1412,6 +1483,52 @@ export default function AgregarRecursosPage() {
         }
     }, [recursosActual, borradorKey]);
 
+    // Persistir el estado del Panel de Insumo PPTO en localStorage ("cada vez que pase algo")
+    useEffect(() => {
+        if (!panelHidratadoRef.current || !panelStorageKey) return;
+        try {
+            // Guardar automáticamente cada vez que haya contenido en el formulario
+            if (tieneContenidoBorrador(formularioRecurso)) {
+                const payload = {
+                    showRecursoModal: Boolean(showRecursoModal),
+                    formularioRecurso,
+                    faseActual,
+                    layoutModo,
+                    isEditando,
+                    editIndex,
+                    esNuevoProducto,
+                    grupoSeleccionado,
+                    categoriaSeleccionadaNuevo,
+                    catNuevoSearch,
+                    filtroDimensionPME,
+                    formatoEsOtros,
+                    busquedaActividadPME,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(panelStorageKey, JSON.stringify(payload));
+            }
+            // ¡CRÍTICO!: Cuando showRecursoModal pasa a false (el usuario cerró el modal o cambió de pestaña),
+            // NUNCA se borra el borrador de localStorage. Queda preservado intacto hasta que se guarde o descarte.
+        } catch (e) {
+            console.error('Error guardando panel de insumo en localStorage:', e);
+        }
+    }, [
+        showRecursoModal,
+        formularioRecurso,
+        faseActual,
+        layoutModo,
+        isEditando,
+        editIndex,
+        esNuevoProducto,
+        grupoSeleccionado,
+        categoriaSeleccionadaNuevo,
+        catNuevoSearch,
+        filtroDimensionPME,
+        formatoEsOtros,
+        busquedaActividadPME,
+        panelStorageKey
+    ]);
+
     const cargarDatos = async () => {
         try {
             setLoading(true);
@@ -1425,7 +1542,8 @@ export default function AgregarRecursosPage() {
                 configPlantillaRes,
                 configAccesoRes,
                 configBotonIaRes,
-                configBotonPrepRes
+                configBotonPrepRes,
+                motivosRes
             ] = await Promise.all([
                 api.get(`/presupuesto/solicitudes/${solicitudId}`),
                 api.get('/presupuesto/categoria-recurso'),
@@ -1436,7 +1554,8 @@ export default function AgregarRecursosPage() {
                 api.get('/catalogos/config/acceso_boton_plantilla_excel').catch(() => ({ data: { valor: 'todos' } })),
                 api.get('/catalogos/config/acceso_importar_excel').catch(() => ({ data: { valor: 'solo_admin' } })),
                 api.get('/catalogos/config/acceso_boton_asesoria_pme_ia').catch(() => ({ data: { valor: 'oculto' } })),
-                api.get('/catalogos/config/acceso_boton_preparar_ppto').catch(() => ({ data: { valor: 'oculto' } }))
+                api.get('/catalogos/config/acceso_boton_preparar_ppto').catch(() => ({ data: { valor: 'oculto' } })),
+                api.get('/presupuesto/motivos-recurso').catch(() => ({ data: [] }))
             ]);
 
             if (['oculto', 'solo_admin', 'todos'].includes(configPlantillaRes.data?.valor)) {
@@ -1468,6 +1587,7 @@ export default function AgregarRecursosPage() {
             setCategorias(catRes.data);
             setSubvencionesActivas(subvRes.data || []);
             setGrupos(gruposRes.data || []);
+            setMotivosOficiales(motivosRes.data || []);
             setTodasSubareas(subareasRes.data || []);
 
             // Cargar recursos iniciales para el buscador
@@ -1500,6 +1620,37 @@ export default function AgregarRecursosPage() {
             setRecursosActual([...detalles, ...borradores]);
             setGuardados(detalles.map((_: any, i: number) => i));
             hidratadoRef.current = true;
+
+            // Restaurar borrador del Panel de Insumo PPTO si existía antes de recargar
+            if (panelStorageKey) {
+                try {
+                    const rawPanel = localStorage.getItem(panelStorageKey);
+                    if (rawPanel) {
+                        const data = JSON.parse(rawPanel);
+                        if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
+                            if (data.formularioRecurso) setFormularioRecurso(data.formularioRecurso);
+                            if (typeof data.faseActual === 'number') setFaseActual(data.faseActual);
+                            if (data.layoutModo) setLayoutModo(data.layoutModo);
+                            if (typeof data.isEditando === 'boolean') setIsEditando(data.isEditando);
+                            if (data.editIndex !== undefined) setEditIndex(data.editIndex);
+                            if (typeof data.esNuevoProducto === 'boolean') setEsNuevoProducto(data.esNuevoProducto);
+                            if (data.grupoSeleccionado !== undefined) setGrupoSeleccionado(data.grupoSeleccionado);
+                            if (data.categoriaSeleccionadaNuevo !== undefined) setCategoriaSeleccionadaNuevo(data.categoriaSeleccionadaNuevo);
+                            if (data.catNuevoSearch !== undefined) setCatNuevoSearch(data.catNuevoSearch);
+                            if (data.filtroDimensionPME !== undefined) setFiltroDimensionPME(data.filtroDimensionPME);
+                            if (typeof data.formatoEsOtros === 'boolean') setFormatoEsOtros(data.formatoEsOtros);
+                            if (data.busquedaActividadPME !== undefined) setBusquedaActividadPME(data.busquedaActividadPME);
+                            if (data.showRecursoModal) {
+                                setShowRecursoModal(true);
+                            }
+                            setBorradorRestaurado(true);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error restaurando panel de insumo de localStorage:', e);
+                }
+            }
+            panelHidratadoRef.current = true;
 
             await cargarHistorial();
         } catch (error) {
@@ -1931,7 +2082,8 @@ export default function AgregarRecursosPage() {
             actividad_seleccionada: null,
             destino_gasto: '',
             id_subvencion: null,
-            id_subarea: null  // por defecto "Otros"
+            id_subarea: null, // por defecto "Otros"
+            id_grupo_recurso: recurso.id_grupo_recurso || null
         }));
         // Recurso del catálogo: flujo normal de 3 fases.
         setEsNuevoProducto(false);
@@ -1959,7 +2111,16 @@ export default function AgregarRecursosPage() {
     };
 
 
-    const abrirNuevoManual = () => {
+    // Limpia el formulario y borra el borrador del panel en localStorage
+    const limpiarFormularioRecurso = () => {
+        if (panelStorageKey) {
+            try {
+                localStorage.removeItem(panelStorageKey);
+            } catch (e) {
+                console.error('Error al limpiar borrador:', e);
+            }
+        }
+        setBorradorRestaurado(false);
         setFormularioRecurso({
             nombre_producto: '',
             descripcion: '',
@@ -1981,18 +2142,52 @@ export default function AgregarRecursosPage() {
             destino_gasto: '',
             id_subvencion: null,
             dimension_pme: null,
-            id_subarea: null  // por defecto "Otros"
+            id_subarea: null,
+            id_grupo_recurso: null
         });
         setSearchPMEModal('');
         setSubcatResuelta(null);
         setIsEditando(false);
         setEditIndex(null);
         setFormatoEsOtros(false);
-        // Producto nuevo: arranca en la fase 0 (Grupo + Categoría).
         setEsNuevoProducto(true);
         resetNuevoProducto();
         setLayoutModo('fases');
         setFaseActual(0);
+        setCamposFaltantes(null);
+    };
+
+    const abrirNuevoManual = () => {
+        // Si hay un borrador guardado previamente en localStorage, restaurarlo para no perder datos
+        if (panelStorageKey) {
+            try {
+                const rawPanel = localStorage.getItem(panelStorageKey);
+                if (rawPanel) {
+                    const data = JSON.parse(rawPanel);
+                    if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
+                        setFormularioRecurso(data.formularioRecurso);
+                        if (typeof data.faseActual === 'number') setFaseActual(data.faseActual);
+                        if (data.layoutModo) setLayoutModo(data.layoutModo);
+                        if (typeof data.isEditando === 'boolean') setIsEditando(data.isEditando);
+                        if (data.editIndex !== undefined) setEditIndex(data.editIndex);
+                        if (typeof data.esNuevoProducto === 'boolean') setEsNuevoProducto(data.esNuevoProducto);
+                        if (data.grupoSeleccionado !== undefined) setGrupoSeleccionado(data.grupoSeleccionado);
+                        if (data.categoriaSeleccionadaNuevo !== undefined) setCategoriaSeleccionadaNuevo(data.categoriaSeleccionadaNuevo);
+                        if (data.catNuevoSearch !== undefined) setCatNuevoSearch(data.catNuevoSearch);
+                        if (data.filtroDimensionPME !== undefined) setFiltroDimensionPME(data.filtroDimensionPME);
+                        if (typeof data.formatoEsOtros === 'boolean') setFormatoEsOtros(data.formatoEsOtros);
+                        if (data.busquedaActividadPME !== undefined) setBusquedaActividadPME(data.busquedaActividadPME);
+                        setShowRecursoModal(true);
+                        setBorradorRestaurado(true);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('Error restaurando borrador en abrirNuevoManual:', e);
+            }
+        }
+        // Si no hay borrador, limpiar e inicializar
+        limpiarFormularioRecurso();
         setShowRecursoModal(true);
     };
 
@@ -2070,7 +2265,8 @@ export default function AgregarRecursosPage() {
             destino_gasto: destinoNormalizado,
             id_subvencion: (rec as any).id_subvencion || null,
             dimension_pme: (rec as any).dimension_pme || null,
-            id_subarea: (rec as any).id_subarea ?? (user as any)?.id_subarea ?? null
+            id_subarea: (rec as any).id_subarea ?? (user as any)?.id_subarea ?? null,
+            id_grupo_recurso: (rec as any).id_grupo_recurso || (rec as any)._idGrupo || null
         });
         // Sincronizar searchPMEModal para que la card de confirmación aparezca
         setSearchPMEModal(actividadRestaurada ? actividadRestaurada.nombre : '');
@@ -2111,6 +2307,7 @@ export default function AgregarRecursosPage() {
             id_actividad: formularioRecurso.id_actividad ?? undefined,
             id_pre_detalle: formularioRecurso.id_pre_detalle ?? undefined,
             codigo_cuenta: formularioRecurso.codigo_cuenta ?? undefined,
+            id_grupo_recurso: formularioRecurso.id_grupo_recurso ?? (esNuevoProducto ? grupoSeleccionado : undefined) ?? undefined,
             tipo_fecha: formularioRecurso.tipo_fecha as any,
             fecha_ejecucion: fechaEjecucion,
             fecha_termino: fechaTermino,
@@ -2122,6 +2319,12 @@ export default function AgregarRecursosPage() {
         const newIndex = recursosActual.length;
         setRecursosActual(prev => [...prev, nuevoRecurso]);
         setShowRecursoModal(false);
+
+        // Al confirmar y guardar con éxito el insumo, limpiar el borrador en localStorage
+        if (panelStorageKey) {
+            try { localStorage.removeItem(panelStorageKey); } catch {}
+        }
+        setBorradorRestaurado(false);
 
         // Guardado directo en el servidor al confirmar el modal
         guardarRecursoIndividual(newIndex, nuevoRecurso);
@@ -2144,6 +2347,7 @@ export default function AgregarRecursosPage() {
             id_actividad: formularioRecurso.id_actividad ?? undefined,
             id_pre_detalle: formularioRecurso.id_pre_detalle ?? undefined,
             codigo_cuenta: formularioRecurso.codigo_cuenta ?? undefined,
+            id_grupo_recurso: formularioRecurso.id_grupo_recurso ?? (esNuevoProducto ? grupoSeleccionado : undefined) ?? undefined,
             tipo_fecha: formularioRecurso.tipo_fecha as any,
             fecha_ejecucion: fechaEjecucion,
             fecha_termino: fechaTermino,
@@ -2157,6 +2361,7 @@ export default function AgregarRecursosPage() {
         guardarRecursoIndividual(newIndex, nuevoRecurso);
 
         const motivoActual = formularioRecurso.motivo;
+        const grupoActual = formularioRecurso.id_grupo_recurso;
         const actividadActual = formularioRecurso.id_actividad;
         const actividadObj = formularioRecurso.actividad_seleccionada;
         const destinoActual = formularioRecurso.destino_gasto;
@@ -2194,7 +2399,8 @@ export default function AgregarRecursosPage() {
             destino_gasto: destinoActual,
             id_subvencion: subvencionActual,
             dimension_pme: dimensionActual,
-            id_subarea: subareaActual
+            id_subarea: subareaActual,
+            id_grupo_recurso: grupoActual
         });
 
         setFaseActual(0);
@@ -2227,6 +2433,7 @@ export default function AgregarRecursosPage() {
             id_actividad: formularioRecurso.id_actividad ?? undefined,
             id_pre_detalle: formularioRecurso.id_pre_detalle ?? undefined,
             codigo_cuenta: formularioRecurso.codigo_cuenta ?? undefined,
+            id_grupo_recurso: formularioRecurso.id_grupo_recurso ?? undefined,
             tipo_fecha: formularioRecurso.tipo_fecha as any,
             fecha_ejecucion: fechaEjecucion,
             fecha_termino: fechaTermino,
@@ -2240,6 +2447,12 @@ export default function AgregarRecursosPage() {
         if (formularioRecurso.id_pre_detalle) {
             guardarRecursoIndividual(editIndex, actualizado);
         }
+
+        // Al confirmar y guardar con éxito el insumo editado, limpiar el borrador en localStorage
+        if (panelStorageKey) {
+            try { localStorage.removeItem(panelStorageKey); } catch {}
+        }
+        setBorradorRestaurado(false);
 
         setShowRecursoModal(false);
         setIsEditando(false);
@@ -2321,7 +2534,8 @@ export default function AgregarRecursosPage() {
                 id_actividad: data.id_actividad ?? undefined,
                 id_subvencion: data.id_subvencion ?? undefined,
                 destino_gasto: data.destino_gasto ?? '',
-                id_subarea: data.id_subarea ?? undefined
+                id_subarea: data.id_subarea ?? undefined,
+                id_grupo_recurso: data.id_grupo_recurso ?? data._idGrupo ?? undefined
             };
 
             if (data.id_pre_detalle) {
@@ -2340,8 +2554,17 @@ export default function AgregarRecursosPage() {
                     // la última fila quedaba como guardada, las demás seguían de
                     // borrador en localStorage y al recargar aparecían duplicadas
                     // (las persistidas del servidor + los borradores no limpiados).
+                    const grpMatch = grupos.find(g => g.id_grupo_recurso === (nuevoConId.id_grupo_recurso || data.id_grupo_recurso));
                     setRecursosActual(prev => prev.map((item, i) => i === index
-                        ? { ...data, id_pre_detalle: nuevoConId.id_pre_detalle, id_recurso: idRecursoFinal, _esNuevo: false, _isClassifying: false }
+                        ? {
+                            ...data,
+                            id_pre_detalle: nuevoConId.id_pre_detalle,
+                            id_recurso: idRecursoFinal,
+                            id_grupo_recurso: nuevoConId.id_grupo_recurso ?? data.id_grupo_recurso ?? null,
+                            grupo_nombre: nuevoConId.grupo_nombre ?? grpMatch?.nombre ?? data.grupo_nombre ?? null,
+                            _esNuevo: false,
+                            _isClassifying: false
+                        }
                         : item));
                     setGuardados(prev => [...prev, index]);
                 }
@@ -4545,7 +4768,6 @@ export default function AgregarRecursosPage() {
             {showRecursoModal && (
                 <div
                     className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-end z-[110] animate-in fade-in duration-300"
-                    onClick={() => setShowRecursoModal(false)}
                 >
                     <div
                         className={`bg-[#F8FAFC] w-full h-full shadow-2xl ring-1 ring-black/10 flex flex-col animate-in slide-in-from-right duration-300 ${layoutModo === 'columnas' ? 'max-w-4xl' : 'max-w-2xl'}`}
@@ -4585,6 +4807,14 @@ export default function AgregarRecursosPage() {
                                                     <span className="text-[10px] font-medium text-gray-400">{(user as any).rol.nombre}</span>
                                                 </>
                                             )}
+                                            {formularioRecurso.id_grupo_recurso && (
+                                                <>
+                                                    <span className="text-gray-300 text-[10px]">·</span>
+                                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                                        📁 {grupos.find(g => g.id_grupo_recurso === formularioRecurso.id_grupo_recurso)?.nombre || 'Línea asignada'}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -4620,11 +4850,34 @@ export default function AgregarRecursosPage() {
                                             </svg>
                                         </button>
                                     </div>
-                                    <button onClick={() => setShowRecursoModal(false)} className="p-2.5 hover:bg-gray-100 rounded-xl transition-all text-gray-400 hover:text-gray-700">
-                                        <X size={18} />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowRecursoModal(false)}
+                                        className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 rounded-xl transition-all border border-rose-200 hover:border-rose-300 flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+                                        title="Cerrar panel"
+                                    >
+                                        <X size={18} strokeWidth={2.5} />
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Banner informativo de persistencia automática en localStorage */}
+                            {tieneContenidoBorrador(formularioRecurso) && (
+                                <div className="mt-3 px-3.5 py-1.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl flex items-center justify-between text-[11px] text-emerald-900 animate-in fade-in duration-200">
+                                    <span className="flex items-center gap-1.5 font-medium">
+                                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <span>💾 <strong>Datos protegidos:</strong> guardados automáticamente en tu navegador.</span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={limpiarFormularioRecurso}
+                                        className="text-[10px] font-bold text-emerald-800 hover:text-red-700 hover:underline cursor-pointer ml-2 flex items-center gap-1 transition-colors"
+                                        title="Descartar borrador y limpiar el formulario"
+                                    >
+                                        <span>🗑️</span> Descartar borrador
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Indicador de fases premium */}
                             {layoutModo === 'fases' && (
@@ -5042,6 +5295,39 @@ export default function AgregarRecursosPage() {
                                         )}
                                     </div>
 
+                                    {/* 2.1 Grupo / Línea de compras */}
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                                <span>📁 Grupo / Línea</span>
+                                                {formularioRecurso.id_grupo_recurso && (
+                                                    <span className="text-[9px] px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                                                        {grupos.find(g => g.id_grupo_recurso === formularioRecurso.id_grupo_recurso)?.nombre || 'Asignado'}
+                                                    </span>
+                                                )}
+                                            </label>
+                                            <span className="text-[10px] text-gray-400 font-medium">Clasificación de compras</span>
+                                        </div>
+                                        <select
+                                            value={formularioRecurso.id_grupo_recurso ?? ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value ? Number(e.target.value) : null;
+                                                cambiarGrupo(val);
+                                            }}
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-900 focus:outline-none"
+                                        >
+                                            <option value="">-- Sin Grupo / Línea (Opcional) --</option>
+                                            {grupos.map(g => (
+                                                <option key={g.id_grupo_recurso} value={g.id_grupo_recurso}>
+                                                    {g.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[10px] text-gray-500 font-medium ml-1">
+                                            Permite clasificar el recurso (Librería, Aseo, Tecnología, Salud, etc.). Se sugiere automáticamente con el motivo.
+                                        </p>
+                                    </div>
+
                                     {/* 3. Detalle del Insumo */}
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2 mb-1 ml-1">
@@ -5070,65 +5356,93 @@ export default function AgregarRecursosPage() {
                                         )}
                                     </div>
 
-                                    {/* 4. Justificacion / Motivo de Necesidad con Autocompletado */}
-                                    <div className="space-y-1.5 relative" ref={motivoDropdownRef}>
+                                    {/* 4. Justificación / Motivo de Necesidad */}
+                                    <div className="space-y-2">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                                                Justificación / Motivo de Necesidad <span className="text-red-500">*</span>
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                                <span>Justificación / Motivo de Necesidad</span>
+                                                <span className="text-red-500">*</span>
                                             </label>
                                             <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider border border-red-200">Obligatorio</span>
                                         </div>
 
-                                        {/* Accesos rápidos: Top 3 más frecuentes para no saturar con 20 botones */}
-                                        {motivosSugeridos.length > 0 && (
-                                            <div className="flex items-center gap-1.5 flex-wrap text-[11px] pb-1">
-                                                <span className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Top frecuentes:</span>
-                                                {motivosSugeridos.slice(0, 3).map(({ motivo, count }) => {
-                                                    const isSelected = formularioRecurso.motivo.trim().toLowerCase() === motivo.toLowerCase();
+                                        {/* Selector combo: Únicamente motivos creados/usados previamente por el usuario actual */}
+                                        <div>
+                                            <select
+                                                value={
+                                                    motivosUsuario.includes(formularioRecurso.motivo.trim())
+                                                        ? formularioRecurso.motivo.trim()
+                                                        : ''
+                                                }
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val) {
+                                                        aplicarMotivo(val);
+                                                    }
+                                                }}
+                                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-800 focus:outline-none"
+                                            >
+                                                <option value="">
+                                                    {motivosUsuario.length > 0
+                                                        ? `-- Mis motivos anteriores (${motivosUsuario.length}) --`
+                                                        : '-- Sin motivos previos del usuario --'}
+                                                </option>
+                                                {motivosUsuario.map((mot, idx) => (
+                                                    <option key={idx} value={mot}>
+                                                        {mot}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Sugeridos: Motivos oficiales predeterminados registrados */}
+                                        {motivosOficiales.filter(m => m.activo).length > 0 && (
+                                            <div className="flex items-center gap-1.5 flex-wrap text-[11px] pt-0.5 pb-0.5">
+                                                <span className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Sugeridos:</span>
+                                                {motivosOficiales.filter(m => m.activo).map(mo => {
+                                                    const isSelected = formularioRecurso.motivo.trim().toLowerCase() === mo.nombre.toLowerCase();
                                                     return (
                                                         <button
-                                                            key={motivo}
+                                                            key={mo.id_motivo}
                                                             type="button"
-                                                            onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo }))}
-                                                            className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold transition-all border flex items-center gap-1 cursor-pointer ${
+                                                            onClick={() => aplicarMotivo(mo.nombre)}
+                                                            className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all border flex items-center gap-1 cursor-pointer ${
                                                                 isSelected
                                                                     ? 'bg-primary text-white border-primary shadow-xs'
                                                                     : 'bg-gray-50 hover:bg-primary/5 text-gray-700 border-gray-200 hover:border-primary/40'
                                                             }`}
-                                                            title={`Usar "${motivo}"`}
+                                                            title={mo.grupo_nombre ? `Motivo: ${mo.nombre} · Línea: ${mo.grupo_nombre}` : `Motivo: ${mo.nombre}`}
                                                         >
-                                                            <span className="truncate max-w-[140px]">{motivo}</span>
-                                                            <span className={`text-[9px] px-1 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 font-bold'}`}>
-                                                                {count}
-                                                            </span>
+                                                            <span>{mo.nombre}</span>
+                                                            {mo.grupo_nombre && (
+                                                                <span className={`text-[8.5px] px-1 py-0.2 rounded font-bold ${
+                                                                    isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+                                                                }`}>
+                                                                    {mo.grupo_nombre}
+                                                                </span>
+                                                            )}
                                                         </button>
                                                     );
                                                 })}
-                                                {motivosSugeridos.length > 3 && (
-                                                    <span className="text-[9px] text-gray-400 font-medium italic">
-                                                        +{motivosSugeridos.length - 3} más disponibles en el autocompletado
-                                                    </span>
-                                                )}
                                             </div>
                                         )}
 
+                                        {/* Área de texto libre y editable sin bloqueos */}
                                         <div className="relative">
                                             <textarea
                                                 rows={2}
                                                 value={formularioRecurso.motivo}
-                                                onFocus={() => setMotivoFocused(true)}
                                                 onChange={(e) => {
-                                                    setFormularioRecurso({ ...formularioRecurso, motivo: e.target.value });
-                                                    setMotivoFocused(true);
+                                                    setFormularioRecurso(prev => ({ ...prev, motivo: e.target.value }));
                                                 }}
                                                 className={`w-full px-4 py-2.5 rounded-xl transition-all font-semibold text-xs resize-none text-gray-900 focus:outline-none ${formularioRecurso.motivo.trim() ? 'bg-white border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'bg-white border-2 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 placeholder:text-gray-400'}`}
-                                                placeholder="Escribe el motivo o selecciona uno del autocompletado..."
+                                                placeholder="Puedes ajustar el motivo o escribir uno personalizado..."
                                             />
                                             {formularioRecurso.motivo.trim() && (
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo: '' }))}
-                                                    className="absolute right-2.5 top-2.5 text-gray-300 hover:text-gray-500 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100"
+                                                    className="absolute right-2.5 top-2.5 text-gray-300 hover:text-gray-500 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100 cursor-pointer"
                                                     title="Limpiar motivo"
                                                 >
                                                     ×
@@ -5136,80 +5450,14 @@ export default function AgregarRecursosPage() {
                                             )}
                                         </div>
 
-                                        {/* Dropdown flotante de autocompletado para Motivos */}
-                                        {motivoFocused && motivosSugeridos.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden max-h-56 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                                                <div className="px-3 py-1.5 bg-slate-50 border-b border-gray-100 flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                    <span className="flex items-center gap-1">
-                                                        <span>📌</span> Motivos registrados ({motivosFiltrados.length})
-                                                    </span>
-                                                    <span className="text-[9px] text-gray-400 lowercase font-medium">clic para usar</span>
-                                                </div>
-
-                                                <div className="divide-y divide-gray-50">
-                                                    {motivosFiltrados.length > 0 ? (
-                                                        motivosFiltrados.map(({ motivo, count }) => {
-                                                            const isMatch = formularioRecurso.motivo.trim().toLowerCase() === motivo.toLowerCase();
-                                                            return (
-                                                                <div
-                                                                    key={motivo}
-                                                                    onMouseDown={() => {
-                                                                        setFormularioRecurso(prev => ({ ...prev, motivo }));
-                                                                        setMotivoFocused(false);
-                                                                    }}
-                                                                    className={`px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-                                                                        isMatch ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-blue-50/60 text-gray-800'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className="text-primary text-xs shrink-0">{isMatch ? '✓' : '🏷️'}</span>
-                                                                        <span className="text-xs truncate">{motivo}</span>
-                                                                    </div>
-                                                                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                                                        isMatch ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
-                                                                    }`}>
-                                                                        {count} {count === 1 ? 'insumo' : 'insumos'}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <div className="p-3 text-center bg-slate-50/50">
-                                                            <p className="text-xs font-semibold text-gray-600">
-                                                                No hay un motivo previo con "{formularioRecurso.motivo}"
-                                                            </p>
-                                                            <p className="text-[10px] text-primary font-bold mt-0.5">
-                                                                Se guardará como motivo nuevo
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div
-                                                    onMouseDown={() => setMotivoFocused(false)}
-                                                    className="p-1.5 bg-gray-50 hover:bg-gray-100 border-t border-gray-100 text-center cursor-pointer transition-colors"
-                                                >
-                                                    <span className="text-[10px] font-semibold text-gray-500">
-                                                        Cerrar sugerencias (o haz clic fuera)
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Alerta de sugerencia si escribió algo parecido a un motivo existente */}
-                                        {motivoSimilar && !motivoFocused && (
-                                            <div className="flex items-center justify-between gap-2 p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] animate-in fade-in duration-150">
-                                                <div className="flex items-center gap-1.5 truncate">
-                                                    <span className="shrink-0">💡</span>
-                                                    <span className="truncate">¿Te refieres a <b>"{motivoSimilar.motivo}"</b> ({motivoSimilar.count} insumos)?</span>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo: motivoSimilar.motivo }))}
-                                                    className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-lg shrink-0 text-[10px] transition-colors cursor-pointer"
-                                                >
-                                                    Usar este
-                                                </button>
+                                        {/* Badge de Grupo / Línea vinculado */}
+                                        {formularioRecurso.id_grupo_recurso && (
+                                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-800 bg-emerald-50/80 border border-emerald-200 px-3 py-1.5 rounded-xl animate-in fade-in duration-150">
+                                                <span className="font-bold">📁 Línea sugerida:</span>
+                                                <span className="font-extrabold text-emerald-950">
+                                                    {grupos.find(g => g.id_grupo_recurso === formularioRecurso.id_grupo_recurso)?.nombre || 'Asignado'}
+                                                </span>
+                                                <span className="text-emerald-600 text-[9px] ml-auto">Válido para compras</span>
                                             </div>
                                         )}
 
@@ -5332,6 +5580,41 @@ export default function AgregarRecursosPage() {
                                                     </div>
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {/* Grupo / Línea de compras */}
+                                    {!esNuevoProducto && (
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                                    <span>📁 Grupo / Línea</span>
+                                                    {formularioRecurso.id_grupo_recurso && (
+                                                        <span className="text-[9px] px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                                                            {grupos.find(g => g.id_grupo_recurso === formularioRecurso.id_grupo_recurso)?.nombre || 'Asignado'}
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <span className="text-[10px] text-gray-400 font-medium">Clasificación de compras</span>
+                                            </div>
+                                            <select
+                                                value={formularioRecurso.id_grupo_recurso ?? ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value ? Number(e.target.value) : null;
+                                                    cambiarGrupo(val);
+                                                }}
+                                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-900 focus:outline-none"
+                                            >
+                                                <option value="">-- Sin Grupo / Línea (Opcional) --</option>
+                                                {grupos.map(g => (
+                                                    <option key={g.id_grupo_recurso} value={g.id_grupo_recurso}>
+                                                        {g.nombre}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-500 font-medium ml-1">
+                                                Permite agrupar insumos por tipo de compra (Librería, Aseo, Tecnología, Salud, etc.). Se sugiere automáticamente con el motivo.
+                                            </p>
                                         </div>
                                     )}
 
@@ -5604,152 +5887,114 @@ export default function AgregarRecursosPage() {
                                         </div>
                                     )}
                                     {!esNuevoProducto && (
-                                        <div className="space-y-1.5 relative" ref={motivoDropdownRef2}>
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                                                Justificación / Motivo de Necesidad <span className="text-red-500">*</span>
-                                            </label>
-                                            <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider border border-red-200">Obligatorio</span>
-                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                                    <span>Justificación / Motivo de Necesidad</span>
+                                                    <span className="text-red-500">*</span>
+                                                </label>
+                                                <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider border border-red-200">Obligatorio</span>
+                                            </div>
 
-                                        {/* Accesos rápidos: Top 3 más frecuentes */}
-                                        {motivosSugeridos.length > 0 && (
-                                            <div className="flex items-center gap-1.5 flex-wrap text-[11px] pb-1">
-                                                <span className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Top frecuentes:</span>
-                                                {motivosSugeridos.slice(0, 3).map(({ motivo, count }) => {
-                                                    const isSelected = formularioRecurso.motivo.trim().toLowerCase() === motivo.toLowerCase();
-                                                    return (
-                                                        <button
-                                                            key={motivo}
-                                                            type="button"
-                                                            onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo }))}
-                                                            className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold transition-all border flex items-center gap-1 cursor-pointer ${
-                                                                isSelected
-                                                                    ? 'bg-primary text-white border-primary shadow-xs'
-                                                                    : 'bg-gray-50 hover:bg-primary/5 text-gray-700 border-gray-200 hover:border-primary/40'
-                                                            }`}
-                                                            title={`Usar "${motivo}"`}
-                                                        >
-                                                            <span className="truncate max-w-[140px]">{motivo}</span>
-                                                            <span className={`text-[9px] px-1 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 font-bold'}`}>
-                                                                {count}
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                {motivosSugeridos.length > 3 && (
-                                                    <span className="text-[9px] text-gray-400 font-medium italic">
-                                                        +{motivosSugeridos.length - 3} más disponibles en el autocompletado
-                                                    </span>
+                                            {/* Selector combo: Únicamente motivos creados/usados previamente por el usuario actual */}
+                                            <div>
+                                                <select
+                                                    value={
+                                                        motivosUsuario.includes(formularioRecurso.motivo.trim())
+                                                            ? formularioRecurso.motivo.trim()
+                                                            : ''
+                                                    }
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val) {
+                                                            aplicarMotivo(val);
+                                                        }
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-800 focus:outline-none"
+                                                >
+                                                    <option value="">
+                                                        {motivosUsuario.length > 0
+                                                            ? `-- Mis motivos anteriores (${motivosUsuario.length}) --`
+                                                            : '-- Sin motivos previos del usuario --'}
+                                                    </option>
+                                                    {motivosUsuario.map((mot, idx) => (
+                                                        <option key={idx} value={mot}>
+                                                            {mot}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Sugeridos: Motivos oficiales predeterminados registrados */}
+                                            {motivosOficiales.filter(m => m.activo).length > 0 && (
+                                                <div className="flex items-center gap-1.5 flex-wrap text-[11px] pt-0.5 pb-0.5">
+                                                    <span className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Sugeridos:</span>
+                                                    {motivosOficiales.filter(m => m.activo).map(mo => {
+                                                        const isSelected = formularioRecurso.motivo.trim().toLowerCase() === mo.nombre.toLowerCase();
+                                                        return (
+                                                            <button
+                                                                key={mo.id_motivo}
+                                                                type="button"
+                                                                onClick={() => aplicarMotivo(mo.nombre)}
+                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all border flex items-center gap-1 cursor-pointer ${
+                                                                    isSelected
+                                                                        ? 'bg-primary text-white border-primary shadow-xs'
+                                                                        : 'bg-gray-50 hover:bg-primary/5 text-gray-700 border-gray-200 hover:border-primary/40'
+                                                                }`}
+                                                                title={mo.grupo_nombre ? `Motivo: ${mo.nombre} · Línea: ${mo.grupo_nombre}` : `Motivo: ${mo.nombre}`}
+                                                            >
+                                                                <span>{mo.nombre}</span>
+                                                                {mo.grupo_nombre && (
+                                                                    <span className={`text-[8.5px] px-1 py-0.2 rounded font-bold ${
+                                                                        isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+                                                                    }`}>
+                                                                        {mo.grupo_nombre}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Área de texto libre y editable sin bloqueos */}
+                                            <div className="relative">
+                                                <textarea
+                                                    rows={2}
+                                                    value={formularioRecurso.motivo}
+                                                    onChange={(e) => {
+                                                        setFormularioRecurso(prev => ({ ...prev, motivo: e.target.value }));
+                                                    }}
+                                                    className={`w-full px-4 py-2.5 rounded-xl transition-all font-semibold text-xs resize-none text-gray-900 focus:outline-none ${formularioRecurso.motivo.trim() ? 'bg-white border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'bg-white border-2 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 placeholder:text-gray-400'}`}
+                                                    placeholder="Puedes ajustar el motivo o escribir uno personalizado..."
+                                                />
+                                                {formularioRecurso.motivo.trim() && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo: '' }))}
+                                                        className="absolute right-2.5 top-2.5 text-gray-300 hover:text-gray-500 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100 cursor-pointer"
+                                                        title="Limpiar motivo"
+                                                    >
+                                                        ×
+                                                    </button>
                                                 )}
                                             </div>
-                                        )}
 
-                                        <div className="relative">
-                                            <textarea
-                                                rows={2}
-                                                value={formularioRecurso.motivo}
-                                                onFocus={() => setMotivoFocused2(true)}
-                                                onChange={(e) => {
-                                                    setFormularioRecurso({ ...formularioRecurso, motivo: e.target.value });
-                                                    setMotivoFocused2(true);
-                                                }}
-                                                className={`w-full px-4 py-2.5 rounded-xl transition-all font-semibold text-xs resize-none text-gray-900 focus:outline-none ${formularioRecurso.motivo.trim() ? 'bg-white border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'bg-white border-2 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 placeholder:text-gray-400'}`}
-                                                placeholder="Escribe el motivo o selecciona uno del autocompletado..."
-                                            />
-                                            {formularioRecurso.motivo.trim() && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo: '' }))}
-                                                    className="absolute right-2.5 top-2.5 text-gray-300 hover:text-gray-500 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100"
-                                                    title="Limpiar motivo"
-                                                >
-                                                    ×
-                                                </button>
+                                            {/* Badge de Grupo / Línea vinculado */}
+                                            {formularioRecurso.id_grupo_recurso && (
+                                                <div className="flex items-center gap-1.5 text-[10px] text-emerald-800 bg-emerald-50/80 border border-emerald-200 px-3 py-1.5 rounded-xl animate-in fade-in duration-150">
+                                                    <span className="font-bold">📁 Línea sugerida:</span>
+                                                    <span className="font-extrabold text-emerald-950">
+                                                        {grupos.find(g => g.id_grupo_recurso === formularioRecurso.id_grupo_recurso)?.nombre || 'Asignado'}
+                                                    </span>
+                                                    <span className="text-emerald-600 text-[9px] ml-auto">Válido para compras</span>
+                                                </div>
+                                            )}
+
+                                            {!formularioRecurso.motivo.trim() && (
+                                                <p className="text-[10px] text-red-500 font-medium ml-1 mt-0.5">Este campo es obligatorio: explica por qué se necesita el recurso.</p>
                                             )}
                                         </div>
-
-                                        {/* Dropdown flotante de autocompletado para Motivos */}
-                                        {motivoFocused2 && motivosSugeridos.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden max-h-56 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                                                <div className="px-3 py-1.5 bg-slate-50 border-b border-gray-100 flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                    <span className="flex items-center gap-1">
-                                                        <span>📌</span> Motivos registrados ({motivosFiltrados.length})
-                                                    </span>
-                                                    <span className="text-[9px] text-gray-400 lowercase font-medium">clic para usar</span>
-                                                </div>
-
-                                                <div className="divide-y divide-gray-50">
-                                                    {motivosFiltrados.length > 0 ? (
-                                                        motivosFiltrados.map(({ motivo, count }) => {
-                                                            const isMatch = formularioRecurso.motivo.trim().toLowerCase() === motivo.toLowerCase();
-                                                            return (
-                                                                <div
-                                                                    key={motivo}
-                                                                    onMouseDown={() => {
-                                                                        setFormularioRecurso(prev => ({ ...prev, motivo }));
-                                                                        setMotivoFocused2(false);
-                                                                    }}
-                                                                    className={`px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-                                                                        isMatch ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-blue-50/60 text-gray-800'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        <span className="text-primary text-xs shrink-0">{isMatch ? '✓' : '🏷️'}</span>
-                                                                        <span className="text-xs truncate">{motivo}</span>
-                                                                    </div>
-                                                                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                                                        isMatch ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
-                                                                    }`}>
-                                                                        {count} {count === 1 ? 'insumo' : 'insumos'}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <div className="p-3 text-center bg-slate-50/50">
-                                                            <p className="text-xs font-semibold text-gray-600">
-                                                                No hay un motivo previo con "{formularioRecurso.motivo}"
-                                                            </p>
-                                                            <p className="text-[10px] text-primary font-bold mt-0.5">
-                                                                Se guardará como motivo nuevo
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div
-                                                    onMouseDown={() => setMotivoFocused2(false)}
-                                                    className="p-1.5 bg-gray-50 hover:bg-gray-100 border-t border-gray-100 text-center cursor-pointer transition-colors"
-                                                >
-                                                    <span className="text-[10px] font-semibold text-gray-500">
-                                                        Cerrar sugerencias (o haz clic fuera)
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Alerta de sugerencia si escribió algo parecido a un motivo existente */}
-                                        {motivoSimilar && !motivoFocused2 && (
-                                            <div className="flex items-center justify-between gap-2 p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] animate-in fade-in duration-150">
-                                                <div className="flex items-center gap-1.5 truncate">
-                                                    <span className="shrink-0">💡</span>
-                                                    <span className="truncate">¿Te refieres a <b>"{motivoSimilar.motivo}"</b> ({motivoSimilar.count} insumos)?</span>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormularioRecurso(prev => ({ ...prev, motivo: motivoSimilar.motivo }))}
-                                                    className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-lg shrink-0 text-[10px] transition-colors cursor-pointer"
-                                                >
-                                                    Usar este
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {!formularioRecurso.motivo.trim() && (
-                                            <p className="text-[10px] text-red-500 font-medium ml-1 mt-0.5">Este campo es obligatorio: explica por qué se necesita el recurso.</p>
-                                        )}
-                                    </div>
                                     )}
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Estimación de Fecha</label>
@@ -6065,38 +6310,220 @@ export default function AgregarRecursosPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Selector de Actividades de la Dimensión Seleccionada */}
-                                                <div className="space-y-1.5 pt-1">
-                                                    <label className="text-[10px] font-bold text-gray-700 uppercase tracking-wider ml-0.5">
-                                                        2. Actividad PME de esta Dimensión:
-                                                    </label>
+                                                {/* Selector de Actividades de la Dimensión Seleccionada o de Todas */}
+                                                <div className="space-y-2 pt-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[10px] font-bold text-gray-700 uppercase tracking-wider ml-0.5 flex items-center gap-1.5">
+                                                            <span>2. Actividad PME</span>
+                                                            {filtroDimensionPME ? (
+                                                                <span className="text-primary font-extrabold normal-case">
+                                                                    · {filtroDimensionPME}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-400 font-semibold normal-case">
+                                                                    · Todas las dimensiones
+                                                                </span>
+                                                            )}
+                                                        </label>
+                                                        <div className="flex items-center gap-2">
+                                                            {filtroDimensionPME && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setFiltroDimensionPME('')}
+                                                                    className="text-[10px] font-bold text-primary hover:underline transition-all cursor-pointer"
+                                                                    title="Quitar filtro de dimensión y ver todas"
+                                                                >
+                                                                    Ver todas las actividades
+                                                                </button>
+                                                            )}
+                                                            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                                                {actividadesPMEParaSelect.length} {actividadesPMEParaSelect.length === 1 ? 'actividad' : 'actividades'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
 
-                                                    <div className="relative">
-                                                        <select
-                                                            disabled={!filtroDimensionPME}
-                                                            value={formularioRecurso.id_actividad || ''}
-                                                            onChange={(e) => {
-                                                                const actId = e.target.value ? parseInt(e.target.value) : null;
-                                                                if (actId) {
-                                                                    const matched = todasActividades.find(a => a.id === actId);
-                                                                    setFormularioRecurso({ ...formularioRecurso, id_actividad: actId, actividad_seleccionada: matched || null });
-                                                                    setSearchPMEModal(matched?.nombre || '');
-                                                                } else {
-                                                                    setFormularioRecurso({ ...formularioRecurso, id_actividad: null, actividad_seleccionada: null });
-                                                                    setSearchPMEModal('');
-                                                                }
-                                                            }}
-                                                            className="w-full px-3.5 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-[12px] text-gray-800 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
+                                                    {/* Selector con Buscador Integrado y Alto Predeterminado */}
+                                                    <div className="relative" ref={selectActividadPMERef}>
+                                                        {/* Botón Trigger del Select */}
+                                                        <div
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onClick={() => setSelectActividadPMEOpen(prev => !prev)}
+                                                            className={`w-full px-3.5 py-3 bg-white border rounded-xl transition-all cursor-pointer flex items-center justify-between gap-2 shadow-2xs select-none ${
+                                                                selectActividadPMEOpen 
+                                                                    ? 'border-primary ring-4 ring-primary/10 shadow-sm' 
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                            }`}
                                                         >
-                                                            <option value="">
-                                                                {!filtroDimensionPME ? '← Primero selecciona una dimensión arriba' : `-- Seleccionar actividad de ${filtroDimensionPME} --`}
-                                                            </option>
-                                                            {actividadesEncontradas.map(act => (
-                                                                <option key={act.id} value={act.id}>
-                                                                    {act.nombre}
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                            <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                                                {formularioRecurso.id_actividad && (todasActividades.find(a => a.id === formularioRecurso.id_actividad) || formularioRecurso.actividad_seleccionada) ? (
+                                                                    (() => {
+                                                                        const act = todasActividades.find(a => a.id === formularioRecurso.id_actividad) || formularioRecurso.actividad_seleccionada!;
+                                                                        return (
+                                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                                                                {act.dimension && (
+                                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 shrink-0 border border-blue-100">
+                                                                                        {act.dimension}
+                                                                                    </span>
+                                                                                )}
+                                                                                <span className="text-xs font-bold text-gray-900 truncate">
+                                                                                    {act.nombre}
+                                                                                </span>
+                                                                            </div>
+                                                                        );
+                                                                    })()
+                                                                ) : (
+                                                                    <span className="text-xs font-semibold text-gray-400 truncate">
+                                                                        {filtroDimensionPME
+                                                                            ? `-- Seleccionar actividad de ${filtroDimensionPME} (${actividadesPMEParaSelect.length}) --`
+                                                                            : `-- Seleccionar actividad (${actividadesPMEParaSelect.length} disponibles) --`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {formularioRecurso.id_actividad && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFormularioRecurso(prev => ({
+                                                                                ...prev,
+                                                                                id_actividad: null,
+                                                                                actividad_seleccionada: null
+                                                                            }));
+                                                                            setSearchPMEModal('');
+                                                                        }}
+                                                                        className="w-5 h-5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-red-600 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                                                                        title="Deseleccionar actividad"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                )}
+                                                                <ChevronDown 
+                                                                    size={16} 
+                                                                    className={`text-gray-400 transition-transform duration-200 ${selectActividadPMEOpen ? 'rotate-180 text-primary' : ''}`} 
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Dropdown flotante con filtro de búsqueda integrado y ALTO PREDETERMINADO */}
+                                                        {selectActividadPMEOpen && (
+                                                            <div className="absolute top-full left-0 right-0 z-50 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                                                {/* 1. Filtro de búsqueda integrado dentro del select */}
+                                                                <div className="p-2.5 bg-slate-50 border-b border-gray-100">
+                                                                    <div className="relative">
+                                                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                                        <input
+                                                                            type="text"
+                                                                            autoFocus
+                                                                            value={busquedaActividadPME}
+                                                                            onChange={(e) => setBusquedaActividadPME(e.target.value)}
+                                                                            placeholder={filtroDimensionPME ? `Buscar en ${filtroDimensionPME}...` : "Buscar actividad por palabra o letra..."}
+                                                                            className="w-full pl-8.5 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium shadow-2xs"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                        {busquedaActividadPME && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setBusquedaActividadPME('');
+                                                                                }}
+                                                                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-100 cursor-pointer"
+                                                                                title="Limpiar búsqueda"
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* 2. Lista de actividades con ALTO PREDETERMINADO (max-h-60 / 240px) y scroll */}
+                                                                <div className="max-h-60 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                                                                    {actividadesPMEParaSelect.length === 0 ? (
+                                                                        <div className="py-7 px-4 text-center">
+                                                                            <span className="text-2xl block mb-1">🔍</span>
+                                                                            <p className="text-xs font-bold text-gray-700">Sin coincidencias</p>
+                                                                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                                                                {busquedaActividadPME 
+                                                                                    ? `No hay actividades que coincidan con "${busquedaActividadPME}".`
+                                                                                    : 'No hay actividades registradas en esta dimensión.'}
+                                                                            </p>
+                                                                        </div>
+                                                                    ) : (
+                                                                        actividadesPMEParaSelect.map(act => {
+                                                                            const isActSelected = formularioRecurso.id_actividad === act.id;
+                                                                            return (
+                                                                                <div
+                                                                                    key={act.id}
+                                                                                    onClick={() => {
+                                                                                        setFormularioRecurso(prev => ({
+                                                                                            ...prev,
+                                                                                            id_actividad: act.id,
+                                                                                            actividad_seleccionada: act,
+                                                                                            dimension_pme: act.dimension || prev.dimension_pme
+                                                                                        }));
+                                                                                        setSearchPMEModal(act.nombre || '');
+                                                                                        if (act.dimension && !filtroDimensionPME) {
+                                                                                            setFiltroDimensionPME(act.dimension);
+                                                                                        }
+                                                                                        setSelectActividadPMEOpen(false);
+                                                                                    }}
+                                                                                    className={`px-3.5 py-2.5 transition-colors cursor-pointer flex items-center justify-between gap-3 group ${
+                                                                                        isActSelected 
+                                                                                            ? 'bg-primary/10 text-primary font-bold' 
+                                                                                            : 'hover:bg-slate-50 text-gray-800'
+                                                                                    }`}
+                                                                                >
+                                                                                    <div className="min-w-0 flex-1">
+                                                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                                                            {!filtroDimensionPME && act.dimension && (
+                                                                                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                                                                                    {act.dimension}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            <span className={`text-xs leading-snug line-clamp-2 ${isActSelected ? 'font-extrabold text-primary' : 'font-medium group-hover:text-primary'}`}>
+                                                                                                {act.nombre}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {act.lista_recursos && (
+                                                                                            <p className="text-[10px] text-gray-400 truncate">
+                                                                                                Recursos: {act.lista_recursos}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="shrink-0">
+                                                                                        {isActSelected ? (
+                                                                                            <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center">
+                                                                                                <Check size={12} strokeWidth={3} />
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div className="w-5 h-5 rounded-full border border-gray-200 group-hover:border-primary/40 flex items-center justify-center" />
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Footer resumen del dropdown */}
+                                                                <div className="px-3.5 py-2 bg-slate-50/90 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-500 font-medium">
+                                                                    <span>{actividadesPMEParaSelect.length} actividades disponibles</span>
+                                                                    {busquedaActividadPME && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => { e.stopPropagation(); setBusquedaActividadPME(''); }}
+                                                                            className="text-primary font-bold hover:underline cursor-pointer"
+                                                                        >
+                                                                            Limpiar filtro
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -6192,13 +6619,26 @@ export default function AgregarRecursosPage() {
                         })()}
 
                         <div className="px-7 py-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-white shrink-0">
-                            <button
-                                type="button"
-                                onClick={() => setShowRecursoModal(false)}
-                                className="px-5 py-3 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all text-[13px]"
-                            >
-                                Cancelar
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRecursoModal(false)}
+                                    className="px-5 py-3 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all text-[13px]"
+                                    title="Cerrar ventana (el borrador se conservará en tu navegador)"
+                                >
+                                    Cerrar
+                                </button>
+                                {tieneContenidoBorrador(formularioRecurso) && (
+                                    <button
+                                        type="button"
+                                        onClick={limpiarFormularioRecurso}
+                                        className="px-3 py-2 text-[12px] text-gray-400 hover:text-red-600 transition-colors font-medium cursor-pointer"
+                                        title="Descartar borrador y limpiar el formulario"
+                                    >
+                                        Descartar borrador
+                                    </button>
+                                )}
+                            </div>
 
                             <div className="flex items-center gap-2">
                                 {layoutModo === 'fases' && faseActual > 0 && (

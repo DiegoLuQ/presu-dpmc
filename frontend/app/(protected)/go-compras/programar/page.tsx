@@ -9,9 +9,9 @@ import {
     CalendarClock, Search, Package, DollarSign, Loader2,
     FileText, ClipboardList, Plus, CheckSquare, ShoppingCart,
     X, ChevronDown, ChevronRight, Building2, Layers, Tag,
-    Clock, CheckCircle, Truck, ArrowRight, Trash2, Eye,
+    Clock, CheckCircle, Truck, ArrowRight, Trash2, Eye, EyeOff,
     SlidersHorizontal, Edit2, RotateCcw, Save, ArrowUpDown, ArrowUp, ArrowDown, HelpCircle,
-    Flag, Target, Briefcase, MessageSquare
+    Flag, Target, Briefcase, MessageSquare, GripVertical, ChevronUp
 } from 'lucide-react';
 import { BudgetRequest, BudgetDetail, MESES } from '@/lib/types';
 import ComprasFilters from '@/components/go-compras/ComprasFilters';
@@ -116,6 +116,43 @@ function loadColsConfig(): Record<string, boolean> {
 function saveColsConfig(c: Record<string, boolean>) {
     localStorage.setItem(LS_KEY_COLS, JSON.stringify(c));
 }
+const LS_KEY_COLS_ORDER = 'go-compras-cols-order';
+const DEFAULT_COLS_ORDER: string[] = [
+    'descripcion',
+    'actividad_pme',
+    'motivo',
+    'categoria',
+    'grupo',
+    'destino',
+    'cantidad',
+    'total',
+    'cantidad_real',
+    'monto_real',
+    'centro_costos',
+    'observacion',
+    'fecha',
+    'origen',
+    'area',
+    'solicitante',
+    'estado',
+];
+function loadColsOrder(): string[] {
+    try {
+        const raw = localStorage.getItem(LS_KEY_COLS_ORDER);
+        if (!raw) return [...DEFAULT_COLS_ORDER];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [...DEFAULT_COLS_ORDER];
+        const set = new Set(parsed);
+        const result = parsed.filter(k => DEFAULT_COLS_ORDER.includes(k));
+        DEFAULT_COLS_ORDER.forEach(k => {
+            if (!set.has(k)) result.push(k);
+        });
+        return result;
+    } catch { return [...DEFAULT_COLS_ORDER]; }
+}
+function saveColsOrder(order: string[]) {
+    localStorage.setItem(LS_KEY_COLS_ORDER, JSON.stringify(order));
+}
 const LS_KEY_ACTA_COLS = 'go-compras-acta-cols-config';
 const COLUMNAS_ACTA = [
     { key: 'cargo', label: 'Cargo' },
@@ -149,6 +186,78 @@ function loadActaColsConfig(): Record<string, boolean> {
 function saveActaColsConfig(c: Record<string, boolean>) {
     localStorage.setItem(LS_KEY_ACTA_COLS, JSON.stringify(c));
 }
+const LS_KEY_EXCEL_COLS = 'go-compras-excel-cols-config';
+const LS_KEY_EXCEL_COLS_ORDER = 'go-compras-excel-cols-order';
+const COLUMNAS_EXCEL_MAESTRA = [
+    { key: 'num', label: '# (Número de fila)', defaultWidth: 6 },
+    { key: 'colegio', label: 'Colegio / Institución', defaultWidth: 24 },
+    { key: 'area', label: 'Área', defaultWidth: 22 },
+    { key: 'solicitante', label: 'Usuario Solicitante', defaultWidth: 26 },
+    { key: 'cargo', label: 'Cargo', defaultWidth: 22 },
+    { key: 'codigo_solicitud', label: 'Cód. Solicitud (REQ-...)', defaultWidth: 16 },
+    { key: 'producto', label: 'Producto / Recurso', defaultWidth: 34 },
+    { key: 'descripcion', label: 'Descripción Producto', defaultWidth: 36 },
+    { key: 'actividad_pme', label: 'Nombre de Actividad PME', defaultWidth: 34 },
+    { key: 'motivo', label: 'Just. Actividad / Motivo', defaultWidth: 34 },
+    { key: 'categoria', label: 'Categoría', defaultWidth: 22 },
+    { key: 'grupo', label: 'Línea / Grupo', defaultWidth: 22 },
+    { key: 'destino', label: 'Destino de Uso', defaultWidth: 18 },
+    { key: 'cantidad_ppto', label: 'Cant. Presupuestada', defaultWidth: 12 },
+    { key: 'formato', label: 'Formato / Unidad', defaultWidth: 14 },
+    { key: 'val_unit_ppto', label: 'Val. Unit Presupuestado', defaultWidth: 16 },
+    { key: 'total_ppto', label: 'Total Presupuestado (IVA)', defaultWidth: 18 },
+    { key: 'cantidad_real', label: 'Cant. Real', defaultWidth: 12 },
+    { key: 'val_unit_real', label: 'Val. Unit Real', defaultWidth: 16 },
+    { key: 'total_real', label: 'Total Real (IVA)', defaultWidth: 18 },
+    { key: 'centro_costos', label: 'Subvención / Centro de Costos', defaultWidth: 24 },
+    { key: 'codigo_cuenta', label: 'Cód. Cuenta Contable', defaultWidth: 16 },
+    { key: 'fecha_solicitud', label: 'Fecha Solicitud', defaultWidth: 16 },
+    { key: 'estado_compra', label: 'Estado de Compra', defaultWidth: 16 },
+] as const;
+const DEFAULT_EXCEL_COLS_ORDER: string[] = COLUMNAS_EXCEL_MAESTRA.map(c => c.key);
+const EXCEL_COLS_DEFAULT: Record<string, boolean> = COLUMNAS_EXCEL_MAESTRA.reduce((acc, c) => {
+    acc[c.key] = true;
+    return acc;
+}, {} as Record<string, boolean>);
+
+function loadExcelColsConfig(): Record<string, boolean> {
+    try {
+        const raw = localStorage.getItem(LS_KEY_EXCEL_COLS);
+        if (!raw) return { ...EXCEL_COLS_DEFAULT };
+        const parsed = JSON.parse(raw);
+        return { ...EXCEL_COLS_DEFAULT, ...parsed };
+    } catch { return { ...EXCEL_COLS_DEFAULT }; }
+}
+function saveExcelColsConfig(c: Record<string, boolean>) {
+    localStorage.setItem(LS_KEY_EXCEL_COLS, JSON.stringify(c));
+}
+function loadExcelColsOrder(): string[] {
+    try {
+        const raw = localStorage.getItem(LS_KEY_EXCEL_COLS_ORDER);
+        if (!raw) return [...DEFAULT_EXCEL_COLS_ORDER];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [...DEFAULT_EXCEL_COLS_ORDER];
+        const set = new Set(parsed);
+        const result = parsed.filter(k => DEFAULT_EXCEL_COLS_ORDER.includes(k));
+        DEFAULT_EXCEL_COLS_ORDER.forEach(k => {
+            if (!set.has(k)) result.push(k);
+        });
+        return result;
+    } catch { return [...DEFAULT_EXCEL_COLS_ORDER]; }
+}
+function saveExcelColsOrder(order: string[]) {
+    localStorage.setItem(LS_KEY_EXCEL_COLS_ORDER, JSON.stringify(order));
+}
+function getExcelColLetter(colIdx: number): string {
+    let result = '';
+    while (colIdx > 0) {
+        const remainder = (colIdx - 1) % 26;
+        result = String.fromCharCode(65 + remainder) + result;
+        colIdx = Math.floor((colIdx - 1) / 26);
+    }
+    return result || 'A';
+}
+
 const formatCLP = (value: number) =>
     new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value || 0);
 function loadOTs(): OrdenTrabajo[] {
@@ -237,7 +346,7 @@ export default function ProgramarComprasPage() {
         // Filtros globales (persistidos en localStorage)
     const [colegioId, setColegioId] = useState('');
     const [isMounted, setIsMounted] = useState(false);
-    const [year, setYear] = useState(String(new Date().getFullYear()));
+    const [year, setYear] = useState('');
     // Datos
     const [compras, setCompras] = useState<BudgetRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -284,9 +393,21 @@ export default function ProgramarComprasPage() {
             return null; // 3er clic restaura el orden por defecto
         });
     };
-    // Configuración de columnas visibles
+    // Configuración de columnas visibles y orden
     const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({ ...COLS_DEFAULT });
+    const [colsOrder, setColsOrder] = useState<string[]>([...DEFAULT_COLS_ORDER]);
     const [showColsModal, setShowColsModal] = useState(false);
+    const [colsModalTab, setColsModalTab] = useState<'visibles' | 'orden'>('visibles');
+    const [draggedColIdx, setDraggedColIdx] = useState<number | null>(null);
+    // Configuración de columnas de Excel (visibles y orden)
+    const [excelVisibleCols, setExcelVisibleCols] = useState<Record<string, boolean>>({ ...EXCEL_COLS_DEFAULT });
+    const [excelColsOrder, setExcelColsOrder] = useState<string[]>([...DEFAULT_EXCEL_COLS_ORDER]);
+    const [showExcelModal, setShowExcelModal] = useState(false);
+    const [excelModalTab, setExcelModalTab] = useState<'visibles' | 'orden'>('visibles');
+    const [draggedExcelColIdx, setDraggedExcelColIdx] = useState<number | null>(null);
+    const [excelExportItems, setExcelExportItems] = useState<MasterItem[]>([]);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
+
     // Paginación configurable (30, 50, 100) persistida en localStorage
     const [itemsPerPage, setItemsPerPage] = useState<number>(30);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -400,6 +521,10 @@ export default function ProgramarComprasPage() {
                     setItemsPerPage(parsed);
                 }
             }
+            setVisibleCols(loadColsConfig());
+            setColsOrder(loadColsOrder());
+            setExcelVisibleCols(loadExcelColsConfig());
+            setExcelColsOrder(loadExcelColsOrder());
         } catch (e) {
             console.error('Error cargando filtros de localStorage:', e);
         } finally {
@@ -527,7 +652,7 @@ export default function ProgramarComprasPage() {
     const tieneFiltrosActivos = Boolean(
         searchTerm || filterMeses.length > 0 || filterAreas.length > 0 || filterSubareas.length > 0 ||
         filterEstadosCompra.length > 0 || filterFechaDesde || filterFechaHasta || filterCategorias.length > 0 ||
-        filterGrupos.length > 0 || filterDestinos.length > 0 || filterMotivos.length > 0 || showOnlyPendientes || colegioId
+        filterGrupos.length > 0 || filterDestinos.length > 0 || filterMotivos.length > 0 || showOnlyPendientes || colegioId || year
     );
 
     const limpiarFiltros = () => {
@@ -545,6 +670,7 @@ export default function ProgramarComprasPage() {
         setSortConfig(null);
         setShowOnlyPendientes(false);
         setColegioId('');
+        setYear('');
         try {
             localStorage.removeItem('go-compras-filter-colegio');
             localStorage.removeItem('go-compras-filter-year');
@@ -604,6 +730,7 @@ export default function ProgramarComprasPage() {
     const [savingItem, setSavingItem] = useState(false);
     // Modal de Actas de Entrega Oficiales con Correlativo
     const [showActasModal, setShowActasModal] = useState(false);
+    const [actaCustomItems, setActaCustomItems] = useState<MasterItem[] | null>(null);
     const getInicialesUsuario = (nombre?: string) => {
         if (!nombre) return 'ACT';
         const partes = nombre.trim().split(/\s+/).filter(Boolean);
@@ -655,16 +782,20 @@ export default function ProgramarComprasPage() {
         }
     };
 
-    const handleOpenActasModal = async () => {
-        const itemsAProcesar = selectedUids.size > 0
-            ? masterItems.filter(i => selectedUids.has(i.uid))
-            : filtered.filter(i => i.detalle.estado_aprobacion === 'Aprobado');
+    const handleOpenActasModal = async (customItems?: MasterItem[] | any) => {
+        const validItems = Array.isArray(customItems) ? customItems : undefined;
+        const itemsAProcesar = (validItems && validItems.length > 0)
+            ? validItems
+            : (selectedUids.size > 0
+                ? masterItems.filter(i => selectedUids.has(i.uid))
+                : filtered.filter(i => i.detalle.estado_aprobacion === 'Aprobado'));
 
         if (itemsAProcesar.length === 0) {
             alert('No hay recursos seleccionados para generar el acta.');
             return;
         }
 
+        setActaCustomItems(validItems && validItems.length > 0 ? validItems : null);
         setShowActasModal(true);
         setLoadingCorrelativo(true);
 
@@ -813,6 +944,7 @@ export default function ProgramarComprasPage() {
 
             setSelectedUids(new Set());
             setShowActasModal(false);
+            setActaCustomItems(null);
             await fetchCompras();
         } catch (err: any) {
             console.error('Error emitiendo acta:', err);
@@ -832,6 +964,7 @@ export default function ProgramarComprasPage() {
         centro_costos: string;
         observacion: string;
         estado: string;
+        formato_unidad?: string;
     } | null>(null);
 
     // Edición de Justificación / Motivo con propuesta a Jefe de Compras
@@ -866,6 +999,7 @@ export default function ProgramarComprasPage() {
     const [editJustificationItem, setEditJustificationItem] = useState<MasterItem | null>(null);
     const [editModalCantReal, setEditModalCantReal] = useState<number>(0);
     const [editModalPrecioReal, setEditModalPrecioReal] = useState<number>(0);
+    const [editModalFormatoUnidad, setEditModalFormatoUnidad] = useState<string>('UNIDAD');
     const [editModalObservacion, setEditModalObservacion] = useState<string>('');
     const [editModalCentroCostos, setEditModalCentroCostos] = useState<string>('GENERAL');
     const [editModalEstado, setEditModalEstado] = useState<EstadoCompra>('Pendiente');
@@ -875,6 +1009,107 @@ export default function ProgramarComprasPage() {
     const [solicitudesModPendientes, setSolicitudesModPendientes] = useState<any[]>([]);
     const [showRevisionModModal, setShowRevisionModModal] = useState(false);
     const [respondingModId, setRespondingModId] = useState<number | null>(null);
+    const [confirmComprarModal, setConfirmComprarModal] = useState<{
+        item: MasterItem;
+        cantReal: number;
+        precioReal: number;
+        totalReal: number;
+        centroCostos: string;
+        observacion: string;
+        motivo: string;
+        formatoUnidad: string;
+    } | null>(null);
+    const [isSavingModItem, setIsSavingModItem] = useState(false);
+
+    const handleEjecutarGuardadoConEstado = async (cambiarAComprado: boolean) => {
+        if (!confirmComprarModal) return;
+        const { item, cantReal, precioReal, totalReal, centroCostos, observacion, motivo, formatoUnidad } = confirmComprarModal;
+        setIsSavingModItem(true);
+        try {
+            const estadoActual = getEstado(item.uid);
+            const nuevoEstado: EstadoCompra = cambiarAComprado
+                ? 'Comprado'
+                : (estadoActual === 'Comprado' ? 'Comprado' : (item.detalle.estado_compra as EstadoCompra || 'Pendiente'));
+
+            await api.put(`/presupuesto/detalles/${item.detalle.id_pre_detalle}`, {
+                cantidad_real: cantReal,
+                valor_real_iva: totalReal,
+                centro_costos: centroCostos,
+                observacion: observacion,
+                motivo: motivo,
+                estado_compra: nuevoEstado,
+                formato_unidad: formatoUnidad
+            });
+
+            item.detalle.formato_unidad = formatoUnidad;
+            item.detalle.estado_compra = nuevoEstado;
+
+            const nextEstados = { ...itemEstados, [item.uid]: nuevoEstado };
+            setItemEstados(nextEstados);
+            saveItemEstados(nextEstados);
+
+            const nextExtras = {
+                ...itemExtras,
+                [item.uid]: {
+                    cantidad_real: cantReal,
+                    valor_real: precioReal,
+                    monto_real: precioReal,
+                    centro_costos: centroCostos,
+                    observacion: observacion,
+                    motivo: motivo
+                }
+            };
+            setItemExtras(nextExtras as any);
+            saveExtras(nextExtras as any);
+
+            const itemActualizado: MasterItem = {
+                ...item,
+                cantidad_real: cantReal,
+                valor_real: precioReal,
+                centro_costos: centroCostos,
+                observacion: observacion,
+                motivo: motivo,
+                detalle: {
+                    ...item.detalle,
+                    cantidad_real: cantReal,
+                    valor_real_iva: totalReal,
+                    formato_unidad: formatoUnidad,
+                    centro_costos: centroCostos,
+                    observacion: observacion,
+                    motivo: motivo,
+                    estado_compra: nuevoEstado
+                }
+            };
+
+            await fetchCompras();
+
+            // Cerrar modal de confirmación y modal de edición
+            setConfirmComprarModal(null);
+            setEditJustificationItem(null);
+
+            if (cambiarAComprado) {
+                // Abrir directamente el Acta Oficial solo para este producto
+                handleOpenActasModal([itemActualizado]);
+            } else {
+                setSavedItemSummary({
+                    nombre_producto: item.detalle.nombre_producto,
+                    codigo_solicitud: item.solicitudCodigo,
+                    cant_real: cantReal,
+                    val_real: precioReal,
+                    total_real: totalReal,
+                    centro_costos: centroCostos,
+                    observacion: observacion || '-',
+                    estado: nuevoEstado,
+                    formato_unidad: formatoUnidad
+                });
+            }
+        } catch (e: any) {
+            console.error('Error al guardar insumo:', e);
+            alert(e.response?.data?.detail || 'Error al guardar los datos.');
+        } finally {
+            setIsSavingModItem(false);
+        }
+    };
 
     /**
      * Descarga el PDF oficial de actas generado en el backend (Python/ReportLab).
@@ -888,260 +1123,275 @@ export default function ProgramarComprasPage() {
      * - Diego Portales: Azul institucional (#1E3A8A / #2563EB / #DBEAFE)
      * Con formato numérico monetario nativo ($#,##0) y anchos de columna automáticos.
      */
-    const handleExportarExcelRecursos = async (itemsAExportar: MasterItem[]) => {
-        if (!itemsAExportar || itemsAExportar.length === 0) {
+    const handleExportarExcelRecursos = async (itemsAExportar?: MasterItem[]) => {
+        const items = (itemsAExportar && itemsAExportar.length > 0) ? itemsAExportar : excelExportItems;
+        if (!items || items.length === 0) {
             alert('No hay recursos seleccionados para exportar.');
             return;
         }
 
-        // Determinar colegio predominante
-        const primerColegio = (itemsAExportar[0]?.colegio || '').toLowerCase();
-        const esMacaya = colegioId === '1' || primerColegio.includes('macaya') || (!colegioId && !primerColegio.includes('diego'));
-        const colegioNombreDisplay = esMacaya ? 'Colegio Macaya' : 'Colegio Diego Portales';
-        const slugColegio = esMacaya ? 'Macaya' : 'Diego_Portales';
+        const activeColKeys = excelColsOrder.filter(k => isExcelColVisible(k));
+        if (activeColKeys.length === 0) {
+            alert('Debes seleccionar al menos una columna visible para exportar.');
+            return;
+        }
 
-        // Colores temáticos ARGB (ExcelJS usa ARGB hexadecimal)
-        const primaryColor = esMacaya ? 'FF065F46' : 'FF1E3A8A';
-        const lightBgColor = esMacaya ? 'FFD1FAE5' : 'FFDBEAFE';
-        const zebraColor = esMacaya ? 'FFF0FDF4' : 'FFEFE6FF';
-        const accentTextColor = esMacaya ? 'FF064E3B' : 'FF1E3A8A';
-        const borderColor = esMacaya ? 'FFA7F3D0' : 'FFBFDBFE';
+        setIsExportingExcel(true);
+        try {
+            // Determinar colegio predominante
+            const primerColegio = (items[0]?.colegio || '').toLowerCase();
+            const esMacaya = colegioId === '1' || primerColegio.includes('macaya') || (!colegioId && !primerColegio.includes('diego'));
+            const colegioNombreDisplay = esMacaya ? 'Colegio Macaya' : 'Colegio Diego Portales';
+            const slugColegio = esMacaya ? 'Macaya' : 'Diego_Portales';
 
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'MCDP-PPA';
-        workbook.created = new Date();
-        const worksheet = workbook.addWorksheet('Recursos y Compras', {
-            views: [{ showGridLines: true }]
-        });
+            // Colores temáticos ARGB (ExcelJS usa ARGB hexadecimal)
+            const primaryColor = esMacaya ? 'FF065F46' : 'FF1E3A8A';
+            const lightBgColor = esMacaya ? 'FFD1FAE5' : 'FFDBEAFE';
+            const zebraColor = esMacaya ? 'FFF0FDF4' : 'FFEFE6FF';
+            const accentTextColor = esMacaya ? 'FF064E3B' : 'FF1E3A8A';
+            const borderColor = esMacaya ? 'FFA7F3D0' : 'FFBFDBFE';
 
-        // 1. Título Banner
-        const titleRow = worksheet.addRow(['REPORTE DETALLADO DE RECURSOS Y COMPRAS']);
-        worksheet.mergeCells('A1:W1');
-        titleRow.height = 36;
-        titleRow.getCell(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: primaryColor }
-        };
-        titleRow.getCell(1).font = {
-            name: 'Calibri',
-            size: 16,
-            bold: true,
-            color: { argb: 'FFFFFFFF' }
-        };
-        titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'MCDP-PPA';
+            workbook.created = new Date();
+            const worksheet = workbook.addWorksheet('Recursos y Compras', {
+                views: [{ showGridLines: true }]
+            });
 
-        // 2. Subtítulo Banner
-        const fechaStr = new Date().toLocaleDateString('es-CL', {
-            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-        const subRow = worksheet.addRow([`Institución: ${colegioNombreDisplay}   |   Fecha de Emisión: ${fechaStr}   |   Total Recursos: ${itemsAExportar.length}`]);
-        worksheet.mergeCells('A2:W2');
-        subRow.height = 24;
-        subRow.getCell(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: lightBgColor }
-        };
-        subRow.getCell(1).font = {
-            name: 'Calibri',
-            size: 11,
-            bold: true,
-            color: { argb: accentTextColor }
-        };
-        subRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+            const lastColLetter = getExcelColLetter(activeColKeys.length);
 
-        // Fila vacía de separación
-        worksheet.addRow([]);
-
-        // 3. Encabezados de Tabla
-        const headers = [
-            '#', 'Colegio', 'Área', 'Usuario Solicitante', 'Cargo',
-            'Cód. Solicitud', 'Producto / Recurso', 'Descripción', 'Actividad PME', 'Just. Actividad / Motivo',
-            'Categoría', 'Línea / Grupo', 'Destino de Uso', 'Cant. Ppto', 'Formato', 'Val. Unit Ppto',
-            'Total Ppto (IVA)', 'Cant. Real', 'Val. Unit Real', 'Total Real (IVA)',
-            'Subvención / C. Costos', 'Cód. Cuenta', 'Fecha Solicitud', 'Estado Compra'
-        ];
-
-        const headerRow = worksheet.addRow(headers);
-        headerRow.height = 28;
-        headerRow.eachCell((cell) => {
-            cell.fill = {
+            // 1. Título Banner
+            const titleRow = worksheet.addRow(['REPORTE DETALLADO DE RECURSOS Y COMPRAS']);
+            worksheet.mergeCells(`A1:${lastColLetter}1`);
+            titleRow.height = 36;
+            titleRow.getCell(1).fill = {
                 type: 'pattern',
                 pattern: 'solid',
                 fgColor: { argb: primaryColor }
             };
-            cell.font = {
+            titleRow.getCell(1).font = {
                 name: 'Calibri',
-                size: 11,
+                size: 16,
                 bold: true,
                 color: { argb: 'FFFFFFFF' }
             };
-            cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-            cell.border = {
-                top: { style: 'thin', color: { argb: 'FF1E293B' } },
-                left: { style: 'thin', color: { argb: 'FF1E293B' } },
-                bottom: { style: 'thin', color: { argb: 'FF1E293B' } },
-                right: { style: 'thin', color: { argb: 'FF1E293B' } }
-            };
-        });
+            titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-        // 4. Filas de Datos
-        let totalPptoAcum = 0;
-        let totalRealAcum = 0;
-
-        itemsAExportar.forEach((item, idx) => {
-            const qtyPpto = Number(item.detalle.cantidad) || 0;
-            const valUnitPpto = Number(item.detalle.valor_unitario_iva) || 0;
-            const totPpto = Number(item.detalle.total_iva) || (qtyPpto * valUnitPpto);
-            totalPptoAcum += totPpto;
-
-            const qtyReal = item.cantidad_real !== undefined ? Number(item.cantidad_real) : qtyPpto;
-            const valUnitReal = item.valor_real !== undefined
-                ? Number(item.valor_real)
-                : (item.detalle.valor_real_iva ? Number(item.detalle.valor_real_iva) / (qtyReal || 1) : valUnitPpto);
-            const totReal = (item.cantidad_real !== undefined || item.valor_real !== undefined)
-                ? (qtyReal * valUnitReal)
-                : (item.detalle.valor_real_iva != null ? Number(item.detalle.valor_real_iva) : (qtyReal * valUnitReal));
-            totalRealAcum += totReal;
-
-            const estActual = getEstado(item.uid);
-            const isZebra = idx % 2 === 1;
-
-            const row = worksheet.addRow([
-                idx + 1,
-                item.colegio || colegioNombreDisplay,
-                item.area || '—',
-                item.solicitante || '—',
-                item.cargo || '—',
-                item.solicitudCodigo,
-                item.detalle.nombre_producto,
-                item.detalle.descripcion || '—',
-                item.detalle.actividad_nombre || '—',
-                item.motivo || item.detalle.motivo || '—',
-                item.detalle.categoria_nombre || '—',
-                item.detalle.grupo_nombre || '—',
-                item.detalle.destino_gasto || 'Estudiante',
-                qtyPpto,
-                item.detalle.formato_unidad || 'Unidad',
-                Math.round(valUnitPpto),
-                Math.round(totPpto),
-                qtyReal,
-                Math.round(valUnitReal),
-                Math.round(totReal),
-                item.centro_costos || 'GENERAL',
-                item.detalle.codigo_cuenta || '—',
-                formatFechaSolicitud(item.detalle),
-                estActual
-            ]);
-
-            row.height = 22;
-
-            row.eachCell((cell, colNumber) => {
-                if (isZebra) {
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: { argb: zebraColor }
-                    };
-                }
-
-                cell.border = {
-                    top: { style: 'thin', color: { argb: borderColor } },
-                    left: { style: 'thin', color: { argb: borderColor } },
-                    bottom: { style: 'thin', color: { argb: borderColor } },
-                    right: { style: 'thin', color: { argb: borderColor } }
-                };
-
-                cell.font = { name: 'Calibri', size: 10 };
-                cell.alignment = { vertical: 'middle', horizontal: 'left' };
-
-                // Formatos numéricos específicos
-                if (colNumber === 1 || colNumber === 13 || colNumber === 17) {
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                    cell.numFmt = '#,##0';
-                } else if (colNumber === 15 || colNumber === 16 || colNumber === 18 || colNumber === 19) {
-                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
-                    cell.numFmt = '$#,##0';
-                } else if (colNumber === 2) {
-                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: primaryColor } };
-                } else if (colNumber === 4) {
-                    cell.font = { name: 'Calibri', size: 10, bold: true };
-                } else if (colNumber === 6) {
-                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: primaryColor } };
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (colNumber === 7) {
-                    cell.font = { name: 'Calibri', size: 10, bold: true };
-                } else if (colNumber === 23) {
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                }
+            // 2. Subtítulo Banner
+            const fechaStr = new Date().toLocaleDateString('es-CL', {
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
             });
-        });
-
-        // 5. Fila de Totales
-        const totalRow = worksheet.addRow([
-            '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL GRAL PPTO:', Math.round(totalPptoAcum),
-            '', 'TOTAL GRAL REAL:', Math.round(totalRealAcum), '', '', '', ''
-        ]);
-        totalRow.height = 26;
-        worksheet.mergeCells(`A${totalRow.number}:N${totalRow.number}`);
-        totalRow.eachCell((cell) => {
-            cell.fill = {
+            const subRow = worksheet.addRow([`Institución: ${colegioNombreDisplay}   |   Fecha de Emisión: ${fechaStr}   |   Total Recursos: ${items.length}`]);
+            worksheet.mergeCells(`A2:${lastColLetter}2`);
+            subRow.height = 24;
+            subRow.getCell(1).fill = {
                 type: 'pattern',
                 pattern: 'solid',
                 fgColor: { argb: lightBgColor }
             };
-            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: accentTextColor } };
-            cell.border = {
-                top: { style: 'medium', color: { argb: primaryColor } },
-                bottom: { style: 'medium', color: { argb: primaryColor } }
+            subRow.getCell(1).font = {
+                name: 'Calibri',
+                size: 11,
+                bold: true,
+                color: { argb: accentTextColor }
             };
-        });
-        totalRow.getCell(15).alignment = { vertical: 'middle', horizontal: 'right' };
-        totalRow.getCell(16).alignment = { vertical: 'middle', horizontal: 'right' };
-        totalRow.getCell(16).numFmt = '$#,##0';
-        totalRow.getCell(18).alignment = { vertical: 'middle', horizontal: 'right' };
-        totalRow.getCell(19).alignment = { vertical: 'middle', horizontal: 'right' };
-        totalRow.getCell(19).numFmt = '$#,##0';
+            subRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
-        // Anchos de columna
-        worksheet.columns = [
-            { width: 6 },   // 1. #
-            { width: 24 },  // 2. Colegio
-            { width: 22 },  // 3. Área
-            { width: 26 },  // 4. Solicitante / Usuario
-            { width: 22 },  // 5. Cargo
-            { width: 16 },  // 6. Cód. Solicitud
-            { width: 34 },  // 7. Producto
-            { width: 36 },  // 8. Descripción
-            { width: 34 },  // 9. Justificación
-            { width: 22 },  // 10. Categoría
-            { width: 22 },  // 11. Línea / Grupo
-            { width: 18 },  // 12. Destino
-            { width: 12 },  // 13. Cant. Ppto
-            { width: 14 },  // 14. Formato
-            { width: 16 },  // 15. Val. Unit Ppto
-            { width: 18 },  // 16. Total Ppto
-            { width: 12 },  // 17. Cant. Real
-            { width: 16 },  // 18. Val. Unit Real
-            { width: 18 },  // 19. Total Real
-            { width: 24 },  // 20. Subvención / C. Costos
-            { width: 16 },  // 21. Cód. Cuenta
-            { width: 16 },  // 22. Fecha Solicitud
-            { width: 16 }   // 23. Estado Compra
-        ];
+            // Fila vacía de separación
+            worksheet.addRow([]);
 
-        // Generar y descargar archivo binario nativo .xlsx
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Recursos_Compras_${slugColegio}_${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+            // 3. Encabezados de Tabla dinámicos según activeColKeys
+            const headers = activeColKeys.map(k => getExcelColLabel(k));
+            const headerRow = worksheet.addRow(headers);
+            headerRow.height = 28;
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: primaryColor }
+                };
+                cell.font = {
+                    name: 'Calibri',
+                    size: 11,
+                    bold: true,
+                    color: { argb: 'FFFFFFFF' }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF1E293B' } },
+                    left: { style: 'thin', color: { argb: 'FF1E293B' } },
+                    bottom: { style: 'thin', color: { argb: 'FF1E293B' } },
+                    right: { style: 'thin', color: { argb: 'FF1E293B' } }
+                };
+            });
+
+            // 4. Filas de Datos
+            let totalPptoAcum = 0;
+            let totalRealAcum = 0;
+
+            items.forEach((item, idx) => {
+                const qtyPpto = Number(item.detalle.cantidad) || 0;
+                const valUnitPpto = Number(item.detalle.valor_unitario_iva) || 0;
+                const totPpto = Number(item.detalle.total_iva) || (qtyPpto * valUnitPpto);
+                totalPptoAcum += totPpto;
+
+                const qtyReal = item.cantidad_real !== undefined ? Number(item.cantidad_real) : qtyPpto;
+                const valUnitReal = item.valor_real !== undefined
+                    ? Number(item.valor_real)
+                    : (item.detalle.valor_real_iva ? Number(item.detalle.valor_real_iva) / (qtyReal || 1) : valUnitPpto);
+                const totReal = (item.cantidad_real !== undefined || item.valor_real !== undefined)
+                    ? (qtyReal * valUnitReal)
+                    : (item.detalle.valor_real_iva != null ? Number(item.detalle.valor_real_iva) : (qtyReal * valUnitReal));
+                totalRealAcum += totReal;
+
+                const estActual = getEstado(item.uid);
+                const isZebra = idx % 2 === 1;
+
+                // Construcción de la fila según activeColKeys
+                const rowValues = activeColKeys.map(k => {
+                    switch (k) {
+                        case 'num': return idx + 1;
+                        case 'colegio': return item.colegio || colegioNombreDisplay;
+                        case 'area': return item.area || '—';
+                        case 'solicitante': return item.solicitante || '—';
+                        case 'cargo': return item.cargo || '—';
+                        case 'codigo_solicitud': return item.solicitudCodigo;
+                        case 'producto': return item.detalle.nombre_producto;
+                        case 'descripcion': return item.detalle.descripcion || '—';
+                        case 'actividad_pme': return item.detalle.actividad_nombre || '—';
+                        case 'motivo': return item.motivo || item.detalle.motivo || '—';
+                        case 'categoria': return item.detalle.categoria_nombre || '—';
+                        case 'grupo': return item.detalle.grupo_nombre || '—';
+                        case 'destino': return item.detalle.destino_gasto || 'Estudiante';
+                        case 'cantidad_ppto': return qtyPpto;
+                        case 'formato': return item.detalle.formato_unidad || 'Unidad';
+                        case 'val_unit_ppto': return Math.round(valUnitPpto);
+                        case 'total_ppto': return Math.round(totPpto);
+                        case 'cantidad_real': return qtyReal;
+                        case 'val_unit_real': return Math.round(valUnitReal);
+                        case 'total_real': return Math.round(totReal);
+                        case 'centro_costos': return item.centro_costos || 'GENERAL';
+                        case 'codigo_cuenta': return item.detalle.codigo_cuenta || '—';
+                        case 'fecha_solicitud': return formatFechaSolicitud(item.detalle);
+                        case 'estado_compra': return estActual;
+                        default: return '—';
+                    }
+                });
+
+                const row = worksheet.addRow(rowValues);
+                row.height = 22;
+
+                row.eachCell((cell, colNumber) => {
+                    const colKey = activeColKeys[colNumber - 1];
+
+                    if (isZebra) {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: zebraColor }
+                        };
+                    }
+
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: borderColor } },
+                        left: { style: 'thin', color: { argb: borderColor } },
+                        bottom: { style: 'thin', color: { argb: borderColor } },
+                        right: { style: 'thin', color: { argb: borderColor } }
+                    };
+
+                    cell.font = { name: 'Calibri', size: 10 };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+
+                    // Formatos específicos
+                    if (colKey === 'num' || colKey === 'cantidad_ppto' || colKey === 'cantidad_real') {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        cell.numFmt = '#,##0';
+                    } else if (colKey === 'val_unit_ppto' || colKey === 'total_ppto' || colKey === 'val_unit_real' || colKey === 'total_real') {
+                        cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                        cell.numFmt = '$#,##0';
+                    } else if (colKey === 'colegio' || colKey === 'codigo_solicitud') {
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: primaryColor } };
+                        if (colKey === 'codigo_solicitud') {
+                            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        }
+                    } else if (colKey === 'solicitante' || colKey === 'producto') {
+                        cell.font = { name: 'Calibri', size: 10, bold: true };
+                    } else if (colKey === 'fecha_solicitud' || colKey === 'estado_compra') {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+                });
+            });
+
+            // 5. Fila de Totales si se incluye total_ppto o total_real
+            const hasTotalPpto = activeColKeys.includes('total_ppto');
+            const hasTotalReal = activeColKeys.includes('total_real');
+
+            if (hasTotalPpto || hasTotalReal) {
+                const totalRowValues: (string | number)[] = activeColKeys.map(k => {
+                    if (k === 'total_ppto') return Math.round(totalPptoAcum);
+                    if (k === 'total_real') return Math.round(totalRealAcum);
+                    return '';
+                });
+
+                const firstTotalIdx = activeColKeys.findIndex(k => k === 'total_ppto' || k === 'total_real');
+                if (firstTotalIdx > 0) {
+                    totalRowValues[firstTotalIdx - 1] = 'TOTALES:';
+                } else if (totalRowValues.length > 0 && totalRowValues[0] === '') {
+                    totalRowValues[0] = 'TOTALES:';
+                }
+
+                const totalRow = worksheet.addRow(totalRowValues);
+                totalRow.height = 26;
+
+                totalRow.eachCell((cell, colNumber) => {
+                    const colKey = activeColKeys[colNumber - 1];
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: lightBgColor }
+                    };
+                    cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: accentTextColor } };
+                    cell.border = {
+                        top: { style: 'medium', color: { argb: primaryColor } },
+                        bottom: { style: 'medium', color: { argb: primaryColor } }
+                    };
+
+                    if (colKey === 'total_ppto' || colKey === 'total_real') {
+                        cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                        cell.numFmt = '$#,##0';
+                    } else if (cell.value === 'TOTALES:') {
+                        cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    }
+                });
+            }
+
+            // Anchos de columna dinámicos
+            worksheet.columns = activeColKeys.map(k => {
+                const def = getExcelColDef(k);
+                return { width: def ? def.defaultWidth : 18 };
+            });
+
+            // Generar y descargar archivo binario nativo .xlsx
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const fechaArchivo = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+            a.download = `Recursos_Compras_${slugColegio}_${fechaArchivo}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            setShowExcelModal(false);
+        } catch (e) {
+            console.error('Error generando archivo Excel:', e);
+            alert('Ocurrió un error al generar la planilla Excel.');
+        } finally {
+            setIsExportingExcel(false);
+        }
     };
 
     const handleDownloadPdfActas = async (itemsPorArea: Record<string, MasterItem[]>) => {
@@ -1244,6 +1494,9 @@ export default function ProgramarComprasPage() {
             if (savedExtras) setItemExtras(JSON.parse(savedExtras));
         } catch {}
         setVisibleCols(loadColsConfig());
+        setColsOrder(loadColsOrder());
+        setExcelVisibleCols(loadExcelColsConfig());
+        setExcelColsOrder(loadExcelColsOrder());
         setActaVisibleCols(loadActaColsConfig());
         setProveedores(loadProveedores());
         setIsMounted(true);
@@ -1275,9 +1528,12 @@ export default function ProgramarComprasPage() {
                 }
                 const uid = `${c.id_presupuesto}-${d.id_pre_detalle}`;
                 const extra = itemExtras[uid] || {};
-                // Si el detalle ya tiene un valor_real_iva guardado en el servidor y no hay estado local definido, considerarlo 'Comprado'
-                if (d.valor_real_iva != null && !itemEstados[uid]) {
-                    setItemEstados(prev => ({ ...prev, [uid]: 'Comprado' }));
+                // Sincronizar estado: priorizar estado_compra guardado en servidor
+                if (d.estado_compra && !itemEstados[uid]) {
+                    const st = d.estado_compra as EstadoCompra;
+                    if (st === 'Comprado' || st === 'En revisión' || st === 'En camino' || st === 'Pendiente' || st === 'Aprobado') {
+                        setItemEstados(prev => ({ ...prev, [uid]: st }));
+                    }
                 }
                 
                 // Determinar nombre de subvención por defecto desde el recurso/detalle si existe
@@ -1408,9 +1664,6 @@ export default function ProgramarComprasPage() {
                 return st as EstadoCompra;
             }
         }
-        if (matchItem?.detalle?.valor_real_iva != null) {
-            return 'Comprado';
-        }
         return 'Pendiente';
     }, [itemEstados, masterItems]);
     const guardarProveedor = () => {
@@ -1534,12 +1787,15 @@ export default function ProgramarComprasPage() {
         });
     }, [masterItems, formatFechaSolicitud]);
     const filtered = useMemo(() => {
+        const term = searchTerm.toLowerCase();
         return masterItems.filter(item => {
             const matchSearch = !searchTerm ||
-                item.detalle.nombre_producto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (item.detalle.recurso_nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (item.detalle.codigo_cuenta || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.solicitudCodigo.toLowerCase().includes(searchTerm.toLowerCase());
+                item.detalle.nombre_producto.toLowerCase().includes(term) ||
+                (item.detalle.descripcion || '').toLowerCase().includes(term) ||
+                (item.motivo || item.detalle.motivo || '').toLowerCase().includes(term) ||
+                (item.detalle.recurso_nombre || '').toLowerCase().includes(term) ||
+                (item.detalle.codigo_cuenta || '').toLowerCase().includes(term) ||
+                item.solicitudCodigo.toLowerCase().includes(term);
             const matchCat = filterCategorias.length === 0 || (
                 item.detalle.categoria_nombre
                     ? filterCategorias.includes(item.detalle.categoria_nombre)
@@ -1739,7 +1995,374 @@ export default function ProgramarComprasPage() {
 
     // helper para columnas
     const isColVisible = (key: string) => visibleCols[key] !== false;
-    const colCount = 3 + COLUMNAS_MAESTRA.filter(c => isColVisible(c.key)).length; // checkbox + # + producto + visibles
+    const colCount = 3 + colsOrder.filter(k => isColVisible(k)).length; // checkbox + # + producto + visibles
+
+    // Helpers para columnas de Excel
+    const isExcelColVisible = (key: string) => excelVisibleCols[key] !== false;
+    const getExcelColDef = (key: string) => COLUMNAS_EXCEL_MAESTRA.find(c => c.key === key);
+    const getExcelColLabel = (key: string): string => {
+        const def = getExcelColDef(key);
+        return def ? def.label : key;
+    };
+    const moveExcelCol = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= excelColsOrder.length) return;
+        const newOrder = [...excelColsOrder];
+        const temp = newOrder[index];
+        newOrder[index] = newOrder[targetIndex];
+        newOrder[targetIndex] = temp;
+        setExcelColsOrder(newOrder);
+        saveExcelColsOrder(newOrder);
+    };
+    const handleExcelDragStart = (idx: number) => {
+        setDraggedExcelColIdx(idx);
+    };
+    const handleExcelDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+    const handleExcelDrop = (targetIdx: number) => {
+        if (draggedExcelColIdx === null || draggedExcelColIdx === targetIdx) return;
+        const newOrder = [...excelColsOrder];
+        const [moved] = newOrder.splice(draggedExcelColIdx, 1);
+        newOrder.splice(targetIdx, 0, moved);
+        setExcelColsOrder(newOrder);
+        saveExcelColsOrder(newOrder);
+        setDraggedExcelColIdx(null);
+    };
+    const handleOpenExcelModal = (items: MasterItem[]) => {
+        const toExport = items && items.length > 0 ? items : (selectedUids.size > 0 ? masterItems.filter(i => selectedUids.has(i.uid)) : filtered);
+        if (toExport.length === 0) {
+            alert('No hay recursos seleccionados para exportar.');
+            return;
+        }
+        setExcelExportItems(toExport);
+        setShowExcelModal(true);
+    };
+
+    const getColLabel = (key: string): string => {
+        const found = COLUMNAS_MAESTRA.find(c => c.key === key);
+        return found ? found.label : key;
+    };
+
+    const moveCol = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= colsOrder.length) return;
+        const newOrder = [...colsOrder];
+        const temp = newOrder[index];
+        newOrder[index] = newOrder[targetIndex];
+        newOrder[targetIndex] = temp;
+        setColsOrder(newOrder);
+        saveColsOrder(newOrder);
+    };
+
+    const handleDragStart = (idx: number) => {
+        setDraggedColIdx(idx);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = (targetIdx: number) => {
+        if (draggedColIdx === null || draggedColIdx === targetIdx) return;
+        const newOrder = [...colsOrder];
+        const [moved] = newOrder.splice(draggedColIdx, 1);
+        newOrder.splice(targetIdx, 0, moved);
+        setColsOrder(newOrder);
+        saveColsOrder(newOrder);
+        setDraggedColIdx(null);
+    };
+
+    const renderTableHeaderCell = (colKey: string) => {
+        switch (colKey) {
+            case 'descripcion':
+                return renderSortTh('descripcion', 'Descripción');
+            case 'actividad_pme':
+                return renderSortTh('actividad_pme', 'Nombre de Actividad del PME');
+            case 'motivo':
+                return renderSortTh('motivo', 'Just. Actividad / Motivo');
+            case 'categoria':
+                return renderSortTh('categoria', 'Categoría');
+            case 'grupo':
+                return renderSortTh('grupo', 'Línea / Grupo');
+            case 'destino':
+                return renderSortTh('destino', 'Destino');
+            case 'cantidad':
+                return renderSortTh('cantidad', 'Cant. Presup.');
+            case 'total':
+                return renderSortTh('total', 'Monto Presup.');
+            case 'cantidad_real':
+                return renderSortTh('cantidad_real', 'Cant. Real', 'text-emerald-800 bg-emerald-50/30');
+            case 'monto_real':
+                return renderSortTh('monto_real', 'Monto Real', 'text-emerald-800 bg-emerald-50/30');
+            case 'centro_costos':
+                return renderSortTh('centro_costos', 'Centro de Costos');
+            case 'observacion':
+                return renderSortTh('observacion', 'Observación');
+            case 'fecha':
+                return renderSortTh('fecha', 'Fecha Solicitud');
+            case 'origen':
+                return renderSortTh('origen', 'Origen');
+            case 'area':
+                return renderSortTh('area', 'Área');
+            case 'solicitante':
+                return renderSortTh('solicitante', 'Solicitante');
+            case 'estado':
+                return renderSortTh('estado', 'Estado', '', true);
+            default:
+                return null;
+        }
+    };
+
+    const renderTableBodyCell = (colKey: string, item: MasterItem, est: EstadoCompra, qtyReal: number, valReal: number, totalReal: number) => {
+        switch (colKey) {
+            case 'descripcion':
+                return (
+                    <td key="descripcion" className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" title={item.detalle.descripcion || ''}>
+                        {item.detalle.descripcion || <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                );
+            case 'actividad_pme':
+                return (
+                    <td key="actividad_pme" className="px-4 py-3 text-xs max-w-xs break-words" title={item.detalle.actividad_nombre || 'Sin actividad asignada'}>
+                        {item.detalle.actividad_nombre ? (
+                            <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-lg text-xs font-semibold leading-snug">
+                                    <Target size={12} className="shrink-0 text-emerald-600" />
+                                    <span>{item.detalle.actividad_nombre}</span>
+                                </span>
+                                {item.detalle.accion_nombre && (
+                                    <p className="text-[11px] text-gray-400 font-medium truncate" title={item.detalle.accion_nombre}>
+                                        Acción: {item.detalle.accion_nombre}
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <span className="text-xs text-gray-300 italic">—</span>
+                        )}
+                    </td>
+                );
+            case 'motivo':
+                return (
+                    <td key="motivo" className="px-4 py-3 text-sm text-gray-600 max-w-xs whitespace-normal break-words" title={item.detalle.motivo || ''}>
+                        {item.detalle.motivo || <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                );
+            case 'categoria':
+                return (
+                    <td key="categoria" className="px-4 py-3 whitespace-nowrap">
+                        {item.detalle.categoria_nombre ? (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                                {item.detalle.categoria_nombre}
+                            </span>
+                        ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                        )}
+                    </td>
+                );
+            case 'grupo':
+                return (
+                    <td key="grupo" className="px-4 py-3 whitespace-nowrap">
+                        {item.detalle.grupo_nombre ? (
+                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded text-xs font-medium">
+                                {item.detalle.grupo_nombre}
+                            </span>
+                        ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                        )}
+                    </td>
+                );
+            case 'destino': {
+                const rawDest = (item.detalle.destino_gasto || '').toUpperCase();
+                let label = item.detalle.destino_gasto || '—';
+                let badge = 'bg-gray-50 text-gray-600 border-gray-200';
+
+                if (rawDest.includes('ESTUDIANTE') || rawDest.includes('ALUMNO') || rawDest.includes('SALA')) {
+                    label = 'Estudiante';
+                    badge = 'bg-blue-50 text-blue-700 border-blue-200';
+                } else if (rawDest.includes('FUNCIONARIO') || rawDest.includes('DOCENTE') || rawDest.includes('OFICINA') || rawDest.includes('ADMIN')) {
+                    label = 'Funcionario';
+                    badge = 'bg-purple-50 text-purple-700 border-purple-200';
+                } else if (rawDest.includes('PREMIO')) {
+                    label = 'Premio / Beneficio';
+                    badge = 'bg-amber-50 text-amber-700 border-amber-200';
+                } else if (rawDest.includes('MANTEN')) {
+                    label = 'Mantención';
+                    badge = 'bg-slate-100 text-slate-700 border-slate-200';
+                }
+
+                return (
+                    <td key="destino" className="px-4 py-3 whitespace-nowrap">
+                        {item.detalle.destino_gasto ? (
+                            <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border inline-block shadow-2xs ${badge}`}>
+                                {label}
+                            </span>
+                        ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                        )}
+                    </td>
+                );
+            }
+            case 'cantidad':
+                return (
+                    <td key="cantidad" className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        {item.detalle.cantidad} <span className="text-xs text-gray-400">{item.detalle.formato_unidad}</span>
+                    </td>
+                );
+            case 'total':
+                return (
+                    <td key="total" className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-xs text-gray-500">{formatCLP(item.detalle.valor_unitario_iva)} <span className="text-[10px] text-gray-400">/ unit.</span></div>
+                        <div className="text-sm font-extrabold text-gray-900">Total: {formatCLP(item.detalle.total_iva)}</div>
+                    </td>
+                );
+            case 'cantidad_real':
+                return (
+                    <td key="cantidad_real" className="px-4 py-3 whitespace-nowrap text-sm font-bold text-emerald-900 bg-emerald-50/20">
+                        {qtyReal} <span className="text-xs font-normal text-gray-500">{item.detalle.formato_unidad}</span>
+                    </td>
+                );
+            case 'monto_real':
+                return (
+                    <td key="monto_real" className="px-4 py-3 whitespace-nowrap bg-emerald-50/20">
+                        <div className="text-xs text-emerald-700">{formatCLP(valReal)} <span className="text-[10px] text-emerald-600">/ unit.</span></div>
+                        <div className="text-sm font-extrabold text-emerald-900">Total: {formatCLP(totalReal)}</div>
+                    </td>
+                );
+            case 'centro_costos':
+                return (
+                    <td key="centro_costos" className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-bold text-xs text-gray-800">{item.centro_costos || 'GENERAL'}</div>
+                        {item.detalle.codigo_cuenta && (
+                            <div className="text-[10px] text-gray-400 font-mono">C. Cuent: {item.detalle.codigo_cuenta}</div>
+                        )}
+                    </td>
+                );
+            case 'observacion':
+                return (
+                    <td key="observacion" className="px-4 py-3 text-xs text-gray-600 max-w-xs break-words">
+                        {item.observacion || <span className="text-gray-300 italic">—</span>}
+                    </td>
+                );
+            case 'fecha':
+                return (
+                    <td key="fecha" className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {formatFechaSolicitud(item.detalle)}
+                    </td>
+                );
+            case 'origen':
+                return (
+                    <td key="origen" className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                        <button
+                            onClick={() => router.push(`/go-compras/historial/${item.solicitudId}`)}
+                            className="text-primary hover:underline font-semibold"
+                            title="Ver solicitud de origen"
+                        >
+                            {item.solicitudCodigo}
+                        </button>
+                    </td>
+                );
+            case 'area':
+                return (
+                    <td key="area" className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 font-medium">
+                        {item.area || <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                );
+            case 'solicitante':
+                return (
+                    <td key="solicitante" className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        {item.solicitante || <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                );
+            case 'estado': {
+                const pptoEst = item.detalle.estado_aprobacion || 'Pendiente';
+                const esAjuste = pptoEst === 'Con Ajustes' || pptoEst === 'Aprobado con Ajustes' || pptoEst === 'Aprobado con ajustes';
+                const esAprobado = pptoEst === 'Aprobado';
+                const esRechazado = pptoEst === 'Rechazado';
+                
+                const badgeClass = esAprobado
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : esAjuste
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : esRechazado
+                    ? 'bg-red-50 text-red-700 border-red-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200';
+
+                const labelEst = esAjuste ? 'Con Ajustes' : pptoEst;
+
+                return (
+                    <td key="estado" className="px-4 py-3 whitespace-nowrap text-center">
+                        {puedeEditarEstadoTabla ? (
+                            <select
+                                value={est}
+                                onChange={(e) => {
+                                    const nuevo = e.target.value as EstadoCompra;
+                                    if (nuevo === est) return;
+                                    setConfirmChangeEstadoModal({
+                                        item,
+                                        estadoAnterior: est,
+                                        nuevoEstado: nuevo
+                                    });
+                                }}
+                                className={`px-2.5 py-1 border rounded-full text-xs font-bold shadow-sm cursor-pointer outline-none focus:ring-2 focus:ring-primary ${
+                                    est === 'Aprobado'
+                                        ? 'bg-emerald-100 text-emerald-900 border-emerald-400 hover:bg-emerald-200 ring-1 ring-emerald-300'
+                                        : est === 'Comprado'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                        : est === 'En revisión'
+                                        ? 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100'
+                                        : est === 'En camino'
+                                        ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                        : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                                }`}
+                            >
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Aprobado">Aprobado</option>
+                                <option value="En camino">En camino</option>
+                                <option value="Comprado">Comprado</option>
+                                {est === 'En revisión' && <option value="En revisión">⏳ En revisión</option>}
+                            </select>
+                        ) : (
+                            <span className={`px-2.5 py-1 border rounded-full text-xs font-bold inline-block shadow-sm ${
+                                est === 'Aprobado'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 ring-1 ring-emerald-200'
+                                    : est === 'Comprado'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : est === 'En revisión'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200 animate-pulse'
+                                    : est === 'En camino'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                                {est === 'En revisión' ? '⏳ En revisión' : est}
+                            </span>
+                        )}
+                        <div className="mt-1 flex flex-col items-center gap-0.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 shadow-2xs ${badgeClass}`}>
+                                <span className="text-[9px] text-gray-400 font-semibold uppercase">Ppto:</span> {labelEst}
+                                
+                                {item.detalle.comentario_revision && esAjuste && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            alert(`Observación de Ajuste (${item.detalle.nombre_producto}):\n\n"${item.detalle.comentario_revision}"`);
+                                        }}
+                                        className="ml-0.5 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100/80 rounded-full p-0.5 transition-colors cursor-pointer"
+                                        title={`Ajuste indicado: ${item.detalle.comentario_revision}`}
+                                    >
+                                        <HelpCircle size={12} className="stroke-[2.5]" />
+                                    </button>
+                                )}
+                            </span>
+                        </div>
+                    </td>
+                );
+            }
+            default:
+                return null;
+        }
+    };
     // ── Stats ──────────────────────────────────────────────────────────────────
     const totalItems = filtered.length;
     const totalMonto = filtered.reduce((acc, i) => acc + (i.detalle.total_iva || 0), 0);
@@ -1860,7 +2483,7 @@ export default function ProgramarComprasPage() {
                                 const items = selectedUids.size > 0 
                                     ? masterItems.filter(i => selectedUids.has(i.uid))
                                     : filtered;
-                                handleExportarExcelRecursos(items);
+                                handleOpenExcelModal(items);
                             }}
                             disabled={filtered.length === 0}
                             className={`px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 text-sm shadow-md transition-all duration-200 whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -1955,7 +2578,7 @@ export default function ProgramarComprasPage() {
                                 </div>
                                 <input
                                     type="text"
-                                    placeholder="Buscar producto, código, solicitud..."
+                                    placeholder="Buscar producto, descripción, motivo, código..."
                                     value={searchTerm}
                                     onChange={(e) => handleSearchChange(e.target.value)}
                                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary text-sm text-gray-900"
@@ -2777,7 +3400,7 @@ export default function ProgramarComprasPage() {
                                 <button
                                     onClick={() => {
                                         const selectedItems = masterItems.filter(i => selectedUids.has(i.uid));
-                                        handleExportarExcelRecursos(selectedItems);
+                                        handleOpenExcelModal(selectedItems);
                                     }}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                                     title="Descargar planilla Excel detallada de los recursos seleccionados con colores del colegio"
@@ -2786,7 +3409,7 @@ export default function ProgramarComprasPage() {
                                     Descargar Excel
                                 </button>
                                 <button
-                                    onClick={handleOpenActasModal}
+                                    onClick={() => handleOpenActasModal()}
                                     className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                                 >
                                     <FileText size={16} />
@@ -2857,23 +3480,11 @@ export default function ProgramarComprasPage() {
                                             </th>
                                             <th className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
                                             {renderSortTh('producto', 'Producto')}
-                                            {isColVisible('descripcion') && renderSortTh('descripcion', 'Descripción')}
-                                            {isColVisible('actividad_pme') && renderSortTh('actividad_pme', 'Nombre de Actividad del PME')}
-                                            {isColVisible('motivo') && renderSortTh('motivo', 'Just. Actividad / Motivo')}
-                                            {isColVisible('categoria') && renderSortTh('categoria', 'Categoría')}
-                                            {isColVisible('grupo') && renderSortTh('grupo', 'Línea / Grupo')}
-                                            {isColVisible('destino') && renderSortTh('destino', 'Destino')}
-                                            {isColVisible('cantidad') && renderSortTh('cantidad', 'Cant. Presup.')}
-                                            {isColVisible('total') && renderSortTh('total', 'Monto Presup.')}
-                                            {isColVisible('cantidad_real') && renderSortTh('cantidad_real', 'Cant. Real', 'text-emerald-800 bg-emerald-50/30')}
-                                            {isColVisible('monto_real') && renderSortTh('monto_real', 'Monto Real', 'text-emerald-800 bg-emerald-50/30')}
-                                            {isColVisible('centro_costos') && renderSortTh('centro_costos', 'Centro de Costos')}
-                                            {isColVisible('observacion') && renderSortTh('observacion', 'Observación')}
-                                            {isColVisible('fecha') && renderSortTh('fecha', 'Fecha Solicitud')}
-                                            {isColVisible('origen') && renderSortTh('origen', 'Origen')}
-                                            {isColVisible('area') && renderSortTh('area', 'Área')}
-                                            {isColVisible('solicitante') && renderSortTh('solicitante', 'Solicitante')}
-                                            {isColVisible('estado') && renderSortTh('estado', 'Estado', '', true)}
+                                            {colsOrder.map(colKey => isColVisible(colKey) ? (
+                                                <React.Fragment key={colKey}>
+                                                    {renderTableHeaderCell(colKey)}
+                                                </React.Fragment>
+                                            ) : null)}
                                             <th className="px-4 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
                                         </tr>
                                     </thead>
@@ -2952,237 +3563,11 @@ export default function ProgramarComprasPage() {
                                                              <div className="text-[11px] text-gray-400 font-mono mt-0.5">{item.detalle.codigo_cuenta}</div>
                                                          )}
                                                      </td>
-                                                     {isColVisible('descripcion') && (
-                                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" title={item.detalle.descripcion || ''}>
-                                                             {item.detalle.descripcion || <span className="text-xs text-gray-300">—</span>}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('actividad_pme') && (
-                                                         <td className="px-4 py-3 text-xs max-w-xs break-words" title={item.detalle.actividad_nombre || 'Sin actividad asignada'}>
-                                                             {item.detalle.actividad_nombre ? (
-                                                                 <div className="space-y-1">
-                                                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-lg text-xs font-semibold leading-snug">
-                                                                         <Target size={12} className="shrink-0 text-emerald-600" />
-                                                                         <span>{item.detalle.actividad_nombre}</span>
-                                                                     </span>
-                                                                     {item.detalle.accion_nombre && (
-                                                                         <p className="text-[11px] text-gray-400 font-medium truncate" title={item.detalle.accion_nombre}>
-                                                                             Acción: {item.detalle.accion_nombre}
-                                                                         </p>
-                                                                     )}
-                                                                 </div>
-                                                             ) : (
-                                                                 <span className="text-xs text-gray-300 italic">—</span>
-                                                             )}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('motivo') && (
-                                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs whitespace-normal break-words" title={item.detalle.motivo || ''}>
-                                                             {item.detalle.motivo || <span className="text-xs text-gray-300">—</span>}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('categoria') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap">
-                                                             {item.detalle.categoria_nombre ? (
-                                                                 <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
-                                                                     {item.detalle.categoria_nombre}
-                                                                 </span>
-                                                             ) : (
-                                                                 <span className="text-xs text-gray-300">—</span>
-                                                             )}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('grupo') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap">
-                                                             {item.detalle.grupo_nombre ? (
-                                                                 <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded text-xs font-medium">
-                                                                     {item.detalle.grupo_nombre}
-                                                                 </span>
-                                                             ) : (
-                                                                 <span className="text-xs text-gray-300">—</span>
-                                                             )}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('destino') && (() => {
-                                                         const rawDest = (item.detalle.destino_gasto || '').toUpperCase();
-                                                         let label = item.detalle.destino_gasto || '—';
-                                                         let badge = 'bg-gray-50 text-gray-600 border-gray-200';
-
-                                                         if (rawDest.includes('ESTUDIANTE') || rawDest.includes('ALUMNO') || rawDest.includes('SALA')) {
-                                                             label = 'Estudiante';
-                                                             badge = 'bg-blue-50 text-blue-700 border-blue-200';
-                                                         } else if (rawDest.includes('FUNCIONARIO') || rawDest.includes('DOCENTE') || rawDest.includes('OFICINA') || rawDest.includes('ADMIN')) {
-                                                             label = 'Funcionario';
-                                                             badge = 'bg-purple-50 text-purple-700 border-purple-200';
-                                                         } else if (rawDest.includes('PREMIO')) {
-                                                             label = 'Premio / Beneficio';
-                                                             badge = 'bg-amber-50 text-amber-700 border-amber-200';
-                                                         } else if (rawDest.includes('MANTEN')) {
-                                                             label = 'Mantención';
-                                                             badge = 'bg-slate-100 text-slate-700 border-slate-200';
-                                                         }
-
-                                                         return (
-                                                             <td className="px-4 py-3 whitespace-nowrap">
-                                                                 {item.detalle.destino_gasto ? (
-                                                                     <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border inline-block shadow-2xs ${badge}`}>
-                                                                         {label}
-                                                                     </span>
-                                                                 ) : (
-                                                                     <span className="text-xs text-gray-300">—</span>
-                                                                 )}
-                                                             </td>
-                                                         );
-                                                     })()}
-                                                     {isColVisible('cantidad') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                                                             {item.detalle.cantidad} <span className="text-xs text-gray-400">{item.detalle.formato_unidad}</span>
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('total') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap">
-                                                             <div className="text-xs text-gray-500">{formatCLP(item.detalle.valor_unitario_iva)} <span className="text-[10px] text-gray-400">/ unit.</span></div>
-                                                             <div className="text-sm font-extrabold text-gray-900">Total: {formatCLP(item.detalle.total_iva)}</div>
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('cantidad_real') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-emerald-900 bg-emerald-50/20">
-                                                             {qtyReal} <span className="text-xs font-normal text-gray-500">{item.detalle.formato_unidad}</span>
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('monto_real') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap bg-emerald-50/20">
-                                                             <div className="text-xs text-emerald-700">{formatCLP(valReal)} <span className="text-[10px] text-emerald-600">/ unit.</span></div>
-                                                             <div className="text-sm font-extrabold text-emerald-900">Total: {formatCLP(totalReal)}</div>
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('centro_costos') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap">
-                                                             <div className="font-bold text-xs text-gray-800">{item.centro_costos || 'GENERAL'}</div>
-                                                             {item.detalle.codigo_cuenta && (
-                                                                 <div className="text-[10px] text-gray-400 font-mono">C. Cuent: {item.detalle.codigo_cuenta}</div>
-                                                             )}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('observacion') && (
-                                                         <td className="px-4 py-3 text-xs text-gray-600 max-w-xs break-words">
-                                                             {item.observacion || <span className="text-gray-300 italic">—</span>}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('fecha') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                                             {formatFechaSolicitud(item.detalle)}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('origen') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
-                                                             <button
-                                                                 onClick={() => router.push(`/go-compras/historial/${item.solicitudId}`)}
-                                                                 className="text-primary hover:underline font-semibold"
-                                                                 title="Ver solicitud de origen"
-                                                             >
-                                                                 {item.solicitudCodigo}
-                                                             </button>
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('area') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600 font-medium">
-                                                             {item.area || <span className="text-xs text-gray-300">—</span>}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('solicitante') && (
-                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                                                             {item.solicitante || <span className="text-xs text-gray-300">—</span>}
-                                                         </td>
-                                                     )}
-                                                     {isColVisible('estado') && (
-                                                          <td className="px-4 py-3 whitespace-nowrap text-center">
-                                                              {puedeEditarEstadoTabla ? (
-                                                                  <select
-                                                                      value={est}
-                                                                       onChange={(e) => {
-                                                                           const nuevo = e.target.value as EstadoCompra;
-                                                                           if (nuevo === est) return;
-                                                                           setConfirmChangeEstadoModal({
-                                                                               item,
-                                                                               estadoAnterior: est,
-                                                                               nuevoEstado: nuevo
-                                                                           });
-                                                                       }}
-                                                                      className={`px-2.5 py-1 border rounded-full text-xs font-bold shadow-sm cursor-pointer outline-none focus:ring-2 focus:ring-primary ${
-                                                                          est === 'Aprobado'
-                                                                              ? 'bg-emerald-100 text-emerald-900 border-emerald-400 hover:bg-emerald-200 ring-1 ring-emerald-300'
-                                                                              : est === 'Comprado'
-                                                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                                                                              : est === 'En revisión'
-                                                                              ? 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100'
-                                                                              : est === 'En camino'
-                                                                              ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
-                                                                              : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                                                                      }`}
-                                                                  >
-                                                                       <option value="Pendiente">Pendiente</option>
-                                                                       <option value="Aprobado">Aprobado</option>
-                                                                       <option value="En camino">En camino</option>
-                                                                       <option value="Comprado">Comprado</option>
-                                                                      {est === 'En revisión' && <option value="En revisión">⏳ En revisión</option>}
-                                                                  </select>
-                                                              ) : (
-                                                                  <span className={`px-2.5 py-1 border rounded-full text-xs font-bold inline-block shadow-sm ${
-                                                                      est === 'Aprobado'
-                                                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 ring-1 ring-emerald-200'
-                                                                          : est === 'Comprado'
-                                                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                          : est === 'En revisión'
-                                                                          ? 'bg-purple-50 text-purple-700 border-purple-200 animate-pulse'
-                                                                          : est === 'En camino'
-                                                                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                  }`}>
-                                                                      {est === 'En revisión' ? '⏳ En revisión' : est}
-                                                                  </span>
-                                                              )}
-                                                              {/* Badge del estado de la solicitud de presupuesto */}
-                                                              {(() => {
-                                                                  const pptoEst = item.detalle.estado_aprobacion || 'Pendiente';
-                                                                  const esAjuste = pptoEst === 'Con Ajustes' || pptoEst === 'Aprobado con Ajustes' || pptoEst === 'Aprobado con ajustes';
-                                                                  const esAprobado = pptoEst === 'Aprobado';
-                                                                  const esRechazado = pptoEst === 'Rechazado';
-                                                                  
-                                                                  const badgeClass = esAprobado
-                                                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                      : esAjuste
-                                                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                                                      : esRechazado
-                                                                      ? 'bg-red-50 text-red-700 border-red-200'
-                                                                      : 'bg-amber-50 text-amber-700 border-amber-200';
-
-                                                                  const labelEst = esAjuste ? 'Con Ajustes' : pptoEst;
-
-                                                                  return (
-                                                                      <div className="mt-1 flex flex-col items-center gap-0.5">
-                                                                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 shadow-2xs ${badgeClass}`}>
-                                                                              <span className="text-[9px] text-gray-400 font-semibold uppercase">Ppto:</span> {labelEst}
-                                                                              
-                                                                              {item.detalle.comentario_revision && esAjuste && (
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      onClick={(e) => {
-                                                                                          e.stopPropagation();
-                                                                                          alert(`Observación de Ajuste (${item.detalle.nombre_producto}):\n\n"${item.detalle.comentario_revision}"`);
-                                                                                      }}
-                                                                                      className="ml-0.5 inline-flex items-center justify-center text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100/80 rounded-full p-0.5 transition-colors cursor-pointer"
-                                                                                      title={`Ajuste indicado: ${item.detalle.comentario_revision}`}
-                                                                                  >
-                                                                                      <HelpCircle size={12} className="stroke-[2.5]" />
-                                                                                  </button>
-                                                                              )}
-                                                                          </span>
-                                                                      </div>
-                                                                  );
-                                                              })()}
-                                                          </td>
-                                                      )}
+                                                    {colsOrder.map(colKey => isColVisible(colKey) ? (
+                                                        <React.Fragment key={colKey}>
+                                                            {renderTableBodyCell(colKey, item, est, qtyReal, valReal, totalReal)}
+                                                        </React.Fragment>
+                                                    ) : null)}
                                                       <td className="px-4 py-3 whitespace-nowrap text-center">
                                                           {(() => {
                                                               const isEditDisabled = est === 'Comprado' && !puedeEditarJefe;
@@ -3200,6 +3585,7 @@ export default function ProgramarComprasPage() {
                                                                           setEditJustificationMotivoCambio('');
                                                                           setEditModalCantReal(rawCantReal);
                                                                           setEditModalPrecioReal(rawPrecioReal);
+                                                                          setEditModalFormatoUnidad(item.detalle.formato_unidad || 'UNIDAD');
                                                                           setEditModalObservacion(item.observacion || '');
                                                                           setEditModalCentroCostos(item.centro_costos || 'GENERAL');
                                                                           setEditModalEstado(est);
@@ -3278,70 +3664,390 @@ export default function ProgramarComprasPage() {
                                 );
                             })()}
                         </div>
-            {/* ── Modal: Configurar Columnas ─────────────────────────────────── */}
+                        {/* ── Modal: Configurar Columnas de Descarga Excel ─────────────────── */}
+            {showExcelModal && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+                    onClick={() => !isExportingExcel && setShowExcelModal(false)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="p-6 pb-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-700">
+                                    <Download size={24} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-lg font-bold text-gray-900">Descargar Planilla Excel</h3>
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                            {excelExportItems.length} recurso{excelExportItems.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-500">Ordena las columnas y activa u oculta las que necesites exportar.</p>
+                                </div>
+                            </div>
+                            <button
+                                disabled={isExportingExcel}
+                                onClick={() => setShowExcelModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl hover:bg-gray-200/60 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Contenido Unificado */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-700">
+                                        {excelColsOrder.filter(k => isExcelColVisible(k)).length} de {COLUMNAS_EXCEL_MAESTRA.length} columnas visibles
+                                    </span>
+                                    <span className="text-gray-300">·</span>
+                                    <span className="text-xs text-gray-400">
+                                        Usa las flechas para mover y el botón para ocultar o mostrar
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const allVisible: Record<string, boolean> = {};
+                                            COLUMNAS_EXCEL_MAESTRA.forEach(c => { allVisible[c.key] = true; });
+                                            setExcelVisibleCols(allVisible);
+                                            saveExcelColsConfig(allVisible);
+                                        }}
+                                        className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer"
+                                    >
+                                        Marcar todas
+                                    </button>
+                                    <span className="text-gray-300">·</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const noneVisible: Record<string, boolean> = {};
+                                            COLUMNAS_EXCEL_MAESTRA.forEach(c => { noneVisible[c.key] = false; });
+                                            setExcelVisibleCols(noneVisible);
+                                            saveExcelColsConfig(noneVisible);
+                                        }}
+                                        className="text-gray-500 hover:text-gray-700 hover:underline font-medium cursor-pointer"
+                                    >
+                                        Desmarcar todas
+                                    </button>
+                                    <span className="text-gray-300">·</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setExcelColsOrder([...DEFAULT_EXCEL_COLS_ORDER]);
+                                            saveExcelColsOrder([...DEFAULT_EXCEL_COLS_ORDER]);
+                                        }}
+                                        className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer"
+                                    >
+                                        Restablecer orden
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1">
+                                {excelColsOrder.map((colKey, idx) => {
+                                    const label = getExcelColLabel(colKey);
+                                    const visible = isExcelColVisible(colKey);
+                                    return (
+                                        <div
+                                            key={colKey}
+                                            draggable
+                                            onDragStart={() => handleExcelDragStart(idx)}
+                                            onDragOver={handleExcelDragOver}
+                                            onDrop={() => handleExcelDrop(idx)}
+                                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all select-none ${
+                                                draggedExcelColIdx === idx
+                                                    ? 'border-dashed border-emerald-500 bg-emerald-50/50 opacity-50'
+                                                    : visible
+                                                    ? 'border-gray-200/80 bg-white hover:border-gray-300 hover:shadow-2xs'
+                                                    : 'border-gray-200/60 bg-gray-50/60 opacity-60 hover:opacity-90'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing p-0.5">
+                                                    <GripVertical size={16} />
+                                                </span>
+                                                <span className="font-mono text-xs font-bold text-gray-400 w-6">
+                                                    #{idx + 1}
+                                                </span>
+                                                <span className={`text-sm font-semibold transition-colors ${visible ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                                                    {label}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = { ...excelVisibleCols, [colKey]: !visible };
+                                                        setExcelVisibleCols(next);
+                                                        saveExcelColsConfig(next);
+                                                    }}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+                                                        visible
+                                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/90 shadow-2xs hover:scale-105 active:scale-95'
+                                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 hover:scale-105 active:scale-95'
+                                                    }`}
+                                                    title={visible ? 'Columna visible. Haz clic para ocultar' : 'Columna oculta. Haz clic para mostrar'}
+                                                >
+                                                    {visible ? <Eye size={13} className="text-emerald-600" /> : <EyeOff size={13} />}
+                                                    <span>{visible ? 'Visible' : 'Oculta'}</span>
+                                                </button>
+
+                                                <div className="flex items-center gap-1 ml-2">
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === 0}
+                                                        onClick={() => moveExcelCol(idx, 'up')}
+                                                        className="p-1 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                                        title="Mover arriba"
+                                                    >
+                                                        <ChevronUp size={14} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === excelColsOrder.length - 1}
+                                                        onClick={() => moveExcelCol(idx, 'down')}
+                                                        className="p-1 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                                        title="Mover abajo"
+                                                    >
+                                                        <ChevronDown size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 bg-gray-50 flex items-center justify-between border-t border-gray-100 shrink-0">
+                            <button
+                                onClick={() => {
+                                    setExcelVisibleCols({ ...EXCEL_COLS_DEFAULT });
+                                    saveExcelColsConfig({ ...EXCEL_COLS_DEFAULT });
+                                    setExcelColsOrder([...DEFAULT_EXCEL_COLS_ORDER]);
+                                    saveExcelColsOrder([...DEFAULT_EXCEL_COLS_ORDER]);
+                                }}
+                                className="text-xs text-gray-500 hover:text-gray-800 font-semibold px-3 py-2 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
+                            >
+                                Restaurar orden y visibilidad original
+                            </button>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    disabled={isExportingExcel}
+                                    onClick={() => setShowExcelModal(false)}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-semibold text-sm transition-colors cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={isExportingExcel || excelColsOrder.filter(k => isExcelColVisible(k)).length === 0}
+                                    onClick={() => handleExportarExcelRecursos(excelExportItems)}
+                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isExportingExcel ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            <span>Generando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download size={16} />
+                                            <span>Descargar Excel</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal: Configurar Columnas (Visibles y Orden) ─────────────── */}
             {showColsModal && (
                 <div 
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
                     onClick={() => setShowColsModal(false)}
                 >
                     <div 
-                        className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200"
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="p-6 flex items-center justify-between bg-gray-50 border-b border-gray-100">
+                        {/* Header */}
+                        <div className="p-6 pb-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 rounded-2xl bg-primary/10 text-primary">
                                     <SlidersHorizontal size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Columnas Visibles</h3>
-                                    <p className="text-sm text-gray-500">Elige qué columnas mostrar en la tabla.</p>
+                                    <h3 className="text-lg font-bold text-gray-900">Personalizar Columnas de la Tabla</h3>
+                                    <p className="text-sm text-gray-500">Ordena las columnas y activa u oculta las que deseas ver en pantalla.</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowColsModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl hover:bg-gray-200/60 transition-colors"
+                                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl hover:bg-gray-200/60 transition-colors cursor-pointer"
                             >
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
-                                {COLUMNAS_MAESTRA.map(col => (
-                                    <label 
-                                        key={col.key} 
-                                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer group transition-colors select-none"
+
+                        {/* Contenido Unificado */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-700">
+                                        {colsOrder.filter(k => isColVisible(k)).length} de {colsOrder.length} columnas visibles
+                                    </span>
+                                    <span className="text-gray-300">·</span>
+                                    <span className="text-xs text-gray-400">
+                                        Usa las flechas para mover y el botón para ocultar o mostrar
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const allVisible: Record<string, boolean> = {};
+                                            COLUMNAS_MAESTRA.forEach(c => { allVisible[c.key] = true; });
+                                            setVisibleCols(allVisible);
+                                            saveColsConfig(allVisible);
+                                        }}
+                                        className="text-primary hover:underline font-semibold cursor-pointer"
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={visibleCols[col.key] !== false}
-                                            onChange={() => {
-                                                const next = { ...visibleCols, [col.key]: !visibleCols[col.key] };
-                                                setVisibleCols(next);
-                                                saveColsConfig(next);
-                                            }}
-                                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                                        />
-                                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                                            {col.label}
-                                        </span>
-                                    </label>
-                                ))}
+                                        Marcar todas
+                                    </button>
+                                    <span className="text-gray-300">·</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const noneVisible: Record<string, boolean> = {};
+                                            COLUMNAS_MAESTRA.forEach(c => { noneVisible[c.key] = false; });
+                                            setVisibleCols(noneVisible);
+                                            saveColsConfig(noneVisible);
+                                        }}
+                                        className="text-gray-500 hover:underline font-medium cursor-pointer"
+                                    >
+                                        Desmarcar todas
+                                    </button>
+                                    <span className="text-gray-300">·</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setColsOrder([...DEFAULT_COLS_ORDER]);
+                                            saveColsOrder([...DEFAULT_COLS_ORDER]);
+                                        }}
+                                        className="text-primary hover:underline font-semibold cursor-pointer"
+                                    >
+                                        Restablecer orden
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1">
+                                {colsOrder.map((colKey, idx) => {
+                                    const label = getColLabel(colKey);
+                                    const visible = isColVisible(colKey);
+                                    return (
+                                        <div
+                                            key={colKey}
+                                            draggable
+                                            onDragStart={() => handleDragStart(idx)}
+                                            onDragOver={handleDragOver}
+                                            onDrop={() => handleDrop(idx)}
+                                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all select-none ${
+                                                draggedColIdx === idx
+                                                    ? 'border-dashed border-primary bg-primary/5 opacity-50'
+                                                    : visible
+                                                    ? 'border-gray-200/80 bg-white hover:border-gray-300 hover:shadow-2xs'
+                                                    : 'border-gray-200/60 bg-gray-50/60 opacity-60 hover:opacity-90'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing p-0.5">
+                                                    <GripVertical size={16} />
+                                                </span>
+                                                <span className="font-mono text-xs font-bold text-gray-400 w-6">
+                                                    #{idx + 1}
+                                                </span>
+                                                <span className={`text-sm font-semibold transition-colors ${visible ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                                                    {label}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = { ...visibleCols, [colKey]: !visible };
+                                                        setVisibleCols(next);
+                                                        saveColsConfig(next);
+                                                    }}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+                                                        visible
+                                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 shadow-2xs hover:scale-105 active:scale-95'
+                                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 hover:scale-105 active:scale-95'
+                                                    }`}
+                                                    title={visible ? 'Columna visible. Haz clic para ocultar' : 'Columna oculta. Haz clic para mostrar'}
+                                                >
+                                                    {visible ? <Eye size={13} className="text-emerald-600" /> : <EyeOff size={13} />}
+                                                    <span>{visible ? 'Visible' : 'Oculta'}</span>
+                                                </button>
+
+                                                <div className="flex items-center gap-1 ml-2">
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === 0}
+                                                        onClick={() => moveCol(idx, 'up')}
+                                                        className="p-1 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                                        title="Mover arriba"
+                                                    >
+                                                        <ChevronUp size={14} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={idx === colsOrder.length - 1}
+                                                        onClick={() => moveCol(idx, 'down')}
+                                                        className="p-1 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                                        title="Mover abajo"
+                                                    >
+                                                        <ChevronDown size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
-                        <div className="p-6 bg-gray-50 flex items-center justify-between border-t border-gray-100">
+
+                        {/* Footer */}
+                        <div className="p-6 bg-gray-50 flex items-center justify-between border-t border-gray-100 shrink-0">
                             <button
                                 onClick={() => {
                                     setVisibleCols({ ...COLS_DEFAULT });
                                     saveColsConfig({ ...COLS_DEFAULT });
+                                    setColsOrder([...DEFAULT_COLS_ORDER]);
+                                    saveColsOrder([...DEFAULT_COLS_ORDER]);
                                 }}
-                                className="text-xs text-gray-500 hover:text-gray-800 font-semibold px-3 py-2 rounded-lg hover:bg-gray-200/50 transition-colors"
+                                className="text-xs text-gray-500 hover:text-gray-800 font-semibold px-3 py-2 rounded-lg hover:bg-gray-200/50 transition-colors cursor-pointer"
                             >
-                                Restaurar por defecto
+                                Restaurar orden y visibilidad por defecto
                             </button>
+
                             <button
                                 onClick={() => setShowColsModal(false)}
-                                className="px-5 py-2.5 bg-primary hover:bg-blue-600 text-white rounded-xl transition-colors font-semibold text-sm shadow-xs"
+                                className="px-5 py-2.5 bg-primary hover:bg-blue-600 text-white rounded-xl transition-colors font-semibold text-sm shadow-xs cursor-pointer"
                             >
                                 Listo
                             </button>
@@ -3349,6 +4055,7 @@ export default function ProgramarComprasPage() {
                     </div>
                 </div>
             )}
+
             {/* ── Modal: Configurar Columnas de Acta ─────────────────────────── */}
             {showActaColsModal && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -3401,9 +4108,11 @@ export default function ProgramarComprasPage() {
             )}
             {/* ── Modal: Generación de Acta de Entrega Oficial con Correlativo ── */}
             {showActasModal && (() => {
-                const itemsAProcesar = selectedUids.size > 0
-                    ? masterItems.filter(i => selectedUids.has(i.uid))
-                    : filtered.filter(i => i.detalle.estado_aprobacion === 'Aprobado');
+                const itemsAProcesar = (actaCustomItems && actaCustomItems.length > 0)
+                    ? actaCustomItems
+                    : (selectedUids.size > 0
+                        ? masterItems.filter(i => selectedUids.has(i.uid))
+                        : filtered.filter(i => i.detalle.estado_aprobacion === 'Aprobado'));
 
                 if (!isMounted) return null;
 
@@ -3438,7 +4147,10 @@ export default function ProgramarComprasPage() {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setShowActasModal(false)}
+                                    onClick={() => {
+                                        setShowActasModal(false);
+                                        setActaCustomItems(null);
+                                    }}
                                     className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                                 >
                                     <X size={20} />
@@ -3677,7 +4389,10 @@ export default function ProgramarComprasPage() {
                                 <div className="flex gap-3">
                                     <button
                                         type="button"
-                                        onClick={() => setShowActasModal(false)}
+                                        onClick={() => {
+                                            setShowActasModal(false);
+                                            setActaCustomItems(null);
+                                        }}
                                         className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors font-bold text-xs cursor-pointer"
                                     >
                                         Cancelar
@@ -3733,7 +4448,7 @@ export default function ProgramarComprasPage() {
                             </div>
                             <div className="flex justify-between items-center border-b border-gray-200/60 pb-2">
                                 <span className="text-gray-500 font-medium">Cantidad Real:</span>
-                                <span className="font-bold text-gray-900">{savedItemSummary.cant_real}</span>
+                                <span className="font-bold text-gray-900">{savedItemSummary.cant_real} {savedItemSummary.formato_unidad && <span className="text-xs font-normal text-gray-500">({savedItemSummary.formato_unidad})</span>}</span>
                             </div>
                             <div className="flex justify-between items-center border-b border-gray-200/60 pb-2">
                                 <span className="text-gray-500 font-medium">Precio Real (IVA):</span>
@@ -3806,7 +4521,7 @@ export default function ProgramarComprasPage() {
                             <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100">
                                 <div>
                                     <label className="block text-[11px] font-bold text-emerald-900 mb-1">
-                                        Cantidad Real ({editJustificationItem.detalle.formato_unidad}):
+                                        Cantidad Real ({editModalFormatoUnidad || editJustificationItem.detalle.formato_unidad}):
                                     </label>
                                     <input
                                         type="number"
@@ -3832,7 +4547,45 @@ export default function ProgramarComprasPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                                        Formato / Unidad:
+                                    </label>
+                                    <input
+                                        type="text"
+                                        list="formatos-unidad-list"
+                                        value={editModalFormatoUnidad}
+                                        onChange={e => setEditModalFormatoUnidad(e.target.value)}
+                                        className="w-full p-2.5 text-xs font-bold border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary text-gray-800 uppercase"
+                                        placeholder="Ej: UNIDADES, BOLSAS..."
+                                    />
+                                    <datalist id="formatos-unidad-list">
+                                        <option value="UNIDADES" />
+                                        <option value="UNIDAD" />
+                                        <option value="BOLSAS" />
+                                        <option value="BOLSA" />
+                                        <option value="CAJAS" />
+                                        <option value="CAJA" />
+                                        <option value="PAQUETES" />
+                                        <option value="PAQUETE" />
+                                        <option value="RESMAS" />
+                                        <option value="RESMA" />
+                                        <option value="SETS" />
+                                        <option value="SET" />
+                                        <option value="ROLLOS" />
+                                        <option value="ROLLO" />
+                                        <option value="KILOS" />
+                                        <option value="KILO" />
+                                        <option value="LITROS" />
+                                        <option value="LITRO" />
+                                        <option value="PARES" />
+                                        <option value="PAR" />
+                                        <option value="METROS" />
+                                        <option value="METRO" />
+                                        <option value="GLOBAL" />
+                                    </datalist>
+                                </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 mb-1">
                                         Centro de Costos:
@@ -3894,9 +4647,9 @@ export default function ProgramarComprasPage() {
                                 <Clock className="text-amber-600 shrink-0 mt-0.5" size={16} />
                                 <p className="text-[11px] text-amber-800 leading-snug">
                                     {puedeEditarJefe ? (
-                                        <>Al guardar los cambios como <strong>Jefe de Compras / Administrador</strong>, la Cantidad Real, Precio Real, Centro de Costos, Observación y Justificación se actualizarán inmediatamente en la base de datos y quedarán visibles para todos los usuarios.</>
+                                        <>Al guardar los cambios como <strong>Jefe de Compras / Administrador</strong>, la Cantidad Real, Precio Real, Formato/Unidad, Centro de Costos, Observación y Justificación se actualizarán inmediatamente en la base de datos y quedarán visibles para todos los usuarios.</>
                                     ) : (
-                                        <>Al hacer clic en <strong>"Enviar Propuesta al Jefe de Compras"</strong>, todos los cambios (Cantidad Real, Precio Real, Centro de Costos, Observación y Justificación) se enviarán como propuesta a la cargo <strong>Jefe de Compras</strong> para su revisión y aprobación.</>
+                                        <>Al hacer clic en <strong>"Enviar Propuesta al Jefe de Compras"</strong>, todos los cambios (Cantidad Real, Precio Real, Formato/Unidad, Centro de Costos, Observación y Justificación) se enviarán como propuesta a la cargo <strong>Jefe de Compras</strong> para su revisión y aprobación.</>
                                     )}
                                 </p>
                             </div>
@@ -3952,48 +4705,21 @@ export default function ProgramarComprasPage() {
                                         setSendingModPropuesta(true);
                                         try {
                                             const totalRealCalc = editModalCantReal * editModalPrecioReal;
+                                            const formatoUnidadFinal = editModalFormatoUnidad.trim().toUpperCase() || 'UNIDAD';
 
                                             if (puedeEditarJefe) {
-                                                // Jefe de Compras o Administrador guarda y persiste directamente en la base de datos
-                                                await api.put(`/presupuesto/detalles/${editJustificationItem.detalle.id_pre_detalle}`, {
-                                                    cantidad_real: editModalCantReal,
-                                                    valor_real_iva: totalRealCalc,
-                                                    centro_costos: editModalCentroCostos,
+                                                // Consultar si desea cambiar a estado Comprado y generar Acta Oficial
+                                                setConfirmComprarModal({
+                                                    item: editJustificationItem,
+                                                    cantReal: editModalCantReal,
+                                                    precioReal: editModalPrecioReal,
+                                                    totalReal: totalRealCalc,
+                                                    centroCostos: editModalCentroCostos,
                                                     observacion: editModalObservacion,
                                                     motivo: editJustificationText.trim(),
-                                                    estado_compra: 'Comprado'
+                                                    formatoUnidad: formatoUnidadFinal
                                                 });
-
-                                                const nextEstados = { ...itemEstados, [editJustificationItem.uid]: 'Comprado' as EstadoCompra };
-                                                setItemEstados(nextEstados);
-                                                saveItemEstados(nextEstados);
-
-                                                const nextExtras = {
-                                                    ...itemExtras,
-                                                    [editJustificationItem.uid]: {
-                                                        cantidad_real: editModalCantReal,
-                                                        valor_real: editModalPrecioReal,
-                                                        monto_real: editModalPrecioReal,
-                                                        centro_costos: editModalCentroCostos,
-                                                        observacion: editModalObservacion,
-                                                        motivo: editJustificationText.trim()
-                                                    }
-                                                };
-                                                setItemExtras(nextExtras as any);
-                                                saveExtras(nextExtras as any);
-
-                                                await fetchCompras();
-
-                                                setSavedItemSummary({
-                                                    nombre_producto: editJustificationItem.detalle.nombre_producto,
-                                                    codigo_solicitud: editJustificationItem.solicitudCodigo,
-                                                    cant_real: editModalCantReal,
-                                                    val_real: editModalPrecioReal,
-                                                    total_real: totalRealCalc,
-                                                    centro_costos: editModalCentroCostos,
-                                                    observacion: editModalObservacion || '-',
-                                                    estado: 'Comprado'
-                                                });
+                                                return;
                                             } else {
                                                 // Usuario regular envía propuesta al Jefe de Compras
                                                 await api.post('/presupuesto/solicitudes-modificacion', {
@@ -4003,7 +4729,8 @@ export default function ProgramarComprasPage() {
                                                     cantidad_real: editModalCantReal,
                                                     valor_real_iva: totalRealCalc,
                                                     centro_costos: editModalCentroCostos,
-                                                    observacion: editModalObservacion
+                                                    observacion: editModalObservacion,
+                                                    formato_unidad: formatoUnidadFinal
                                                 });
 
                                                 const nextEstados = { ...itemEstados, [editJustificationItem.uid]: 'En revisión' as EstadoCompra };
@@ -4034,7 +4761,8 @@ export default function ProgramarComprasPage() {
                                                     total_real: totalRealCalc,
                                                     centro_costos: editModalCentroCostos,
                                                     observacion: editModalObservacion || '-',
-                                                    estado: 'En revisión'
+                                                    estado: 'En revisión',
+                                                    formato_unidad: formatoUnidadFinal
                                                 });
                                             }
 
@@ -4053,9 +4781,101 @@ export default function ProgramarComprasPage() {
                                     }`}
                                 >
                                     {sendingModPropuesta ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                    {puedeEditarJefe ? 'Guardar Cambios (Comprado)' : 'Enviar Propuesta al Jefe de Compras'}
+                                    {puedeEditarJefe ? 'Guardar Cambios' : 'Enviar Propuesta al Jefe de Compras'}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Confirmación: Cambiar a estado Comprado y Generar Acta Oficial */}
+            {confirmComprarModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                <HelpCircle size={26} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-extrabold text-gray-900 leading-tight">
+                                    ¿Deseas cambiar a estado "Comprado"?
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    Confirma si la compra ya fue efectuada o si solo estás actualizando la programación.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Producto:</span>
+                                <span className="font-bold text-gray-900 text-right max-w-[220px] truncate" title={confirmComprarModal.item.detalle.nombre_producto}>
+                                    {confirmComprarModal.item.detalle.nombre_producto}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Cantidad y Formato:</span>
+                                <span className="font-bold text-emerald-800">
+                                    {confirmComprarModal.cantReal} {confirmComprarModal.formatoUnidad}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Total Real:</span>
+                                <span className="font-extrabold text-gray-900">
+                                    {formatCLP(confirmComprarModal.totalReal)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Centro de Costos:</span>
+                                <span className="font-bold text-gray-800">
+                                    {confirmComprarModal.centroCostos}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 font-medium">Estado actual:</span>
+                                <span className="font-bold px-2 py-0.5 rounded-full text-[10px] bg-gray-200 text-gray-700">
+                                    {getEstado(confirmComprarModal.item.uid)}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-start gap-2.5">
+                            <FileText className="text-emerald-700 shrink-0 mt-0.5" size={16} />
+                            <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
+                                Si seleccionas <strong>"Sí, cambiar a Comprado"</strong>, se abrirá de inmediato el <strong>Acta de Entrega Oficial</strong> únicamente para este producto, asignándole correlativo oficial.
+                            </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2">
+                            <button
+                                type="button"
+                                disabled={isSavingModItem}
+                                onClick={() => handleEjecutarGuardadoConEstado(true)}
+                                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                {isSavingModItem ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                                Sí, cambiar a Comprado y Generar Acta Oficial
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={isSavingModItem}
+                                onClick={() => handleEjecutarGuardadoConEstado(false)}
+                                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
+                            >
+                                {isSavingModItem ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                No, solo guardar cambios (Mantener estado actual)
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={isSavingModItem}
+                                onClick={() => setConfirmComprarModal(null)}
+                                className="w-full py-2 text-center text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors cursor-pointer"
+                            >
+                                Cancelar y seguir editando
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -4134,7 +4954,12 @@ export default function ProgramarComprasPage() {
                                                         <div className="text-xs font-bold text-gray-900">Total: {formatCLP(s.total_iva || 0)}</div>
                                                     </td>
                                                     <td className="px-3 py-3 text-center whitespace-nowrap font-bold text-emerald-950 bg-emerald-50/30">
-                                                        {cantRealVal} <span className="text-[10px] text-emerald-700 font-normal">{s.formato_unidad}</span>
+                                                        {cantRealVal} <span className="text-[10px] text-emerald-700 font-normal">{s.formato_unidad_propuesta || s.formato_unidad}</span>
+                                                        {s.formato_unidad_propuesta && s.formato_unidad_propuesta !== s.formato_unidad && (
+                                                            <span className="block text-[9px] text-amber-700 font-semibold bg-amber-100 px-1 rounded mt-0.5" title={`Antes: ${s.formato_unidad}`}>
+                                                                (cambio formato)
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="px-3 py-3 whitespace-nowrap bg-emerald-50/30">
                                                         <div className="text-xs text-emerald-700 font-medium">
