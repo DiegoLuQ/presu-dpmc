@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
     Plus, CheckCircle, AlertCircle, Loader2, Package, Lock, Search,
     SlidersHorizontal, Pencil, Trash2, X, Info, Video, ExternalLink, Copy, Check,
-    HelpCircle
+    HelpCircle, Sparkles
 } from 'lucide-react';
 import { FORMATOS_UNIDAD, TIPOS_FECHA, MESES } from '@/lib/types';
 import { GuiaConvocadoModal } from '@/components/presupuesto/GuiaConvocadoModal';
@@ -30,6 +30,14 @@ export interface LineaRecurso {
     id_grupo_recurso: number;
     nombre: string;
     descripcion?: string;
+}
+
+export interface MotivoSugerido {
+    id_motivo: number;
+    nombre: string;
+    descripcion?: string;
+    id_grupo_recurso?: number;
+    grupo_nombre?: string;
 }
 
 interface ConvocatoriaInfo {
@@ -279,6 +287,7 @@ export default function FormularioPedidoPage() {
     const [info, setInfo] = useState<ConvocatoriaInfo | null>(null);
     const [loadingInfo, setLoadingInfo] = useState(true);
     const [lineas, setLineas] = useState<LineaRecurso[]>([]);
+    const [motivosSugeridos, setMotivosSugeridos] = useState<MotivoSugerido[]>([]);
     const [form, setForm] = useState(emptyForm());
     const [enviando, setEnviando] = useState(false);
     const [error, setError] = useState('');
@@ -323,7 +332,7 @@ export default function FormularioPedidoPage() {
     const [modalGuia, setModalGuia] = useState(false);
     const [copiadoTut, setCopiadoTut] = useState<string | null>(null);
 
-    // Cargar info de la convocatoria y líneas
+    // Cargar info de la convocatoria, líneas y motivos predeterminados
     useEffect(() => {
         fetch(`${API}/convocatorias/publica/${token}`)
             .then(r => r.json())
@@ -341,6 +350,15 @@ export default function FormularioPedidoPage() {
             .then(data => {
                 if (Array.isArray(data) && data.length > 0) {
                     setLineas(data);
+                }
+            })
+            .catch(() => { });
+
+        fetch(`${API}/convocatorias/publica/${token}/motivos`)
+            .then(r => (r.ok ? r.json() : []))
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setMotivosSugeridos(data);
                 }
             })
             .catch(() => { });
@@ -926,9 +944,63 @@ export default function FormularioPedidoPage() {
                                 4. Justificación y Utilidad del Recurso
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Motivo / Justificación de la necesidad <span className="text-red-500">*</span>
-                                </label>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
+                                        Motivo / Justificación de la necesidad <span className="text-red-500">*</span>
+                                    </label>
+                                    {form.motivo && (
+                                        <button
+                                            type="button"
+                                            onClick={() => set('motivo', '')}
+                                            className="text-[11px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    )}
+                                </div>
+
+                                {motivosSugeridos.length > 0 && (
+                                    <div className="mb-2">
+                                        <div className="text-[11px] text-gray-500 font-medium mb-1.5 flex items-center gap-1">
+                                            <Sparkles size={12} className="text-amber-500" />
+                                            <span>Sugerencias rápidas:</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                                            {motivosSugeridos.map(m => {
+                                                const isSelected = form.motivo === m.nombre;
+                                                return (
+                                                    <button
+                                                        key={m.id_motivo}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setForm(prev => ({
+                                                                ...prev,
+                                                                motivo: m.nombre,
+                                                                id_grupo_recurso: (m.id_grupo_recurso && (!prev.id_grupo_recurso || prev.id_grupo_recurso === 0))
+                                                                    ? m.id_grupo_recurso
+                                                                    : prev.id_grupo_recurso
+                                                            }));
+                                                        }}
+                                                        title={m.descripcion || m.nombre}
+                                                        className={`text-xs px-2.5 py-1 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-1.5 ${
+                                                            isSelected
+                                                                ? 'bg-blue-50 border-blue-400 text-blue-800 font-semibold shadow-xs ring-1 ring-blue-300'
+                                                                : 'bg-gray-50/80 hover:bg-blue-50/50 border-gray-200 hover:border-blue-200 text-gray-700'
+                                                        }`}
+                                                    >
+                                                        <span>{m.nombre}</span>
+                                                        {m.grupo_nombre && (
+                                                            <span className="text-[10px] px-1 py-0.2 rounded bg-gray-200/70 text-gray-600 font-normal">
+                                                                {m.grupo_nombre}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <textarea
                                     rows={2}
                                     value={form.motivo}
@@ -1187,13 +1259,62 @@ export default function FormularioPedidoPage() {
                                     Total: <span className="font-bold text-gray-800">{fmt(parseFloat(editForm.cantidad) * parseFloat(editForm.precio_estimado))}</span>
                                 </p>
                             )}
-                            <div className="rounded-xl border border-red-200 bg-red-50/40 p-3">
-                                <label className="block text-xs font-bold text-red-600 mb-1">Motivo / justificación <span className="text-red-500">*</span></label>
+                            <div className="rounded-xl border border-gray-200 bg-gray-50/40 p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-bold text-gray-700">
+                                        Motivo / justificación <span className="text-red-500">*</span>
+                                    </label>
+                                    {editForm.motivo && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditForm(f => ({ ...f, motivo: '' }))}
+                                            className="text-[11px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    )}
+                                </div>
+                                {motivosSugeridos.length > 0 && (
+                                    <div className="mb-2">
+                                        <div className="text-[11px] text-gray-500 font-medium mb-1.5 flex items-center gap-1">
+                                            <Sparkles size={12} className="text-amber-500" />
+                                            <span>Sugerencias rápidas:</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                                            {motivosSugeridos.map(m => {
+                                                const isSelected = editForm.motivo === m.nombre;
+                                                return (
+                                                    <button
+                                                        key={m.id_motivo}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditForm(f => ({
+                                                                ...f,
+                                                                motivo: m.nombre,
+                                                                id_grupo_recurso: (m.id_grupo_recurso && (!f.id_grupo_recurso || f.id_grupo_recurso === 0))
+                                                                    ? m.id_grupo_recurso
+                                                                    : f.id_grupo_recurso
+                                                            }));
+                                                        }}
+                                                        title={m.descripcion || m.nombre}
+                                                        className={`text-xs px-2.5 py-1 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-1.5 ${
+                                                            isSelected
+                                                                ? 'bg-blue-50 border-blue-400 text-blue-800 font-semibold shadow-xs ring-1 ring-blue-300'
+                                                                : 'bg-white hover:bg-blue-50/50 border-gray-200 hover:border-blue-200 text-gray-700'
+                                                        }`}
+                                                    >
+                                                        <span>{m.nombre}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 <textarea
                                     rows={2}
                                     value={editForm.motivo}
                                     onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
-                                    className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 resize-none bg-white"
+                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none bg-white"
                                 />
                             </div>
                             <DestinoField value={editForm.destino} onChange={v => setEditForm(f => ({ ...f, destino: v }))} />

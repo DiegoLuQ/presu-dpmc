@@ -7,7 +7,7 @@ import api from '@/lib/api/client';
 import {
     ArrowLeft, Plus, Trash2, Save, Search, Loader2,
     X, Package, Calendar, Check, Copy, Edit2, History, ClipboardList,
-    ChevronLeft, ChevronRight, ChevronDown, HelpCircle, MapPin, AlertCircle, DollarSign,
+    ChevronLeft, ChevronRight, ChevronDown, HelpCircle, MapPin, AlertCircle, AlertTriangle, DollarSign,
     Maximize2, Filter, SlidersHorizontal, FileDown, Upload, FileSpreadsheet, Layers, AlignLeft, Tag, Eye,
     GraduationCap, Lock, Unlock, RotateCcw
 } from 'lucide-react';
@@ -846,6 +846,66 @@ export default function AgregarRecursosPage() {
     const [showPrepararModal, setShowPrepararModal] = useState(false);
     const [showGuiaModal, setShowGuiaModal] = useState(false);
     const [modalResumenGuardado, setModalResumenGuardado] = useState<{ total: number; nuevos: number; reutilizados: number } | null>(null);
+    const [modalDiagnosticoPendientes, setModalDiagnosticoPendientes] = useState<{
+        totalConfirmados: number;
+        totalPendientes: number;
+        sinCantidad: number;
+        sinMes: number;
+        sinPrecio: number;
+        listos: number;
+    } | null>(null);
+    const [mesMasivoSeleccionado, setMesMasivoSeleccionado] = useState<string>('03');
+
+    // Métricas y diagnóstico continuo de insumos (confirmados vs pendientes, sin cantidad, sin mes)
+    const statsPendientes = useMemo(() => {
+        const confirmados = recursosActual.filter(r => !!r.id_pre_detalle).length;
+        const pendientes = recursosActual.filter(r => !r.id_pre_detalle);
+        const sinCantidad = pendientes.filter(r => !r.cantidad || Number(r.cantidad) <= 0 || isNaN(Number(r.cantidad))).length;
+        const sinMes = pendientes.filter(r => (!r.fecha_ejecucion || r.fecha_ejecucion.trim() === '') && (!r.mes_ejecucion || r.mes_ejecucion.trim() === '')).length;
+        const sinPrecio = pendientes.filter(r => !r.valor_unitario_iva || Number(r.valor_unitario_iva) <= 0).length;
+        const listos = pendientes.filter(r => 
+            (r.cantidad && Number(r.cantidad) > 0) &&
+            ((r.fecha_ejecucion && r.fecha_ejecucion.trim() !== '') || (r.mes_ejecucion && r.mes_ejecucion.trim() !== ''))
+        ).length;
+
+        return {
+            totalConfirmados: confirmados,
+            totalPendientes: pendientes.length,
+            sinCantidad,
+            sinMes,
+            sinPrecio,
+            listos,
+            tieneIncompletos: sinCantidad > 0 || sinMes > 0
+        };
+    }, [recursosActual]);
+
+    // Asignación rápida de mes masivo a todos los borradores que no tienen fecha
+    const aplicarMesMasivoAPendientes = (mesCodigo: string) => {
+        const anioActual = new Date().getFullYear();
+        const fechaArmada = `${anioActual}-${mesCodigo}-01`;
+        setRecursosActual(prev => prev.map(item => {
+            if (!item.id_pre_detalle && (!item.fecha_ejecucion || item.fecha_ejecucion.trim() === '' || !item.mes_ejecucion)) {
+                return {
+                    ...item,
+                    mes_ejecucion: mesCodigo,
+                    fecha_ejecucion: fechaArmada,
+                    tipo_fecha: 'mensual'
+                };
+            }
+            return item;
+        }));
+        // Si el modal de diagnóstico está abierto, actualizamos sus métricas
+        setModalDiagnosticoPendientes(prev => {
+            if (!prev) return null;
+            const pendientesListos = recursosActual.filter(r => !r.id_pre_detalle && (r.cantidad && Number(r.cantidad) > 0)).length;
+            return {
+                ...prev,
+                sinMes: 0,
+                listos: pendientesListos
+            };
+        });
+    };
+
     const [filtroRecursosPMEModal, setFiltroRecursosPMEModal] = useState('');
     const [columnasVisibles, setColumnasVisibles] = useState<Record<string, boolean>>(COLUMNAS_VISIBLES_DEFAULT);
     const [ordenColumnas, setOrdenColumnas] = useState<string[]>(COLUMNAS_TABLA.map(c => c.key));
@@ -2460,6 +2520,13 @@ export default function AgregarRecursosPage() {
 
     const guardarRecursoIndividual = async (index: number, manualData?: any) => {
         const data = manualData || recursosActual[index];
+        if (!data) return;
+
+        if (!data.cantidad || Number(data.cantidad) <= 0 || isNaN(Number(data.cantidad))) {
+            alert(`El insumo "${data.nombre_producto || 'seleccionado'}" debe tener una cantidad mayor a 0 para poder guardarse en la solicitud.`);
+            return;
+        }
+
         setSavingItems(prev => [...prev, index]);
 
         try {
@@ -2516,21 +2583,26 @@ export default function AgregarRecursosPage() {
             }
 
             // Construir payload limpio con los campos exactos que espera el backend
+            const anioActual = new Date().getFullYear();
+            const fechaFinal = data.fecha_ejecucion && data.fecha_ejecucion.trim() !== ''
+                ? data.fecha_ejecucion
+                : (data.mes_ejecucion ? `${anioActual}-${data.mes_ejecucion}-01` : `${anioActual}-03-01`);
+
             const valor_unitario_iva = data.valor_unitario_iva ?? 0;
             const payload = {
                 nombre_producto: data.nombre_producto,
                 descripcion: data.descripcion ?? undefined,
                 id_recurso: idRecursoFinal,
                 codigo_cuenta: data.codigo_cuenta ?? undefined,
-                formato_unidad: data.formato_unidad,
-                cantidad: data.cantidad,
+                formato_unidad: data.formato_unidad || 'Unidad',
+                cantidad: Number(data.cantidad) || 1,
                 valor_unitario: Math.round(valor_unitario_iva / 1.19),
                 valor_unitario_iva,
-                total_iva: data.total_iva ?? data.cantidad * valor_unitario_iva,
-                fecha_ejecucion: data.fecha_ejecucion,
+                total_iva: data.total_iva ?? (Number(data.cantidad) || 1) * valor_unitario_iva,
+                fecha_ejecucion: fechaFinal,
                 fecha_termino: data.fecha_termino ?? undefined,
-                tipo_fecha: data.tipo_fecha,
-                motivo: data.motivo,
+                tipo_fecha: data.tipo_fecha || 'mensual',
+                motivo: data.motivo || 'Insumo presupuestario',
                 id_actividad: data.id_actividad ?? undefined,
                 id_subvencion: data.id_subvencion ?? undefined,
                 destino_gasto: data.destino_gasto ?? '',
@@ -2717,7 +2789,7 @@ export default function AgregarRecursosPage() {
     const [guardandoTodos, setGuardandoTodos] = useState(false);
     const [progresoGuardado, setProgresoGuardado] = useState<string | null>(null);
 
-    const guardarTodosPendientes = async () => {
+    const guardarTodosPendientes = async (soloListos: boolean = false) => {
         if (guardandoTodosRef.current) return;
 
         const pendientes = recursosActual
@@ -2726,11 +2798,45 @@ export default function AgregarRecursosPage() {
 
         if (pendientes.length === 0) return;
 
+        const sinCantidad = pendientes.filter(({ rec }) => !rec.cantidad || Number(rec.cantidad) <= 0 || isNaN(Number(rec.cantidad)));
+        const sinMes = pendientes.filter(({ rec }) => (!rec.fecha_ejecucion || rec.fecha_ejecucion.trim() === '') && (!rec.mes_ejecucion || rec.mes_ejecucion.trim() === ''));
+        const sinPrecio = pendientes.filter(({ rec }) => !rec.valor_unitario_iva || Number(rec.valor_unitario_iva) <= 0);
+        const listos = pendientes.filter(({ rec }) => 
+            (rec.cantidad && Number(rec.cantidad) > 0) &&
+            ((rec.fecha_ejecucion && rec.fecha_ejecucion.trim() !== '') || (rec.mes_ejecucion && rec.mes_ejecucion.trim() !== ''))
+        );
+
+        const confirmadosCount = recursosActual.filter(r => !!r.id_pre_detalle).length;
+
+        // Si hay insumos con datos incompletos y no se eligió explícitamente guardar solo los listos,
+        // abrimos el modal de diagnóstico interactivo para que el usuario sepa exactamente el estado
+        if (!soloListos && (sinCantidad.length > 0 || sinMes.length > 0)) {
+            setModalDiagnosticoPendientes({
+                totalConfirmados: confirmadosCount,
+                totalPendientes: pendientes.length,
+                sinCantidad: sinCantidad.length,
+                sinMes: sinMes.length,
+                sinPrecio: sinPrecio.length,
+                listos: listos.length
+            });
+            return;
+        }
+
+        const itemsAProcesar = soloListos ? listos : pendientes;
+        if (itemsAProcesar.length === 0) {
+            alert("No hay insumos pendientes con datos completos (cantidad mayor a 0 y mes asignado) para guardar.");
+            return;
+        }
+
+        if (soloListos) {
+            setModalDiagnosticoPendientes(null);
+        }
+
         guardandoTodosRef.current = true;
         setGuardandoTodos(true);
         try {
             // 1. Identificar insumos completamente nuevos que NO tienen categoría asignada y requieren categorización por IA
-            const nuevosSinCategoria = pendientes.filter(({ rec }) => !rec.id_recurso && !(rec as any).id_cat_recurso && !(rec as any)._idCategoria);
+            const nuevosSinCategoria = itemsAProcesar.filter(({ rec }) => !rec.id_recurso && !(rec as any).id_cat_recurso && !(rec as any)._idCategoria);
 
             if (nuevosSinCategoria.length > 0) {
                 setProgresoGuardado(`Clasificando ${nuevosSinCategoria.length} insumo(s) nuevo(s) con IA en lote…`);
@@ -2772,7 +2878,7 @@ export default function AgregarRecursosPage() {
             // 2. Resolver sugerencia de recursos nuevos mediante el endpoint masivo /recursos/sugerir-lote
             setProgresoGuardado(`Procesando insumos a registrar en catálogo…`);
             const mapaRecursosFinales: Record<number, number | undefined> = {};
-            const totalmenteNuevos = pendientes.filter(({ rec }) => !rec.id_recurso);
+            const totalmenteNuevos = itemsAProcesar.filter(({ rec }) => !rec.id_recurso);
 
             let totalCreadosCatalogo = 0;
             let totalReutilizadosCatalogo = 0;
@@ -2807,30 +2913,35 @@ export default function AgregarRecursosPage() {
             }
 
             // Fallback o insumos existentes en catalogo
-            for (const { rec, index } of pendientes) {
+            for (const { rec, index } of itemsAProcesar) {
                 if (!mapaRecursosFinales[index]) {
                     mapaRecursosFinales[index] = rec.id_recurso ?? undefined;
                 }
             }
 
             // 3. Construir el payload masivo con TODOS los detalles en una sola peticion HTTP
-            setProgresoGuardado(`Guardando los ${pendientes.length} recursos en el servidor…`);
-            const detallesPayload = pendientes.map(({ rec, index }) => {
+            setProgresoGuardado(`Guardando los ${itemsAProcesar.length} recursos en el servidor…`);
+            const anioActual = new Date().getFullYear();
+            const detallesPayload = itemsAProcesar.map(({ rec, index }) => {
                 const valor_unitario_iva = rec.valor_unitario_iva ?? 0;
+                const fechaFinal = rec.fecha_ejecucion && rec.fecha_ejecucion.trim() !== ''
+                    ? rec.fecha_ejecucion
+                    : (rec.mes_ejecucion ? `${anioActual}-${rec.mes_ejecucion}-01` : `${anioActual}-03-01`);
+
                 return {
                     nombre_producto: rec.nombre_producto,
                     descripcion: rec.descripcion ?? undefined,
                     id_recurso: mapaRecursosFinales[index],
                     codigo_cuenta: rec.codigo_cuenta ?? undefined,
-                    formato_unidad: rec.formato_unidad,
-                    cantidad: rec.cantidad,
+                    formato_unidad: rec.formato_unidad || 'Unidad',
+                    cantidad: Number(rec.cantidad) || 1,
                     valor_unitario: Math.round(valor_unitario_iva / 1.19),
                     valor_unitario_iva,
-                    total_iva: rec.total_iva ?? rec.cantidad * valor_unitario_iva,
-                    fecha_ejecucion: rec.fecha_ejecucion,
+                    total_iva: rec.total_iva ?? (Number(rec.cantidad) || 1) * valor_unitario_iva,
+                    fecha_ejecucion: fechaFinal,
                     fecha_termino: rec.fecha_termino ?? undefined,
-                    tipo_fecha: rec.tipo_fecha,
-                    motivo: rec.motivo,
+                    tipo_fecha: rec.tipo_fecha || 'mensual',
+                    motivo: rec.motivo || 'Insumo presupuestario',
                     id_actividad: rec.id_actividad ?? undefined,
                     id_subvencion: (rec as any).id_subvencion ?? undefined,
                     destino_gasto: (rec as any).destino_gasto ?? '',
@@ -2843,10 +2954,11 @@ export default function AgregarRecursosPage() {
             const nuevosDetalles: any[] = res.data.detalles || [];
 
             // Actualizar el estado local con los IDs reales devueltos por la BD
+            const indicesProcesados = new Set(itemsAProcesar.map(it => it.index));
             setRecursosActual(prev => {
                 let detIdx = 0;
-                return prev.map((item) => {
-                    if (!item.id_pre_detalle) {
+                return prev.map((item, idx) => {
+                    if (indicesProcesados.has(idx) && !item.id_pre_detalle) {
                         const devuelto = nuevosDetalles[detIdx];
                         detIdx++;
                         if (devuelto) {
@@ -2867,14 +2979,14 @@ export default function AgregarRecursosPage() {
 
             // Abrir Modal UI de Resumen
             setModalResumenGuardado({
-                total: pendientes.length,
+                total: itemsAProcesar.length,
                 nuevos: totalCreadosCatalogo,
-                reutilizados: pendientes.length - totalCreadosCatalogo
+                reutilizados: itemsAProcesar.length - totalCreadosCatalogo
             });
         } catch (err: any) {
             console.error('Error al guardar todos los pendientes masivamente:', err);
             const detalle = err?.response?.data?.detail;
-            alert(detalle || 'Error al guardar los recursos pendientes en bloque');
+            alert(typeof detalle === 'string' ? detalle : 'Error al guardar los recursos pendientes en bloque');
         } finally {
             guardandoTodosRef.current = false;
             setGuardandoTodos(false);
@@ -4460,32 +4572,73 @@ export default function AgregarRecursosPage() {
                                     </div>
                                 )}
 
-                                {/* Aviso: hay recursos sin confirmar (sin el check) */}
+                                {/* Aviso detallado: estado de insumos y recursos sin confirmar */}
                                 {recursosActual.some(r => !r.id_pre_detalle) && (
-                                    <div className="mx-4 mt-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 animate-in slide-in-from-top-1 duration-200 flex-wrap">
-                                        <div className="flex items-center gap-2.5">
-                                            <span className="text-amber-500 shrink-0 text-base">⚠️</span>
-                                            <p className="text-[12px] text-amber-900 leading-relaxed font-semibold">
-                                                Hay <b className="font-extrabold">{recursosActual.filter(r => !r.id_pre_detalle).length} recurso(s)</b> en borrador pendientes de guardar en la solicitud.
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={eliminarTodosPendientes}
-                                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0"
-                                                title="Eliminar todos los recursos en borrador sin guardar"
-                                            >
-                                                <Trash2 size={14} /> Eliminar pendientes
-                                            </button>
-                                            <button
-                                                onClick={guardarTodosPendientes}
-                                                disabled={guardandoTodos}
-                                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
-                                            >
-                                                {guardandoTodos
-                                                    ? <><Loader2 size={14} className="animate-spin" /> {progresoGuardado || 'Guardando…'}</>
-                                                    : <><Save size={14} /> Guardar todos pendientes</>}
-                                            </button>
+                                    <div className="mx-4 mt-4 bg-gradient-to-r from-amber-50 to-orange-50/50 border border-amber-200/90 rounded-2xl p-4 animate-in slide-in-from-top-1 duration-200 shadow-xs">
+                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-amber-500 text-base shrink-0">⚠️</span>
+                                                    <span className="text-xs font-black text-amber-950 uppercase tracking-wider">
+                                                        Control de Insumos:
+                                                    </span>
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                        ✓ {statsPendientes.totalConfirmados} Confirmados
+                                                    </span>
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                                                        ⏳ {statsPendientes.totalPendientes} Pendientes
+                                                    </span>
+                                                    {statsPendientes.sinCantidad > 0 && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                                                            ⚠️ {statsPendientes.sinCantidad} sin cantidad (0)
+                                                        </span>
+                                                    )}
+                                                    {statsPendientes.sinMes > 0 && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-orange-100 text-orange-800 border border-orange-200">
+                                                            📅 {statsPendientes.sinMes} sin mes
+                                                        </span>
+                                                    )}
+                                                    {statsPendientes.listos > 0 && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200">
+                                                            ✨ {statsPendientes.listos} listos
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[12px] text-amber-900/90 leading-relaxed font-medium">
+                                                    {statsPendientes.tieneIncompletos ? (
+                                                        <>Hay <b className="font-extrabold">{statsPendientes.totalPendientes} insumo(s)</b> en borrador. Para guardarlos en la solicitud deben tener <b>cantidad mayor a 0</b> y <b>mes asignado</b>.</>
+                                                    ) : (
+                                                        <>Los <b className="font-extrabold">{statsPendientes.totalPendientes} insumo(s)</b> pendientes tienen sus datos completos y están listos para guardarse.</>
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                                <button
+                                                    onClick={eliminarTodosPendientes}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100/80 hover:bg-red-200 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 cursor-pointer"
+                                                    title="Eliminar todos los recursos en borrador sin guardar"
+                                                >
+                                                    <Trash2 size={13} /> Eliminar pendientes
+                                                </button>
+                                                <button
+                                                    onClick={() => guardarTodosPendientes(false)}
+                                                    disabled={guardandoTodos}
+                                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed text-white cursor-pointer ${
+                                                        statsPendientes.tieneIncompletos
+                                                            ? 'bg-amber-600 hover:bg-amber-700'
+                                                            : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                                                    }`}
+                                                >
+                                                    {guardandoTodos ? (
+                                                        <><Loader2 size={14} className="animate-spin" /> {progresoGuardado || 'Guardando…'}</>
+                                                    ) : statsPendientes.tieneIncompletos ? (
+                                                        <><AlertTriangle size={14} /> Revisar y Guardar pendientes ({statsPendientes.totalPendientes})</>
+                                                    ) : (
+                                                        <><Save size={14} /> Guardar todos pendientes ({statsPendientes.totalPendientes})</>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -4541,8 +4694,14 @@ export default function AgregarRecursosPage() {
                                                                 )}
                                                             </div>
                                                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                                                <span className="text-[9px] font-bold bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 uppercase tracking-tighter">
-                                                                    {labelFecha(rec)}
+                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                                                    !rec.id_pre_detalle && (!rec.fecha_ejecucion || rec.fecha_ejecucion.trim() === '') && (!rec.mes_ejecucion || rec.mes_ejecucion.trim() === '')
+                                                                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                                                        : 'bg-gray-100 text-gray-500'
+                                                                }`}>
+                                                                    {(!rec.id_pre_detalle && (!rec.fecha_ejecucion || rec.fecha_ejecucion.trim() === '') && (!rec.mes_ejecucion || rec.mes_ejecucion.trim() === ''))
+                                                                        ? 'Sin Mes'
+                                                                        : labelFecha(rec)}
                                                                 </span>
                                                                 {(() => {
                                                                     const subareaLabel = nombreSubareaDeFila(rec);
@@ -4566,7 +4725,11 @@ export default function AgregarRecursosPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-center font-bold text-gray-900">
-                                                            <span className="bg-gray-100 px-2.5 py-1 rounded-lg text-[11px] tracking-tight">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[11px] tracking-tight ${
+                                                                !rec.id_pre_detalle && (!rec.cantidad || Number(rec.cantidad) <= 0)
+                                                                    ? 'bg-red-100 text-red-700 border border-red-200 font-extrabold'
+                                                                    : 'bg-gray-100'
+                                                            }`} title={!rec.id_pre_detalle && (!rec.cantidad || Number(rec.cantidad) <= 0) ? 'Cantidad en 0. Debes asignarle una cantidad mayor a 0.' : undefined}>
                                                                 {rec.cantidad} {rec.formato_unidad}
                                                             </span>
                                                         </td>
@@ -7009,6 +7172,141 @@ export default function AgregarRecursosPage() {
                     }));
                 }}
             />
+
+            {/* Modal de Diagnóstico y Validación de Insumos Pendientes */}
+            {modalDiagnosticoPendientes && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-[300] p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-gray-100 animate-in zoom-in-95 space-y-5">
+                        <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200 shadow-xs">
+                                <AlertTriangle size={26} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-extrabold text-gray-900 tracking-tight">
+                                    No se pueden guardar todos los pendientes
+                                </h3>
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                    Hay recursos con datos requeridos incompletos antes de enviarse a la base de datos.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Grid de Métricas y Diagnóstico Solicitado */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+                                <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Check size={14} className="text-emerald-600" /> Confirmados en Solicitud
+                                </div>
+                                <div className="text-xl font-black text-emerald-700 mt-1">
+                                    {modalDiagnosticoPendientes.totalConfirmados} <span className="text-xs font-semibold text-emerald-600 font-normal">guardados</span>
+                                </div>
+                            </div>
+
+                            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl">
+                                <div className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <History size={14} className="text-amber-600" /> Pendientes en Borrador
+                                </div>
+                                <div className="text-xl font-black text-amber-800 mt-1">
+                                    {modalDiagnosticoPendientes.totalPendientes} <span className="text-xs font-semibold text-amber-700 font-normal">por guardar</span>
+                                </div>
+                            </div>
+
+                            <div className={`p-3 rounded-2xl border ${modalDiagnosticoPendientes.sinCantidad > 0 ? 'bg-red-50/80 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="text-[11px] font-bold text-red-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <AlertCircle size={14} className="text-red-500" /> Sin Cantidad (Cant = 0)
+                                </div>
+                                <div className="text-xl font-black text-red-700 mt-1">
+                                    {modalDiagnosticoPendientes.sinCantidad} <span className="text-xs font-semibold text-red-600 font-normal">insumos</span>
+                                </div>
+                            </div>
+
+                            <div className={`p-3 rounded-2xl border ${modalDiagnosticoPendientes.sinMes > 0 ? 'bg-orange-50/80 border-orange-200' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="text-[11px] font-bold text-orange-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Calendar size={14} className="text-orange-500" /> Sin Mes / Período
+                                </div>
+                                <div className="text-xl font-black text-orange-800 mt-1">
+                                    {modalDiagnosticoPendientes.sinMes} <span className="text-xs font-semibold text-orange-700 font-normal">insumos</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Herramienta Asignación Rápida de Mes Masivo */}
+                        {modalDiagnosticoPendientes.sinMes > 0 && (
+                            <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2">
+                                <div className="flex items-center gap-2 text-xs font-extrabold text-blue-900">
+                                    <Calendar size={14} className="text-blue-600" />
+                                    <span>Asignar mes masivo a los {modalDiagnosticoPendientes.sinMes} insumos sin fecha:</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={mesMasivoSeleccionado}
+                                        onChange={(e) => setMesMasivoSeleccionado(e.target.value)}
+                                        className="flex-1 px-3 py-1.5 bg-white border border-blue-200 rounded-xl text-xs font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    >
+                                        {MESES.map(m => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={() => aplicarMesMasivoAPendientes(mesMasivoSeleccionado)}
+                                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+                                    >
+                                        Aplicar Mes
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-blue-800/80 font-medium">
+                                    Asigna este mes a todos los borradores para que solo tengas que completar la cantidad.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Aviso explicativo */}
+                        <div className="text-[12px] text-gray-600 bg-gray-50 border border-gray-200/70 p-3 rounded-2xl space-y-1">
+                            <p className="font-semibold text-gray-800">¿Cómo resolverlo?</p>
+                            <p>
+                                1. En la tabla de insumos, ingresa una <b>cantidad mayor a 0</b> en cada fila marcada en rojo.
+                            </p>
+                            <p>
+                                2. Asegúrate de que tengan un <b>mes asignado</b> (puedes usar el botón de arriba para asignarlo a todos de golpe).
+                            </p>
+                        </div>
+
+                        {/* Botones de Acción */}
+                        <div className="flex items-center justify-between gap-2 pt-2 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFiltroEstadoPpto('borrador');
+                                    setModalDiagnosticoPendientes(null);
+                                }}
+                                className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl text-xs transition-all cursor-pointer"
+                            >
+                                Filtrar pendientes en tabla
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                                {modalDiagnosticoPendientes.listos > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => guardarTodosPendientes(true)}
+                                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs transition-all shadow-sm shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                                    >
+                                        Guardar solo los {modalDiagnosticoPendientes.listos} listos
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setModalDiagnosticoPendientes(null)}
+                                    className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                                >
+                                    Entendido, ir a editar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal Guía Normativa y Ejemplos de Dimensión PME */}
             {dimensionHelpModal && (

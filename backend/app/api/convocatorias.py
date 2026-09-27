@@ -28,7 +28,7 @@ from app.db.session import get_db
 from app.models import (
     PreConvocatoria, PrePedidoExterno,
     SolicitudPresupuesto, PresupuestoDetalle,
-    Subarea, Area, User, CategoriaRecurso, Recurso, GrupoRecurso,
+    Subarea, Area, User, CategoriaRecurso, Recurso, GrupoRecurso, MotivoRecurso,
     Actividad, Accion, PME, CategoriaCodigoContable, Subvencion, OrgConfig
 )
 from app.api.auth import get_current_user
@@ -727,6 +727,30 @@ def listar_lineas_publico(token: str, db: Session = Depends(get_db)):
             "descripcion": g.descripcion,
         }
         for g in grupos
+    ]
+
+
+@router.get("/publica/{token}/motivos")
+def listar_motivos_publico(token: str, db: Session = Depends(get_db)):
+    """Lista los motivos predeterminados de recursos disponibles para el formulario público."""
+    c = db.query(PreConvocatoria).filter(PreConvocatoria.token == token).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Formulario no encontrado")
+    motivos = (
+        db.query(MotivoRecurso)
+        .filter(MotivoRecurso.activo == True)
+        .order_by(MotivoRecurso.orden.asc(), MotivoRecurso.id_motivo.asc())
+        .all()
+    )
+    return [
+        {
+            "id_motivo": m.id_motivo,
+            "nombre": m.nombre,
+            "descripcion": m.descripcion,
+            "id_grupo_recurso": m.id_grupo_recurso,
+            "grupo_nombre": m.grupo.nombre if m.grupo else None,
+        }
+        for m in motivos
     ]
 
 
