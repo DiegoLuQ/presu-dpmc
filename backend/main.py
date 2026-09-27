@@ -32,6 +32,14 @@ async def startup_event():
                 raise e
             print(f"Waiting for database to be ready (attempt {attempt}/10)... Error: {e}")
             time.sleep(3)
+            
+    # Ejecución automática de migraciones pendientes (ALTER TABLE y seeds)
+    try:
+        from apply_migrations import apply_migrations
+        apply_migrations()
+    except Exception as e:
+        print(f"[ERROR] Error al ejecutar migraciones automáticas en startup: {e}")
+
     seed_roles()
     seed_contextos_rol()
     seed_cuentas_pilar()

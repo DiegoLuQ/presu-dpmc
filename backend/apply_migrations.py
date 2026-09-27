@@ -39,6 +39,15 @@ def apply_migrations():
             print("Agregando columna 'codigo_cuenta' a 'pre_detalle'...")
             conn.execute(text("ALTER TABLE pre_detalle ADD COLUMN codigo_cuenta VARCHAR(6) NULL;"))
             conn.execute(text("ALTER TABLE pre_detalle ADD CONSTRAINT fk_detalle_codigo_cuenta FOREIGN KEY (codigo_cuenta) REFERENCES pre_cuenta_matriz_reglas(codigo);"))
+
+        res = conn.execute(text("SHOW COLUMNS FROM pre_detalle LIKE 'id_grupo_recurso';")).fetchone()
+        if not res:
+            print("Agregando columna 'id_grupo_recurso' a 'pre_detalle'...")
+            conn.execute(text("ALTER TABLE pre_detalle ADD COLUMN id_grupo_recurso INT NULL;"))
+            try:
+                conn.execute(text("ALTER TABLE pre_detalle ADD CONSTRAINT fk_detalle_grupo FOREIGN KEY (id_grupo_recurso) REFERENCES pre_grupo_recurso(id_grupo_recurso) ON DELETE SET NULL;"))
+            except Exception as e:
+                print(f"Advertencia al agregar FK fk_detalle_grupo: {e}")
             
         # --- pre_cuenta_matriz_reglas ---
         res = conn.execute(text("SHOW COLUMNS FROM pre_cuenta_matriz_reglas LIKE 'categoria_pilar';")).fetchone()
@@ -93,7 +102,9 @@ def apply_migrations():
         res = conn.execute(text("SHOW COLUMNS FROM pre_pedido_externo LIKE 'destino';")).fetchone()
         if not res:
             print("Agregando columna 'destino' a 'pre_pedido_externo'...")
-            conn.execute(text("ALTER TABLE pre_pedido_externo ADD COLUMN destino VARCHAR(20) NULL;"))
+            conn.execute(text("ALTER TABLE pre_pedido_externo ADD COLUMN destino VARCHAR(50) NULL;"))
+        else:
+            conn.execute(text("ALTER TABLE pre_pedido_externo MODIFY COLUMN destino VARCHAR(50) NULL;"))
 
         res = conn.execute(text("SHOW COLUMNS FROM pre_pedido_externo LIKE 'id_actividad_pme';")).fetchone()
         if not res:
@@ -111,6 +122,15 @@ def apply_migrations():
             conn.execute(text("ALTER TABLE pre_pedido_externo ADD COLUMN id_recurso INT NULL;"))
             conn.execute(text("ALTER TABLE pre_pedido_externo ADD CONSTRAINT fk_pedido_recurso FOREIGN KEY (id_recurso) REFERENCES pre_recurso(id_recurso);"))
 
+        res = conn.execute(text("SHOW COLUMNS FROM pre_pedido_externo LIKE 'id_grupo_recurso';")).fetchone()
+        if not res:
+            print("Agregando columna 'id_grupo_recurso' a 'pre_pedido_externo'...")
+            conn.execute(text("ALTER TABLE pre_pedido_externo ADD COLUMN id_grupo_recurso INT NULL;"))
+            try:
+                conn.execute(text("ALTER TABLE pre_pedido_externo ADD CONSTRAINT fk_pedido_grupo FOREIGN KEY (id_grupo_recurso) REFERENCES pre_grupo_recurso(id_grupo_recurso) ON DELETE SET NULL;"))
+            except Exception as e:
+                print(f"Advertencia al agregar FK fk_pedido_grupo: {e}")
+
         # --- org_area cleanup ---
         res = conn.execute(text("SHOW COLUMNS FROM org_area LIKE 'id_jefe';")).fetchone()
         if res:
@@ -125,6 +145,13 @@ def apply_migrations():
                 print(f"No se pudo eliminar columna id_jefe: {e}")
 
         conn.execute(text('SET FOREIGN_KEY_CHECKS = 1;'))
+
+    # 3. Migración y seeds de motivos predeterminados de recurso
+    try:
+        from migrate_motivo_recurso import run_migration as run_motivos_migration
+        run_motivos_migration()
+    except Exception as e:
+        print(f"Error al ejecutar run_motivos_migration: {e}")
 
     print("¡Migración manual completada con éxito!")
 
