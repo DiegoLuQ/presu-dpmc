@@ -99,21 +99,17 @@ export default function ConfigGestionPage() {
             setSubvenciones(subvRes.data || []);
             setGrupos(gruposRes.data || []);
 
-            const entries = await Promise.all(
-                cats.map(async (cat) => {
-                    try {
-                        const r = await api.get(`/presupuesto/categoria-recurso/${cat.id_cat_recurso}/codigos`);
-                        return [cat.id_cat_recurso, r.data.map((c: any) => ({
-                            id: c.id,
-                            codigo_cuenta: c.codigo_cuenta,
-                            nombre_cuenta: c.nombre_cuenta || c.codigo_cuenta,
-                        }))];
-                    } catch {
-                        return [cat.id_cat_recurso, []];
-                    }
-                })
-            );
-            setCodigosMap(Object.fromEntries(entries));
+            // Códigos de todas las categorías en una sola petición (antes: una por categoría)
+            const codRes = await api.get('/presupuesto/categoria-recurso/codigos').catch(() => ({ data: {} }));
+            const porCategoria: Record<string, any[]> = codRes.data || {};
+            setCodigosMap(Object.fromEntries(cats.map(cat => [
+                cat.id_cat_recurso,
+                (porCategoria[cat.id_cat_recurso] || []).map((c: any) => ({
+                    id: c.id,
+                    codigo_cuenta: c.codigo_cuenta,
+                    nombre_cuenta: c.nombre_cuenta || c.codigo_cuenta,
+                })),
+            ])));
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {

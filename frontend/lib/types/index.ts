@@ -128,6 +128,9 @@ export interface BudgetDetail {
 
 export interface BudgetRequest {
   id_presupuesto: number;
+  /** Solo en listados resumen (sin ítems), calculados en el servidor */
+  n_items?: number;
+  monto_aprobado?: number;
   codigo?: string;
   id_user: number;
   id_cargo?: number;

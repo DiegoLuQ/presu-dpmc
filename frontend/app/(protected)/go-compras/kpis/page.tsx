@@ -10,6 +10,7 @@ import {
 import api from '@/lib/api/client';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import ComprasFilters from '@/components/go-compras/ComprasFilters';
+import { useAuth } from '@/context/AuthContext';
 
 interface KpiData {
     totalSugerido: number;
@@ -24,7 +25,9 @@ export default function KPIsPage() {
     const router = useRouter();
 
     // Filtros globales
-    const [colegioId, setColegioId] = useState('');
+    // Colegio por defecto: el del usuario (antes "todos los colegios", que traía el doble de datos)
+    const { user, colegioActivo } = useAuth();
+    const [colegioId, setColegioId] = useState(() => String(colegioActivo || user?.id_colegio || ''));
     const [year, setYear] = useState(String(new Date().getFullYear()));
     // Modo de visualización de montos
     const [viewMode, setViewMode] = useState<'real' | 'presupuestado'>('real');

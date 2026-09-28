@@ -31,7 +31,7 @@ from app.schemas.budget import (
 )
 from app.api.deps import verificar_permisos, verificar_seccion
 from app.core.secciones import usuario_puede_seccion
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, case
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/presupuesto", tags=["Presupuesto"])
@@ -913,10 +913,21 @@ def historial_compras(
     id_colegio: Optional[int] = Query(None, description="Filtrar por colegio"),
     id_presupuesto_anual: Optional[int] = Query(None, description="Filtrar por presupuesto anual (id)"),
     year: Optional[int] = Query(None, description="Año del presupuesto anual enlazado"),
-    incluir_pendientes: Optional[bool] = Query(False, description="Incluir solicitudes sin aprobar V°B°")
+    incluir_pendientes: Optional[bool] = Query(False, description="Incluir solicitudes sin aprobar V°B°"),
+    resumen: bool = Query(False, description="Sin ítems: solo n_items y monto_aprobado por solicitud"),
 ):
     """Historial de compras: solicitudes de todos los colegios y años."""
-    query = db.query(SolicitudPresupuesto).options(*get_solicitudes_eager_options())
+    if resumen:
+        # Sin cargar los ítems (pueden ser miles); los totales se calculan en SQL más abajo
+        opciones = [
+            joinedload(SolicitudPresupuesto.colegio),
+            joinedload(SolicitudPresupuesto.presupuesto_anual),
+            joinedload(SolicitudPresupuesto.user),
+            joinedload(SolicitudPresupuesto.cargo).joinedload(Cargo.area),
+        ]
+    else:
+        opciones = get_solicitudes_eager_options()
+    query = db.query(SolicitudPresupuesto).options(*opciones)
     if not incluir_pendientes:
         query = query.filter(SolicitudPresupuesto.estado.in_(["Aprobado", "Aceptado"]))
 
@@ -937,7 +948,29 @@ def historial_compras(
         )
 
     solicitudes = query.order_by(SolicitudPresupuesto.fecha.desc()).all()
-    return build_solicitudes_batch_response(solicitudes, db)
+    if not resumen:
+        return build_solicitudes_batch_response(solicitudes, db)
+
+    from sqlalchemy.orm.attributes import set_committed_value
+    ids = [x.id_presupuesto for x in solicitudes]
+    agregados = {}
+    if ids:
+        filas = db.query(
+            PresupuestoDetalle.id_presupuesto,
+            func.count(PresupuestoDetalle.id_pre_detalle),
+            func.coalesce(func.sum(PresupuestoDetalle.total_iva), 0),
+            func.coalesce(func.sum(case((PresupuestoDetalle.estado_aprobacion == "Aprobado", PresupuestoDetalle.total_iva), else_=0)), 0),
+        ).filter(PresupuestoDetalle.id_presupuesto.in_(ids)).group_by(PresupuestoDetalle.id_presupuesto).all()
+        agregados = {f[0]: (int(f[1]), float(f[2]), float(f[3])) for f in filas}
+    for x in solicitudes:
+        set_committed_value(x, "detalles", [])  # evita la carga perezosa al armar la respuesta
+    resultado = build_solicitudes_batch_response(solicitudes, db)
+    for r in resultado:
+        n, total, aprobado = agregados.get(r["id_presupuesto"], (0, 0.0, 0.0))
+        r["n_items"] = n
+        r["monto_total"] = total
+        r["monto_aprobado"] = aprobado
+    return resultado
 
 
 # ── Actas de Entrega Oficiales (Seguimiento, Correlativo y PDF) ───────────────
@@ -3997,6 +4030,31 @@ def bulk_delete_categorias_recurso(
     count = db.query(CategoriaRecurso).filter(CategoriaRecurso.id_cat_recurso.in_(data.ids)).delete(synchronize_session=False)
     db.commit()
     return {"eliminados": count}
+
+
+@router.get("/categoria-recurso/codigos")
+def get_codigos_todas_categorias(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+):
+    """Códigos contables de todas las categorías en una sola petición:
+    {id_cat_recurso: [CatCodigoResponse, ...]}. Antes la pantalla de categorías hacía
+    una petición por categoría (y una consulta por cuenta dentro de cada una)."""
+    rows = (
+        db.query(CategoriaCodigoContable, CuentaMatrizReglas.nombre)
+        .outerjoin(CuentaMatrizReglas, CuentaMatrizReglas.codigo == CategoriaCodigoContable.codigo_cuenta)
+        .all()
+    )
+    resultado: dict = {}
+    for r, nombre_cuenta in rows:
+        resultado.setdefault(r.id_cat_recurso, []).append(CatCodigoResponse(
+            id=r.id,
+            categoria_pilar=r.categoria_pilar,
+            codigo_cuenta=r.codigo_cuenta,
+            subvencion=r.subvencion,
+            nombre_cuenta=nombre_cuenta,
+        ))
+    return resultado
 
 
 @router.get("/categoria-recurso/{id_cat_recurso}/codigos", response_model=List[CatCodigoResponse])

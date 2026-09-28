@@ -314,7 +314,7 @@ function nextOTCode(ots: OrdenTrabajo[]) {
 // ── Componente principal ───────────────────────────────────────────────────────
 export default function ProgramarComprasPage() {
     const router = useRouter();
-    const { user, setSidebarCollapsed } = useAuth();
+    const { user, colegioActivo, setSidebarCollapsed } = useAuth();
 
     // Colapsar automáticamente el sidebar al ingresar a Programar Compras
     useEffect(() => {
@@ -418,6 +418,8 @@ export default function ProgramarComprasPage() {
         try {
             const savedColegio = localStorage.getItem('go-compras-filter-colegio');
             if (savedColegio !== null) setColegioId(savedColegio);
+            // Sin filtro guardado: partir por el colegio del usuario (no "todos los colegios")
+            else if (colegioActivo || user?.id_colegio) setColegioId(String(colegioActivo || user?.id_colegio));
 
             const savedYear = localStorage.getItem('go-compras-filter-year');
             if (savedYear !== null) setYear(savedYear);
@@ -945,7 +947,7 @@ export default function ProgramarComprasPage() {
             setSelectedUids(new Set());
             setShowActasModal(false);
             setActaCustomItems(null);
-            await fetchCompras();
+            await refrescarCompras(itemsAProcesar.map(i => i.solicitudId), true);
         } catch (err: any) {
             console.error('Error emitiendo acta:', err);
             alert(err.response?.data?.detail || 'Error al emitir el acta.');
@@ -1081,7 +1083,7 @@ export default function ProgramarComprasPage() {
                 }
             };
 
-            await fetchCompras();
+            await refrescarCompras([item.solicitudId]);
 
             // Cerrar modal de confirmación y modal de edición
             setConfirmComprarModal(null);
@@ -1469,6 +1471,23 @@ export default function ProgramarComprasPage() {
         }
     }, [colegioId, year, showOnlyPendientes]);
 
+    // Tras una acción, vuelve a pedir solo las solicitudes afectadas (antes se recargaba todo
+    // el historial con todos sus ítems). Si falla, recarga completa como respaldo.
+    const refrescarCompras = useCallback(async (idsSolicitud: number[], conActas = false) => {
+        const unicos = Array.from(new Set(idsSolicitud.filter(Boolean)));
+        try {
+            const frescas = await Promise.all(unicos.map(id => api.get(`/presupuesto/solicitudes/${id}`).then(r => r.data)));
+            const porId = new Map<number, BudgetRequest>(frescas.map((s: BudgetRequest) => [s.id_presupuesto, s]));
+            setCompras(prev => prev.map(c => porId.get(c.id_presupuesto) ?? c));
+            if (conActas) {
+                const resActas = await api.get('/presupuesto/compras/actas' + (colegioId ? `?id_colegio=${colegioId}` : ''));
+                setActasEmitidas(resActas.data || []);
+            }
+        } catch {
+            await fetchCompras();
+        }
+    }, [fetchCompras, colegioId]);
+
     // Mapeo id_pre_detalle -> Acta de Entrega
     const actasPorDetalleMap = useMemo(() => {
         const map = new Map<number, any>();
@@ -1746,7 +1765,7 @@ export default function ProgramarComprasPage() {
                 id_subarea: editItem.detalle.id_subarea
             };
             await api.put(`/presupuesto/detalles/${editItem.detalle.id_pre_detalle}`, payload);
-            await fetchCompras();
+            await refrescarCompras([editItem.solicitudId]);
             setEditItem(null);
         } catch (error: any) {
             console.error('Error actualizando precio:', error);
@@ -4751,7 +4770,7 @@ export default function ProgramarComprasPage() {
                                                 setItemExtras(nextExtras as any);
                                                 saveExtras(nextExtras as any);
 
-                                                await fetchCompras();
+                                                await refrescarCompras([editJustificationItem.solicitudId]);
 
                                                 setSavedItemSummary({
                                                     nombre_producto: editJustificationItem.detalle.nombre_producto,

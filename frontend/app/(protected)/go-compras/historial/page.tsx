@@ -6,13 +6,16 @@ import api from '@/lib/api/client';
 import { History, ShoppingCart, Loader2, Eye, User, Package, DollarSign, Building2, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
 import { BudgetRequest } from '@/lib/types';
 import ComprasFilters from '@/components/go-compras/ComprasFilters';
+import { useAuth } from '@/context/AuthContext';
 
 const formatCLP = (value: number) =>
     new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value || 0);
 
 export default function HistorialComprasPage() {
     const router = useRouter();
-    const [colegioId, setColegioId] = useState('');
+    // Colegio por defecto: el del usuario (antes "todos los colegios", que traía el doble de datos)
+    const { user, colegioActivo } = useAuth();
+    const [colegioId, setColegioId] = useState(() => String(colegioActivo || user?.id_colegio || ''));
     const [year, setYear] = useState(String(new Date().getFullYear()));
     const [compras, setCompras] = useState<BudgetRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -21,10 +24,11 @@ export default function HistorialComprasPage() {
     const fetchCompras = useCallback(async () => {
         setLoading(true);
         try {
-            const params: string[] = [];
+            // resumen=true: sin ítems; el servidor calcula n_items y monto_aprobado
+            const params: string[] = ['resumen=true'];
             if (colegioId) params.push(`id_colegio=${colegioId}`);
             if (year) params.push(`year=${year}`);
-            const url = '/presupuesto/compras/historial' + (params.length ? '?' + params.join('&') : '');
+            const url = '/presupuesto/compras/historial?' + params.join('&');
             const res = await api.get(url);
             setCompras(res.data);
         } catch (error) {
@@ -66,16 +70,11 @@ export default function HistorialComprasPage() {
     }, []);
 
     const activas = compras.filter((c) => c.activo !== false);
-    const totalMonto = activas.reduce((acc, c) => {
-        const sumAprobado = (c.detalles || []).reduce((sum, d) => {
-            if (d.estado_aprobacion === 'Aprobado') {
-                return sum + (d.total_iva || (d.cantidad * d.valor_unitario_iva));
-            }
-            return sum;
-        }, 0);
-        return acc + sumAprobado;
-    }, 0);
-    const totalRecursos = activas.reduce((acc, c) => acc + (c.detalles?.length || 0), 0);
+    const montoAprobado = (c: BudgetRequest) => c.monto_aprobado ?? (c.detalles || []).reduce((sum, d) =>
+        d.estado_aprobacion === 'Aprobado' ? sum + (d.total_iva || (d.cantidad * d.valor_unitario_iva)) : sum, 0);
+    const nItems = (c: BudgetRequest) => c.n_items ?? (c.detalles?.length || 0);
+    const totalMonto = activas.reduce((acc, c) => acc + montoAprobado(c), 0);
+    const totalRecursos = activas.reduce((acc, c) => acc + nItems(c), 0);
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -206,21 +205,14 @@ export default function HistorialComprasPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-bold">
-                                                {c.detalles?.length || 0} items
+                                                {nItems(c)} items
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                                             {formatCLP(c.monto_total)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600 bg-emerald-50/10">
-                                            {formatCLP(
-                                                (c.detalles || []).reduce((sum, d) => {
-                                                    if (d.estado_aprobacion === 'Aprobado') {
-                                                        return sum + (d.total_iva || (d.cantidad * d.valor_unitario_iva));
-                                                    }
-                                                    return sum;
-                                                }, 0)
-                                            )}
+                                            {formatCLP(montoAprobado(c))}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
                                             <button

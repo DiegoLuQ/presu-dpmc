@@ -279,6 +279,9 @@ class BudgetRequestResponse(BaseModel):
     user_nombre: Optional[str] = None
     colegio_nombre: Optional[str] = None
     detalles: List[BudgetDetailResponse]
+    # Solo en listados "resumen" (sin ítems): se calculan en el servidor
+    n_items: Optional[int] = None
+    monto_aprobado: Optional[float] = None
 
     class Config:
         from_attributes = True
