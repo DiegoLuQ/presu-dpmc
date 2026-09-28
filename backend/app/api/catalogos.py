@@ -695,8 +695,19 @@ class ConfigPayload(BaseModel):
     valor: object  # cualquier JSON-serializable
 
 
+@router.get("/config")
+def get_configs(claves: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Varias claves en una sola petición: ?claves=a,b,c -> {clave: valor}."""
+    lista = [c.strip() for c in claves.split(",") if c.strip()][:20]
+    return {c: _leer_config(db, current_user, c) for c in lista}
+
+
 @router.get("/config/{clave}")
 def get_config(clave: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return {"clave": clave, "valor": _leer_config(db, current_user, clave)}
+
+
+def _leer_config(db: Session, current_user: User, clave: str):
     cfg = None
     if current_user.id_colegio:
         cfg = db.query(OrgConfig).filter(
@@ -714,7 +725,7 @@ def get_config(clave: str, db: Session = Depends(get_db), current_user: User = D
             valor = json.loads(cfg.valor)
         except Exception:
             valor = None
-    return {"clave": clave, "valor": valor}
+    return valor
 
 
 @router.put("/config/{clave}")

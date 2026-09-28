@@ -1597,10 +1597,7 @@ export default function AgregarRecursosPage() {
                 subvRes,
                 gruposRes,
                 subareasRes,
-                configPlantillaRes,
-                configAccesoRes,
-                configBotonIaRes,
-                configBotonPrepRes,
+                configRes,
                 motivosRes
             ] = await Promise.all([
                 api.get(`/presupuesto/solicitudes/${solicitudId}`),
@@ -1609,25 +1606,19 @@ export default function AgregarRecursosPage() {
                 api.get('/presupuesto/subvenciones/activas'),
                 api.get('/presupuesto/grupos-recurso'),
                 api.get('/catalogos/cargos'),
-                api.get('/catalogos/config/acceso_boton_plantilla_excel').catch(() => ({ data: { valor: 'todos' } })),
-                api.get('/catalogos/config/acceso_importar_excel').catch(() => ({ data: { valor: 'solo_admin' } })),
-                api.get('/catalogos/config/acceso_boton_asesoria_pme_ia').catch(() => ({ data: { valor: 'oculto' } })),
-                api.get('/catalogos/config/acceso_boton_preparar_ppto').catch(() => ({ data: { valor: 'oculto' } })),
+                api.get('/catalogos/config', {
+                    params: { claves: 'acceso_boton_plantilla_excel,acceso_importar_excel,acceso_boton_asesoria_pme_ia,acceso_boton_preparar_ppto' }
+                }).catch(() => ({ data: {} })),
                 api.get('/presupuesto/motivos-recurso').catch(() => ({ data: [] }))
             ]);
 
-            if (['oculto', 'solo_admin', 'todos'].includes(configPlantillaRes.data?.valor)) {
-                setAccesoPlantillaExcel(configPlantillaRes.data.valor);
-            }
-            if (['oculto', 'solo_admin', 'todos'].includes(configAccesoRes.data?.valor)) {
-                setAccesoImportarExcel(configAccesoRes.data.valor);
-            }
-            if (['oculto', 'solo_admin', 'todos'].includes(configBotonIaRes.data?.valor)) {
-                setAccesoBotonIA(configBotonIaRes.data.valor);
-            }
-            if (['oculto', 'solo_admin', 'todos'].includes(configBotonPrepRes.data?.valor)) {
-                setAccesoBotonPreparar(configBotonPrepRes.data.valor);
-            }
+            // Si una clave no está configurada se conserva el valor por defecto del estado
+            const cfg = configRes.data || {};
+            const esAcceso = (v: unknown) => ['oculto', 'solo_admin', 'todos'].includes(v as string);
+            if (esAcceso(cfg.acceso_boton_plantilla_excel)) setAccesoPlantillaExcel(cfg.acceso_boton_plantilla_excel);
+            if (esAcceso(cfg.acceso_importar_excel)) setAccesoImportarExcel(cfg.acceso_importar_excel);
+            if (esAcceso(cfg.acceso_boton_asesoria_pme_ia)) setAccesoBotonIA(cfg.acceso_boton_asesoria_pme_ia);
+            if (esAcceso(cfg.acceso_boton_preparar_ppto)) setAccesoBotonPreparar(cfg.acceso_boton_preparar_ppto);
 
             setSolicitud({
                 id_presupuesto: solRes.data.id_presupuesto,
@@ -1982,12 +1973,21 @@ export default function AgregarRecursosPage() {
         setActividadesEncontradas(res);
     }, [todasActividades]);
 
+    // Búsqueda de recursos en el servidor: solo depende del texto y la pestaña.
+    // (Separada del filtro de actividades para no repetir la petición cuando
+    // llegan las actividades del PME.)
+    useEffect(() => {
+        if (activeTab !== 'buscador') return;
+        const timer = setTimeout(() => {
+            setPaginaRecursos(1);
+            buscarRecursos(searchRecurso, 1);
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [searchRecurso, activeTab, buscarRecursos]);
+
+    // Filtro local de actividades PME (no hace peticiones)
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (activeTab === 'buscador') {
-                setPaginaRecursos(1);
-                buscarRecursos(searchRecurso, 1);
-            }
             if (activeTab === 'pme') {
                 buscarActividades(searchActividad, filtroDimensionPME);
             } else {
@@ -1995,7 +1995,7 @@ export default function AgregarRecursosPage() {
             }
         }, 200);
         return () => clearTimeout(timer);
-    }, [searchRecurso, searchActividad, searchPMEModal, filtroDimensionPME, activeTab, buscarRecursos, buscarActividades]);
+    }, [searchActividad, searchPMEModal, filtroDimensionPME, activeTab, buscarActividades]);
 
     // Actividades PME asociadas al insumo del formulario. Se consulta al abrir el
     // modal y cada vez que cambia el recurso/nombre, para que el paso 3 muestre las

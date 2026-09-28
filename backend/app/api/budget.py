@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
-from sqlalchemy.orm import Session, selectinload, joinedload
+from sqlalchemy.orm import Session, selectinload, joinedload, contains_eager
 from typing import List, Optional
 from datetime import datetime, date
 import re
@@ -498,7 +498,8 @@ def get_solicitudes_eager_options():
             joinedload(PresupuestoDetalle.categoria_directa),
             joinedload(PresupuestoDetalle.recurso).joinedload(Recurso.categoria),
             joinedload(PresupuestoDetalle.recurso).joinedload(Recurso.grupo),
-            joinedload(PresupuestoDetalle.actividad).selectinload(Actividad.codigos_contables).joinedload(ActividadCodigoContable.subvencion)
+            joinedload(PresupuestoDetalle.actividad).selectinload(Actividad.codigos_contables).joinedload(ActividadCodigoContable.subvencion),
+            joinedload(PresupuestoDetalle.actividad).joinedload(Actividad.accion),
         )
     ]
 
@@ -532,8 +533,15 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
 
     # 3. Pre-cargar grupos de recursos, recursos faltantes y actividades faltantes
     from app.models import GrupoRecurso, Recurso, Actividad
-    grupos_db = db.query(GrupoRecurso).all()
-    grupos_map = {g.id_grupo_recurso: g.nombre for g in grupos_db}
+    # Solo los grupos que usan estos ítems (antes se leía la tabla completa en cada llamada)
+    grupo_ids = {d.id_grupo_recurso for s in solicitudes for d in (s.detalles or []) if d.id_grupo_recurso}
+    grupo_ids |= {d.recurso.id_grupo_recurso for s in solicitudes for d in (s.detalles or []) if d.recurso and d.recurso.id_grupo_recurso}
+    grupos_map = {}
+    if grupo_ids:
+        grupos_map = {
+            g_id: g_nombre for g_id, g_nombre in db.query(GrupoRecurso.id_grupo_recurso, GrupoRecurso.nombre)
+            .filter(GrupoRecurso.id_grupo_recurso.in_(grupo_ids)).all()
+        }
 
     recursos_faltantes_ids = {
         d.id_recurso for s in solicitudes for d in (s.detalles or [])
@@ -2551,7 +2559,7 @@ def buscar_actividades(
     colegio_obj = pmes[0].colegio or (db.query(Colegio).filter(Colegio.id_colegio == target_colegio_id).first() if target_colegio_id else None)
     colegio_nombre = colegio_obj.nombre if colegio_obj else (current_user.colegio.nombre if current_user.colegio else "")
 
-    query = db.query(Actividad).join(Accion).filter(
+    query = db.query(Actividad).join(Accion).options(contains_eager(Actividad.accion)).filter(
         Accion.id_pme.in_(pme_ids)
     )
 
@@ -2561,7 +2569,8 @@ def buscar_actividades(
             (Accion.nombre_accion.ilike(f"%{q}%"))
         )
 
-    actividades = query.group_by(Actividad.id_actividad).all()
+    # Accion es muchos-a-uno: el JOIN no duplica filas, no hace falta GROUP BY
+    actividades = query.all()
 
     return [
         {
