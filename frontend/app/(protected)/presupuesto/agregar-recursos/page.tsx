@@ -63,6 +63,8 @@ interface RecursoHistorial {
     dimension_pme?: string | null;
     id_grupo_recurso?: number | null;
     grupo_nombre?: string | null;
+    solicitante_nombre?: string | null;
+    colegio_nombre?: string | null;
 }
 
 // Actividad PME asociada a un insumo, devuelta por
@@ -731,6 +733,8 @@ export default function AgregarRecursosPage() {
     const [showPMEResults, setShowPMEResults] = useState(false);
     const [selectedHistorial, setSelectedHistorial] = useState<number[]>([]);
     const [filtroSolicitudHistorial, setFiltroSolicitudHistorial] = useState<string>('');
+    const [filtroAlcanceHistorial, setFiltroAlcanceHistorial] = useState<'mis' | 'area'>('area');
+    const [cargandoHistorial, setCargandoHistorial] = useState(false);
     const [savingItems, setSavingItems] = useState<number[]>([]);
     const [filasModificadas, setFilasModificadas] = useState<Set<number>>(new Set());
     const [filasConfirmadasRecientes, setFilasConfirmadasRecientes] = useState<Set<number>>(new Set());
@@ -1740,14 +1744,17 @@ export default function AgregarRecursosPage() {
         }
     };
 
-    const cargarHistorial = async () => {
+    const cargarHistorial = async (alcanceOverride?: 'mis' | 'colegio' | 'area') => {
+        const alcance = alcanceOverride || filtroAlcanceHistorial;
+        setCargandoHistorial(true);
         try {
-            const res = await api.get(`/presupuesto/solicitudes/mis?limit=30`);
+            const res = await api.get(`/presupuesto/solicitudes/mis?alcance=${alcance === 'mis' ? 'mis' : 'area'}&limit=100`);
             const todas = res.data;
             const hist: RecursoHistorial[] = [];
             for (const sol of todas) {
+                const solAprobada = sol.estado === 'Aprobado' || sol.estado === 'Aceptado';
                 for (const det of sol.detalles || []) {
-                    if (det.estado_aprobacion === 'Aprobado') {
+                    if (det.estado_aprobacion === 'Aprobado' || solAprobada) {
                         hist.push({
                             id_pre_detalle: det.id_pre_detalle || Math.random(),
                             id_presupuesto: sol.id_presupuesto,
@@ -1773,7 +1780,9 @@ export default function AgregarRecursosPage() {
                             id_subarea: det.id_subarea || null,
                             dimension_pme: det.dimension_pme || det.actividad?.dimension || (det.id_actividad ? todasActividades.find(a => a.id === det.id_actividad)?.dimension : null) || null,
                             id_grupo_recurso: det.id_grupo_recurso || null,
-                            grupo_nombre: det.grupo_nombre || null
+                            grupo_nombre: det.grupo_nombre || null,
+                            solicitante_nombre: sol.user_nombre || null,
+                            colegio_nombre: sol.colegio_nombre || null
                         });
                     }
                 }
@@ -1827,6 +1836,8 @@ export default function AgregarRecursosPage() {
             });
         } catch (error) {
             console.error('Error cargando historial:', error);
+        } finally {
+            setCargandoHistorial(false);
         }
     };
 
@@ -4253,15 +4264,51 @@ export default function AgregarRecursosPage() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="p-6">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-[15px] font-bold text-gray-900">
-                                                {activeTab === 'buscador' ? 'Insumos' : activeTab === 'pme' ? 'Planes de Acción' : 'Anteriores'}
-                                            </h3>
+                                    <div className="p-5">
+                                        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-gray-100">
+                                            {/* Pestañas de navegación del Sidebar */}
+                                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl flex-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveTab('buscador')}
+                                                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                        activeTab === 'buscador'
+                                                            ? 'bg-white text-primary shadow-xs'
+                                                            : 'text-gray-500 hover:text-gray-900'
+                                                    }`}
+                                                >
+                                                    <Search size={13} />
+                                                    <span>Insumos</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveTab('pme')}
+                                                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                        activeTab === 'pme'
+                                                            ? 'bg-white text-primary shadow-xs'
+                                                            : 'text-gray-500 hover:text-gray-900'
+                                                    }`}
+                                                >
+                                                    <ClipboardList size={13} />
+                                                    <span>PME</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveTab('historial')}
+                                                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                        activeTab === 'historial'
+                                                            ? 'bg-white text-primary shadow-xs'
+                                                            : 'text-gray-500 hover:text-gray-900'
+                                                    }`}
+                                                >
+                                                    <History size={13} />
+                                                    <span>Anteriores</span>
+                                                </button>
+                                            </div>
                                             <button
                                                 onClick={() => setSidebarCollapsed(true)}
-                                                className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
-                                                title="Colapsar"
+                                                className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all shrink-0"
+                                                title="Colapsar panel lateral"
                                             >
                                                 <ChevronLeft size={17} />
                                             </button>
@@ -4424,25 +4471,71 @@ export default function AgregarRecursosPage() {
                                         ) : (
                                             <div className="space-y-4">
                                                 <div className="flex flex-col gap-2 mb-2">
-                                                    {/* Selector de solicitudes aprobadas del usuario */}
+                                                    {/* Selector de Alcance: Mis solicitudes vs Compartidas del Colegio */}
+                                                    <div className="flex items-center p-1 bg-gray-100 rounded-xl">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFiltroAlcanceHistorial('area');
+                                                                setFiltroSolicitudHistorial('');
+                                                                cargarHistorial('area');
+                                                            }}
+                                                            className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all ${
+                                                                filtroAlcanceHistorial === 'area'
+                                                                    ? 'bg-white text-primary shadow-xs'
+                                                                    : 'text-gray-500 hover:text-gray-800'
+                                                            }`}
+                                                        >
+                                                            👥 De Mi Área / Equipo
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFiltroAlcanceHistorial('mis');
+                                                                setFiltroSolicitudHistorial('');
+                                                                cargarHistorial('mis');
+                                                            }}
+                                                            className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all ${
+                                                                filtroAlcanceHistorial === 'mis'
+                                                                    ? 'bg-white text-primary shadow-xs'
+                                                                    : 'text-gray-500 hover:text-gray-800'
+                                                            }`}
+                                                        >
+                                                            👤 Solo Mías
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Selector de solicitudes aprobadas */}
                                                     {(() => {
                                                         const codigosUnicos = Array.from(new Set(historialRecursos.map(h => h.codigo_solicitud).filter(Boolean)));
                                                         return (
                                                             <div className="space-y-1">
-                                                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">
-                                                                    Filtrar por Solicitud Anterior:
-                                                                </label>
+                                                                <div className="flex items-center justify-between">
+                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-0.5">
+                                                                        Filtrar por Solicitud Anterior:
+                                                                    </label>
+                                                                    {cargandoHistorial && (
+                                                                        <span className="flex items-center gap-1 text-[10px] font-bold text-primary animate-pulse">
+                                                                            <Loader2 size={11} className="animate-spin" /> Cargando...
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <select
                                                                     value={filtroSolicitudHistorial}
                                                                     onChange={(e) => setFiltroSolicitudHistorial(e.target.value)}
                                                                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all text-xs font-bold text-gray-800 cursor-pointer"
                                                                 >
                                                                     <option value="">-- Todas las solicitudes anteriores ({codigosUnicos.length}) --</option>
-                                                                    {codigosUnicos.map(cod => (
-                                                                        <option key={cod} value={cod}>
-                                                                            📋 {cod} ({historialRecursos.filter(h => h.codigo_solicitud === cod).length} ítems)
-                                                                        </option>
-                                                                    ))}
+                                                                    {codigosUnicos.map(cod => {
+                                                                        const primerItem = historialRecursos.find(h => h.codigo_solicitud === cod);
+                                                                        const autor = primerItem?.solicitante_nombre ? ` • ${primerItem.solicitante_nombre}` : '';
+                                                                        const count = historialRecursos.filter(h => h.codigo_solicitud === cod).length;
+                                                                        return (
+                                                                            <option key={cod} value={cod}>
+                                                                                📋 {cod}{autor} ({count} ítems)
+                                                                            </option>
+                                                                        );
+                                                                    })}
                                                                 </select>
                                                             </div>
                                                         );
@@ -4512,7 +4605,16 @@ export default function AgregarRecursosPage() {
                                                                     />
                                                                     <div className="flex-1">
                                                                         <p className="text-[11px] font-bold text-gray-800 leading-tight">{h.nombre_producto}</p>
-                                                                        <p className="text-[9px] text-gray-400 mt-1 uppercase">Solicitud: {h.codigo_solicitud}</p>
+                                                                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                                            <span className="text-[9px] font-semibold text-gray-500 bg-gray-200/70 px-1.5 py-0.5 rounded">
+                                                                                {h.codigo_solicitud}
+                                                                            </span>
+                                                                            {h.solicitante_nombre && (
+                                                                                <span className="text-[9px] text-primary/80 font-medium truncate max-w-[130px]" title={`Creado por: ${h.solicitante_nombre}`}>
+                                                                                    👤 {h.solicitante_nombre}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                         <p className="text-[10px] font-bold text-primary mt-1">{formatCLP(h.valor_unitario_iva)}</p>
                                                                     </div>
                                                                 </div>

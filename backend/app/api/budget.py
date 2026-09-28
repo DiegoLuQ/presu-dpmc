@@ -3,9 +3,8 @@ from sqlalchemy.orm import Session, selectinload, joinedload
 from typing import List, Optional
 from datetime import datetime, date
 import re
-import unicodedata
 from app.db.session import get_db
-from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
+from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
 from app.schemas.budget import (
     BudgetRequestCreate, BudgetRequestResponse,
     ContabilidadCreate, ContabilidadResponse,
@@ -710,14 +709,63 @@ def list_solicitudes(
 @router.get("/solicitudes/mis", response_model=List[BudgetRequestResponse])
 def mis_solicitudes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+    alcance: Optional[str] = Query("area", description="Alcance de las solicitudes: 'mis' (solo mías) o 'area' (de mi misma área/equipo)")
 ):
-    solicitudes = db.query(SolicitudPresupuesto).options(
-        *get_solicitudes_eager_options()
-    ).filter(
-        SolicitudPresupuesto.id_user == current_user.id_user
-    ).order_by(SolicitudPresupuesto.fecha.desc()).all()
-    
+    query = db.query(SolicitudPresupuesto).options(*get_solicitudes_eager_options())
+
+    if alcance in ["area", "colegio"]:
+        # Si es Administrador, Sostenedor o Gerente, puede ver las de su colegio o todas
+        if current_user.rol and current_user.rol.codigo in ["ADM", "SOS", "GERENTE"]:
+            if current_user.id_colegio and current_user.rol.codigo not in ["ADM", "GERENTE"]:
+                query = query.filter(SolicitudPresupuesto.id_colegio == current_user.id_colegio)
+        else:
+            # Obtener todas las áreas a las que pertenece el usuario (por su cargo directo y cargos adicionales)
+            cargos_usuario = []
+            if current_user.id_cargo:
+                cargos_usuario.append(current_user.id_cargo)
+            for c in (current_user.cargos or []):
+                if c.id_cargo not in cargos_usuario:
+                    cargos_usuario.append(c.id_cargo)
+
+            areas_usuario = set()
+            if cargos_usuario:
+                cargos_db = db.query(Cargo).filter(Cargo.id_cargo.in_(cargos_usuario)).all()
+                for c in cargos_db:
+                    if c.id_area:
+                        areas_usuario.add(c.id_area)
+                    for a_adic in (c.areas_adicionales or []):
+                        areas_usuario.add(a_adic.id_area)
+
+            # Buscar cargos que pertenezcan a esas áreas para filtrar las solicitudes
+            if areas_usuario:
+                cargos_misma_area = db.query(Cargo.id_cargo).filter(
+                    or_(
+                        Cargo.id_area.in_(areas_usuario),
+                        Cargo.id_cargo.in_(
+                            db.query(AreaCargo.id_cargo).filter(AreaCargo.id_area.in_(areas_usuario))
+                        )
+                    )
+                ).all()
+                cargos_ids = [c[0] for c in cargos_misma_area]
+                filtros_or = [SolicitudPresupuesto.id_user == current_user.id_user]
+                if cargos_ids:
+                    filtros_or.append(SolicitudPresupuesto.id_cargo.in_(cargos_ids))
+                
+                query = query.filter(or_(*filtros_or))
+                if current_user.id_colegio:
+                    query = query.filter(
+                        or_(
+                            SolicitudPresupuesto.id_colegio == current_user.id_colegio,
+                            SolicitudPresupuesto.id_colegio == None
+                        )
+                    )
+            else:
+                query = query.filter(SolicitudPresupuesto.id_user == current_user.id_user)
+    else:
+        query = query.filter(SolicitudPresupuesto.id_user == current_user.id_user)
+
+    solicitudes = query.order_by(SolicitudPresupuesto.fecha.desc()).all()
     return build_solicitudes_batch_response(solicitudes, db)
 
 
