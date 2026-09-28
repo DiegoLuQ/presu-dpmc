@@ -1267,7 +1267,7 @@ export default function AgregarRecursosPage() {
     const esDestinoOtros = false;
 
     useEffect(() => {
-        if (formularioRecurso.id_recurso) {
+        if (formularioRecurso.id_recurso && (showRecursoModal || isEditando)) {
             api.get(`/presupuesto/recursos/${formularioRecurso.id_recurso}/mapeos`)
                 .then(res => {
                     setMapeosRecurso(res.data);
@@ -1275,10 +1275,10 @@ export default function AgregarRecursosPage() {
                 .catch(() => {
                     setMapeosRecurso([]);
                 });
-        } else {
+        } else if (!formularioRecurso.id_recurso) {
             setMapeosRecurso([]);
         }
-    }, [formularioRecurso.id_recurso]);
+    }, [formularioRecurso.id_recurso, showRecursoModal, isEditando]);
 
     useEffect(() => {
         if (mapeosRecurso.length > 0) {
@@ -1521,30 +1521,6 @@ export default function AgregarRecursosPage() {
     }, [showRecursoModal, faseActual, (formularioRecurso as any).dimension_pme, formularioRecurso.actividad_seleccionada]);
 
     useEffect(() => {
-        api.get('/catalogos/config/acceso_boton_plantilla_excel')
-            .then(res => {
-                if (['oculto', 'solo_admin', 'todos'].includes(res.data?.valor)) {
-                    setAccesoPlantillaExcel(res.data.valor);
-                }
-            })
-            .catch(() => { });
-
-        api.get('/catalogos/config/acceso_importar_excel')
-            .then(res => {
-                if (['oculto', 'solo_admin', 'todos'].includes(res.data?.valor)) {
-                    setAccesoImportarExcel(res.data.valor);
-                }
-            })
-            .catch(() => { });
-
-        api.get('/catalogos/config/acceso_boton_preparar_ppto')
-            .then(res => {
-                if (['oculto', 'solo_admin', 'todos'].includes(res.data?.valor)) {
-                    setAccesoBotonPreparar(res.data.valor);
-                }
-            })
-            .catch(() => { });
-
         if (solicitudId) {
             cargarDatos();
         }
@@ -1672,9 +1648,6 @@ export default function AgregarRecursosPage() {
             setMotivosOficiales(motivosRes.data || []);
             setTodasSubareas(subareasRes.data || []);
 
-            // Cargar recursos iniciales para el buscador
-            buscarRecursos("");
-
             const normalizarAct = (a: any) => ({
                 id: a.id || a.id_actividad,
                 nombre: a.nombre || a.nombre_actividad || '',
@@ -1733,8 +1706,6 @@ export default function AgregarRecursosPage() {
                 }
             }
             panelHidratadoRef.current = true;
-
-            await cargarHistorial();
         } catch (error) {
             console.error('Error cargando datos:', error);
             alert('Error al cargar la solicitud');
@@ -4256,7 +4227,11 @@ export default function AgregarRecursosPage() {
                                             <ClipboardList size={17} />
                                         </button>
                                         <button
-                                            onClick={() => { setActiveTab('historial'); setSidebarCollapsed(false); }}
+                                            onClick={() => {
+                                                setActiveTab('historial');
+                                                setSidebarCollapsed(false);
+                                                if (historialRecursos.length === 0) cargarHistorial();
+                                            }}
                                             className={`p-2.5 rounded-xl transition-all ${activeTab === 'historial' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-primary/5 hover:text-primary'}`}
                                             title="Historial"
                                         >
@@ -4294,7 +4269,10 @@ export default function AgregarRecursosPage() {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setActiveTab('historial')}
+                                                    onClick={() => {
+                                                        setActiveTab('historial');
+                                                        if (historialRecursos.length === 0) cargarHistorial();
+                                                    }}
                                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                                                         activeTab === 'historial'
                                                             ? 'bg-white text-primary shadow-xs'

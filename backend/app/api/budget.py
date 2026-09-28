@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, selectinload, joinedload
 from typing import List, Optional
 from datetime import datetime, date
 import re
+import unicodedata
 from app.db.session import get_db
 from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
 from app.schemas.budget import (
