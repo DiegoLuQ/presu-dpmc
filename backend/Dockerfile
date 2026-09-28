@@ -17,4 +17,7 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 1) Tareas de arranque una sola vez (tablas, migraciones, seeders)
+# 2) Uvicorn con varios workers: un pedido pesado ya no bloquea al resto de usuarios
+ENV RUN_STARTUP_TASKS=false
+CMD ["sh", "-c", "RUN_STARTUP_TASKS=true python prestart.py && exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}"]

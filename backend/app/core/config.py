@@ -11,6 +11,11 @@ class Settings(BaseSettings):
 
     AI_ENCRYPTION_KEY: str = ""
 
+    # Arranque y capacidad
+    RUN_STARTUP_TASKS: bool = True      # False en Docker: las corre prestart.py una sola vez
+    DB_POOL_SIZE: int = 5               # conexiones por worker (x WEB_CONCURRENCY workers)
+    DB_MAX_OVERFLOW: int = 10
+
     # Logs y monitoreo de errores
     LOG_LEVEL: str = "INFO"
     SLOW_REQUEST_MS: int = 2000          # peticiones más lentas se registran como WARNING
