@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
     Plus, CheckCircle, AlertCircle, Loader2, Package, Lock, Search,
     SlidersHorizontal, Pencil, Trash2, X, Info, Video, ExternalLink, Copy, Check,
-    HelpCircle, Sparkles
+    HelpCircle, Sparkles, CopyPlus
 } from 'lucide-react';
 import { FORMATOS_UNIDAD, TIPOS_FECHA, MESES } from '@/lib/types';
 import { GuiaConvocadoModal } from '@/components/presupuesto/GuiaConvocadoModal';
@@ -85,6 +85,8 @@ interface PedidoEnviado {
     id_grupo_recurso?: number;
     grupo_nombre?: string;
     estado_jefe?: 'pendiente' | 'aceptado' | 'rechazado' | 'importado';
+    fecha_ejecucion?: string | null;
+    id_recurso?: number | null;
 }
 
 // Destino del recurso solicitado (pilares oficiales establecidos)
@@ -177,7 +179,273 @@ const COLUMNS: { key: keyof typeof DEFAULT_COLS; label: string }[] = [
 const DEFAULT_COLS = { linea: true, descripcion: true, cantidad: true, precio: true, total: true, motivo: true, destino: true, actividad_pme: false };
 type ColState = typeof DEFAULT_COLS;
 
-const COLS_STORAGE_KEY = 'pedidos_columnas';
+interface ItemAnterior {
+    id_pre_detalle: number;
+    nombre_recurso: string;
+    descripcion?: string | null;
+    formato_unidad: string;
+    cantidad: number;
+    precio_estimado: number;
+    total: number;
+    mes: string;
+    motivo: string;
+    destino?: string | null;
+    id_recurso?: number | null;
+    id_grupo_recurso?: number | null;
+    grupo_nombre?: string | null;
+    id_actividad_pme?: number | null;
+    subarea_nombre?: string | null;
+    es_mi_subarea?: boolean;
+}
+
+// Modal: copiar ítems del presupuesto anterior de la subárea a esta convocatoria
+function CopiarAnteriorModal({ token, pin, enviados, onClose, onCopiados }: {
+    token: string;
+    pin?: string;
+    enviados: PedidoEnviado[];
+    onClose: () => void;
+    onCopiados: (nuevos: PedidoEnviado[]) => void;
+}) {
+    const [years, setYears] = useState<number[]>([]);
+    const [year, setYear] = useState<number | null>(null);
+    const [items, setItems] = useState<ItemAnterior[]>([]);
+    const [sel, setSel] = useState<Set<number>>(new Set());
+    const [filtro, setFiltro] = useState('');
+    const [filtroSubarea, setFiltroSubarea] = useState('');
+    const [areaNombre, setAreaNombre] = useState<string | null>(null);
+    const [cargando, setCargando] = useState(true);
+    const [copiando, setCopiando] = useState(false);
+    const [err, setErr] = useState('');
+
+    const yaAgregados = new Set(enviados.map(e => e.nombre_recurso.trim().toLowerCase()));
+
+    const cargar = async (y?: number) => {
+        setCargando(true);
+        setErr('');
+        try {
+            const qs = new URLSearchParams();
+            if (pin) qs.set('pin', pin);
+            if (y) qs.set('year', String(y));
+            const res = await fetch(`${API}/convocatorias/publica/${token}/presupuesto-anterior?${qs}`);
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                setErr(d.detail || 'No se pudo cargar el presupuesto anterior');
+                return;
+            }
+            const d = await res.json();
+            setYears(d.years || []);
+            setYear(d.year);
+            setAreaNombre(d.area_nombre || null);
+            const lista: ItemAnterior[] = d.items || [];
+            setItems(lista);
+            // Nada marcado por defecto: el usuario elige qué insumos copiar
+            setSel(new Set());
+        } catch {
+            setErr('No se pudo cargar. Revisa tu conexión e intenta de nuevo.');
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { cargar(); }, []);
+
+    const subareas = Array.from(new Set(items.map(i => i.subarea_nombre || 'Sin subárea'))).sort();
+    const visibles = items.filter(i =>
+        (!filtro.trim() || i.nombre_recurso.toLowerCase().includes(filtro.trim().toLowerCase())) &&
+        (!filtroSubarea || (i.subarea_nombre || 'Sin subárea') === filtroSubarea)
+    );
+    const todosVisiblesSel = visibles.length > 0 && visibles.every(i => sel.has(i.id_pre_detalle));
+    const toggle = (id: number) => setSel(prev => {
+        const n = new Set(prev);
+        if (n.has(id)) n.delete(id); else n.add(id);
+        return n;
+    });
+    const toggleTodos = () => setSel(prev => {
+        const n = new Set(prev);
+        visibles.forEach(i => todosVisiblesSel ? n.delete(i.id_pre_detalle) : n.add(i.id_pre_detalle));
+        return n;
+    });
+    const seleccionados = items.filter(i => sel.has(i.id_pre_detalle));
+    const totalSel = seleccionados.reduce((s, i) => s + i.total, 0);
+
+    const copiar = async () => {
+        if (!seleccionados.length) return;
+        setCopiando(true);
+        setErr('');
+        const anio = new Date().getFullYear();
+        try {
+            const res = await fetch(`${API}/convocatorias/publica/${token}/pedidos/lote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pin: pin || undefined,
+                    items: seleccionados.map(i => ({
+                        nombre_recurso: i.nombre_recurso,
+                        descripcion: i.descripcion || undefined,
+                        formato_unidad: i.formato_unidad,
+                        cantidad: i.cantidad,
+                        precio_estimado: i.precio_estimado,
+                        fecha_ejecucion: `${anio}-${i.mes}-01`,
+                        tipo_fecha: 'mensual',
+                        motivo: i.motivo,
+                        destino: normalizeDestino(i.destino || undefined),
+                        id_actividad_pme: i.id_actividad_pme || undefined,
+                        id_recurso: i.id_recurso || undefined,
+                        id_grupo_recurso: i.id_grupo_recurso || undefined,
+                    })),
+                }),
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                setErr(d.detail || 'No se pudieron copiar los recursos');
+                return;
+            }
+            onCopiados(await res.json());
+        } catch {
+            setErr('No se pudo copiar. Revisa tu conexión e intenta de nuevo.');
+        } finally {
+            setCopiando(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="px-6 pt-5 pb-3 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                            <CopyPlus size={18} className="text-blue-600" /> Presupuesto anterior{areaNombre ? ` · ${areaNombre}` : ''}
+                        </h3>
+                        <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer">
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Estos son los insumos que el área solicitó en el presupuesto anterior. Marca los que quieres volver a pedir: se agregan con la misma cantidad, precio y motivo, y luego puedes editarlos.
+                    </p>
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                        {years.length > 0 && (
+                            <select
+                                value={year ?? ''}
+                                onChange={e => cargar(Number(e.target.value))}
+                                className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                            >
+                                {years.map(y => <option key={y} value={y}>Presupuesto {y}</option>)}
+                            </select>
+                        )}
+                        {subareas.length > 1 && (
+                            <select
+                                value={filtroSubarea}
+                                onChange={e => setFiltroSubarea(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                            >
+                                <option value="">Todas las subáreas</option>
+                                {subareas.map(sa => <option key={sa} value={sa}>{sa}</option>)}
+                            </select>
+                        )}
+                        <div className="relative flex-1">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <input
+                                type="text"
+                                value={filtro}
+                                onChange={e => setFiltro(e.target.value)}
+                                placeholder="Filtrar por nombre..."
+                                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    {err && (
+                        <div className="m-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 flex items-center gap-2">
+                            <AlertCircle size={14} className="shrink-0" /> {err}
+                        </div>
+                    )}
+                    {cargando ? (
+                        <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-blue-600" size={28} /></div>
+                    ) : items.length === 0 ? (
+                        <div className="py-16 text-center text-sm text-gray-400 px-6">
+                            <Package size={32} className="mx-auto mb-3 text-gray-200" />
+                            No hay presupuestos anteriores registrados para esta área.
+                        </div>
+                    ) : (
+                        <table className="w-full text-xs">
+                            <thead className="sticky top-0 bg-gray-50 z-10">
+                                <tr className="text-gray-500 font-semibold">
+                                    <th className="px-4 py-2.5 w-8">
+                                        <input type="checkbox" checked={todosVisiblesSel} onChange={toggleTodos} className="accent-blue-600 cursor-pointer" />
+                                    </th>
+                                    <th className="px-3 py-2.5 text-left">Recurso</th>
+                                    <th className="px-3 py-2.5 text-left">Subárea</th>
+                                    <th className="px-3 py-2.5 text-right">Cant.</th>
+                                    <th className="px-3 py-2.5 text-right">Precio</th>
+                                    <th className="px-3 py-2.5 text-right">Total</th>
+                                    <th className="px-3 py-2.5 text-left">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {visibles.map(i => {
+                                    const repetido = yaAgregados.has(i.nombre_recurso.trim().toLowerCase());
+                                    return (
+                                        <tr
+                                            key={i.id_pre_detalle}
+                                            onClick={() => toggle(i.id_pre_detalle)}
+                                            className={`cursor-pointer transition-colors ${sel.has(i.id_pre_detalle) ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}
+                                        >
+                                            <td className="px-4 py-2.5">
+                                                <input type="checkbox" readOnly checked={sel.has(i.id_pre_detalle)} className="accent-blue-600 pointer-events-none" />
+                                            </td>
+                                            <td className="px-3 py-2.5">
+                                                <div className="font-semibold text-gray-800">{i.nombre_recurso}</div>
+                                                <div className="text-[11px] text-gray-400 line-clamp-1">
+                                                    {[i.grupo_nombre, i.descripcion].filter(Boolean).join(' · ')}
+                                                </div>
+                                                {repetido && <span className="text-[10px] font-semibold text-amber-600">Ya está en tu lista</span>}
+                                            </td>
+                                            <td className="px-3 py-2.5 whitespace-nowrap">
+                                                <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${i.es_mi_subarea ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {i.subarea_nombre || 'Sin subárea'}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-right whitespace-nowrap text-gray-700">{i.cantidad} {i.formato_unidad}</td>
+                                            <td className="px-3 py-2.5 text-right text-gray-700">{fmt(i.precio_estimado)}</td>
+                                            <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{fmt(i.total)}</td>
+                                            <td className="px-3 py-2.5 text-gray-600 max-w-[200px]"><span className="line-clamp-2">{i.motivo}</span></td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 rounded-b-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-xs text-gray-600">
+                        <span className="font-bold text-gray-900">{seleccionados.length}</span> seleccionados · Total{' '}
+                        <span className="font-bold text-blue-700">{fmt(totalSel)}</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={copiar}
+                            disabled={copiando || seleccionados.length === 0}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            {copiando ? <Loader2 size={16} className="animate-spin" /> : <CopyPlus size={16} />}
+                            Copiar {seleccionados.length || ''} a mi solicitud
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const COLS_STORAGE_KEY ='pedidos_columnas';
 const enviadosKey = (token: string) => `pedidos_enviados_${token}`;
 
 const emptyForm = () => ({
@@ -322,7 +590,10 @@ export default function FormularioPedidoPage() {
         id_actividad_pme: 0,
         actividad_pme_nombre: '',
         id_grupo_recurso: 0,
+        mes: '01',
     });
+    // true = el modal de edición crea una copia del recurso en vez de modificarlo
+    const [modoCopia, setModoCopia] = useState(false);
     const [guardandoEdit, setGuardandoEdit] = useState(false);
     const [errorEdit, setErrorEdit] = useState('');
     const [eliminando, setEliminando] = useState<number | null>(null);
@@ -331,6 +602,7 @@ export default function FormularioPedidoPage() {
     const [modalTutoriales, setModalTutoriales] = useState(false);
     const [modalGuia, setModalGuia] = useState(false);
     const [copiadoTut, setCopiadoTut] = useState<string | null>(null);
+    const [modalCopiar, setModalCopiar] = useState(false);
 
     // Cargar info de la convocatoria, líneas y motivos predeterminados
     useEffect(() => {
@@ -524,9 +796,11 @@ export default function FormularioPedidoPage() {
         }
     };
 
-    const abrirEditar = (p: PedidoEnviado) => {
+    const abrirEditar = (p: PedidoEnviado, copia = false) => {
         setEditPedido(p);
+        setModoCopia(copia);
         setEditForm({
+            mes: p.fecha_ejecucion ? p.fecha_ejecucion.slice(5, 7) : '01',
             nombre_recurso: p.nombre_recurso,
             descripcion: p.descripcion || '',
             formato_unidad: p.formato_unidad,
@@ -549,6 +823,42 @@ export default function FormularioPedidoPage() {
         if (!editForm.motivo.trim()) { setErrorEdit('El motivo es obligatorio'); return; }
         setGuardandoEdit(true);
         setErrorEdit('');
+        if (modoCopia) {
+            try {
+                const res = await fetch(`${API}/convocatorias/publica/${token}/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre_recurso: editForm.nombre_recurso.trim(),
+                        descripcion: editForm.descripcion.trim() || undefined,
+                        formato_unidad: editForm.formato_unidad,
+                        cantidad: parseFloat(editForm.cantidad),
+                        precio_estimado: parseFloat(editForm.precio_estimado),
+                        fecha_ejecucion: `${new Date().getFullYear()}-${editForm.mes}-01`,
+                        tipo_fecha: 'mensual',
+                        motivo: editForm.motivo.trim(),
+                        destino: editForm.destino,
+                        id_actividad_pme: editForm.id_actividad_pme || undefined,
+                        id_recurso: editPedido.id_recurso || undefined,
+                        id_grupo_recurso: editForm.id_grupo_recurso ? Number(editForm.id_grupo_recurso) : undefined,
+                        pin: info?.requiere_pin ? pin.trim() : undefined,
+                    }),
+                });
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    setErrorEdit(d.detail || 'No se pudo copiar el recurso');
+                    return;
+                }
+                const creado: PedidoEnviado = await res.json();
+                persistEnviados([...enviados, creado]);
+                setEditPedido(null);
+            } catch {
+                setErrorEdit('No se pudo guardar. Revisa tu conexión e intenta de nuevo.');
+            } finally {
+                setGuardandoEdit(false);
+            }
+            return;
+        }
         try {
             const res = await fetch(`${API}/convocatorias/publica/${token}/pedidos/${editPedido.id_pedido}`, {
                 method: 'PATCH',
@@ -708,6 +1018,14 @@ export default function FormularioPedidoPage() {
                         </div>
 
                         <div className="flex items-center gap-2.5 self-start sm:self-center flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => setModalCopiar(true)}
+                                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                                title="Ver el presupuesto anterior del área y elegir insumos para copiar"
+                            >
+                                <CopyPlus size={16} /> Ver presupuesto anterior
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => setModalGuia(true)}
@@ -1043,6 +1361,14 @@ export default function FormularioPedidoPage() {
                             Recursos solicitados
                             <span className="ml-2 text-xs font-medium text-gray-400">({enviados.length})</span>
                         </div>
+                        <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={() => setModalCopiar(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
+                            title="Ver el presupuesto anterior del área y elegir insumos para copiar"
+                        >
+                            <CopyPlus size={14} /> Ver presupuesto anterior
+                        </button>
                         {/* Selector de columnas */}
                         <div className="relative">
                             <button
@@ -1069,6 +1395,7 @@ export default function FormularioPedidoPage() {
                                     </div>
                                 </>
                             )}
+                        </div>
                         </div>
                     </div>
 
@@ -1124,8 +1451,16 @@ export default function FormularioPedidoPage() {
                                             {cols.destino && <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{destinoLabel(p.destino)}</td>}
                                             {cols.actividad_pme && <td className="px-3 py-3 text-gray-600 max-w-[160px]"><span className="line-clamp-2">{p.actividad_pme_nombre || '—'}</span></td>}
                                             <td className="px-3 py-3">
+                                                <div className="flex items-center gap-1 justify-center">
+                                                <button
+                                                    onClick={() => abrirEditar(p, true)}
+                                                    title="Copiar recurso (crea uno nuevo con estos datos)"
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                >
+                                                    <Copy size={13} />
+                                                </button>
                                                 {(!p.estado_jefe || p.estado_jefe === 'pendiente') ? (
-                                                    <div className="flex items-center gap-1 justify-center">
+                                                    <>
                                                         <button
                                                             onClick={() => abrirEditar(p)}
                                                             title="Editar recurso"
@@ -1141,9 +1476,8 @@ export default function FormularioPedidoPage() {
                                                         >
                                                             {eliminando === p.id_pedido ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                                         </button>
-                                                    </div>
+                                                    </>
                                                 ) : (
-                                                    <div className="flex justify-center">
                                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${p.estado_jefe === 'aceptado' ? 'bg-green-100 text-green-700'
                                                             : p.estado_jefe === 'rechazado' ? 'bg-red-100 text-red-700'
                                                                 : 'bg-blue-100 text-blue-700'
@@ -1152,8 +1486,8 @@ export default function FormularioPedidoPage() {
                                                                 : p.estado_jefe === 'rechazado' ? 'Rechazado'
                                                                     : 'Importado'}
                                                         </span>
-                                                    </div>
                                                 )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1168,61 +1502,91 @@ export default function FormularioPedidoPage() {
                 </p>
             </div>
 
-            {/* Modal editar recurso */}
+            {modalCopiar && (
+                <CopiarAnteriorModal
+                    token={token}
+                    pin={info.requiere_pin ? pin.trim() : undefined}
+                    enviados={enviados}
+                    onClose={() => setModalCopiar(false)}
+                    onCopiados={nuevos => { persistEnviados([...enviados, ...nuevos]); setModalCopiar(false); }}
+                />
+            )}
+
+            {/* Modal editar / copiar recurso */}
             {editPedido && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditPedido(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-1">
-                            <h3 className="text-base font-bold text-gray-900">Editar recurso</h3>
-                            <button onClick={() => setEditPedido(null)} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        {/* Cabecera fija */}
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${modoCopia ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                    {modoCopia ? <Copy size={16} /> : <Pencil size={16} />}
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-gray-900">{modoCopia ? 'Copiar recurso' : 'Editar recurso'}</h3>
+                                    <p className="text-xs text-gray-500">
+                                        {modoCopia
+                                            ? 'Se agregará como un recurso nuevo. Ajusta lo que necesites antes de guardar.'
+                                            : 'Solo puedes editarlo mientras el jefe de área no lo haya revisado.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setEditPedido(null)} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer">
                                 <X size={16} />
                             </button>
                         </div>
-                        <p className="text-xs text-gray-500 mb-4">Solo puedes editarlo mientras el jefe de área no lo haya revisado.</p>
 
-                        {errorEdit && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2 mb-4 flex items-center gap-1.5">
-                                <AlertCircle size={13} /> {errorEdit}
-                            </div>
-                        )}
+                        {/* Contenido con scroll */}
+                        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                            {errorEdit && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2 flex items-center gap-1.5">
+                                    <AlertCircle size={13} /> {errorEdit}
+                                </div>
+                            )}
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre del recurso <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={editForm.nombre_recurso}
-                                    onChange={e => setEditForm(f => ({ ...f, nombre_recurso: e.target.value }))}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre del recurso <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={editForm.nombre_recurso}
+                                        onChange={e => setEditForm(f => ({ ...f, nombre_recurso: e.target.value }))}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Descripción <span className="text-gray-400 font-normal">(opcional)</span></label>
+                                    <input
+                                        type="text"
+                                        value={editForm.descripcion}
+                                        onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">Descripción (opcional)</label>
-                                <input
-                                    type="text"
-                                    value={editForm.descripcion}
-                                    onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                        Línea <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <select
+                                        value={editForm.id_grupo_recurso || ''}
+                                        onChange={e => setEditForm(f => ({ ...f, id_grupo_recurso: e.target.value ? Number(e.target.value) : 0 }))}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                    >
+                                        <option value="">-- Sin Línea Asignada --</option>
+                                        {lineas.map(l => (
+                                            <option key={l.id_grupo_recurso} value={l.id_grupo_recurso}>
+                                                {l.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <DestinoField value={editForm.destino} onChange={v => setEditForm(f => ({ ...f, destino: v }))} />
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Línea <span className="text-gray-400 font-normal">(Clasificación / Grupo)</span>
-                                </label>
-                                <select
-                                    value={editForm.id_grupo_recurso || ''}
-                                    onChange={e => setEditForm(f => ({ ...f, id_grupo_recurso: e.target.value ? Number(e.target.value) : 0 }))}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                                >
-                                    <option value="">-- Sin Línea Asignada (Opcional) --</option>
-                                    {lineas.map(l => (
-                                        <option key={l.id_grupo_recurso} value={l.id_grupo_recurso}>
-                                            {l.nombre}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
+
+                            <div className={`grid grid-cols-2 gap-4 ${modoCopia ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Formato</label>
                                     <select
@@ -1253,15 +1617,23 @@ export default function FormularioPedidoPage() {
                                         className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                                     />
                                 </div>
+                                {modoCopia && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Mes</label>
+                                        <select
+                                            value={editForm.mes}
+                                            onChange={e => setEditForm(f => ({ ...f, mes: e.target.value }))}
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                                        >
+                                            {MESES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
-                            {editForm.cantidad && editForm.precio_estimado && (
-                                <p className="text-xs text-gray-500">
-                                    Total: <span className="font-bold text-gray-800">{fmt(parseFloat(editForm.cantidad) * parseFloat(editForm.precio_estimado))}</span>
-                                </p>
-                            )}
-                            <div className="rounded-xl border border-gray-200 bg-gray-50/40 p-3">
+
+                            <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <label className="block text-xs font-bold text-gray-700">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Motivo / justificación <span className="text-red-500">*</span>
                                     </label>
                                     {editForm.motivo && (
@@ -1275,39 +1647,34 @@ export default function FormularioPedidoPage() {
                                     )}
                                 </div>
                                 {motivosSugeridos.length > 0 && (
-                                    <div className="mb-2">
-                                        <div className="text-[11px] text-gray-500 font-medium mb-1.5 flex items-center gap-1">
-                                            <Sparkles size={12} className="text-amber-500" />
-                                            <span>Sugerencias rápidas:</span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                                            {motivosSugeridos.map(m => {
-                                                const isSelected = editForm.motivo === m.nombre;
-                                                return (
-                                                    <button
-                                                        key={m.id_motivo}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setEditForm(f => ({
-                                                                ...f,
-                                                                motivo: m.nombre,
-                                                                id_grupo_recurso: (m.id_grupo_recurso && (!f.id_grupo_recurso || f.id_grupo_recurso === 0))
-                                                                    ? m.id_grupo_recurso
-                                                                    : f.id_grupo_recurso
-                                                            }));
-                                                        }}
-                                                        title={m.descripcion || m.nombre}
-                                                        className={`text-xs px-2.5 py-1 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-1.5 ${
-                                                            isSelected
-                                                                ? 'bg-blue-50 border-blue-400 text-blue-800 font-semibold shadow-xs ring-1 ring-blue-300'
-                                                                : 'bg-white hover:bg-blue-50/50 border-gray-200 hover:border-blue-200 text-gray-700'
-                                                        }`}
-                                                    >
-                                                        <span>{m.nombre}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                    <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1 mb-2">
+                                        <Sparkles size={12} className="text-amber-500 mt-1.5" />
+                                        {motivosSugeridos.map(m => {
+                                            const isSelected = editForm.motivo === m.nombre;
+                                            return (
+                                                <button
+                                                    key={m.id_motivo}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditForm(f => ({
+                                                            ...f,
+                                                            motivo: m.nombre,
+                                                            id_grupo_recurso: (m.id_grupo_recurso && (!f.id_grupo_recurso || f.id_grupo_recurso === 0))
+                                                                ? m.id_grupo_recurso
+                                                                : f.id_grupo_recurso
+                                                        }));
+                                                    }}
+                                                    title={m.descripcion || m.nombre}
+                                                    className={`text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                                        isSelected
+                                                            ? 'bg-blue-50 border-blue-400 text-blue-800 font-semibold ring-1 ring-blue-300'
+                                                            : 'bg-gray-50 hover:bg-blue-50/50 border-gray-200 hover:border-blue-200 text-gray-700'
+                                                    }`}
+                                                >
+                                                    {m.nombre}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                                 <textarea
@@ -1317,7 +1684,7 @@ export default function FormularioPedidoPage() {
                                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none bg-white"
                                 />
                             </div>
-                            <DestinoField value={editForm.destino} onChange={v => setEditForm(f => ({ ...f, destino: v }))} />
+
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 mb-1">Actividad del PME <span className="text-gray-400 font-normal">(opcional)</span></label>
                                 <PmeAutocomplete
@@ -1328,18 +1695,29 @@ export default function FormularioPedidoPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-end gap-3 mt-6">
-                            <button onClick={() => setEditPedido(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium">
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={guardarEdit}
-                                disabled={guardandoEdit}
-                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
-                            >
-                                {guardandoEdit && <Loader2 size={15} className="animate-spin" />}
-                                Guardar cambios
-                            </button>
+                        {/* Pie fijo */}
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 rounded-b-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="text-xs text-gray-500">
+                                Total:{' '}
+                                <span className="font-bold text-blue-700 text-sm">
+                                    {editForm.cantidad && editForm.precio_estimado
+                                        ? fmt(parseFloat(editForm.cantidad) * parseFloat(editForm.precio_estimado))
+                                        : '$0'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => setEditPedido(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium cursor-pointer">
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={guardarEdit}
+                                    disabled={guardandoEdit}
+                                    className={`flex items-center gap-2 px-5 py-2 text-white text-sm font-bold rounded-xl active:scale-95 transition-all disabled:opacity-50 cursor-pointer ${modoCopia ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                >
+                                    {guardandoEdit ? <Loader2 size={15} className="animate-spin" /> : (modoCopia ? <Copy size={15} /> : <Check size={15} />)}
+                                    {modoCopia ? 'Agregar copia' : 'Guardar cambios'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

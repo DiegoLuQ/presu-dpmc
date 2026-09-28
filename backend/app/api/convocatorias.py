@@ -17,7 +17,7 @@ Rutas públicas (solo necesitan el token):
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional
 from datetime import datetime, date, timedelta
 from pydantic import BaseModel
@@ -478,14 +478,16 @@ def importar_pedidos_aceptados(
 
     importados = 0
     for p in aceptados:
-        if not p.clasificado_ia:
-            try:
-                _clasificar_pedido_ia_interna(p, db, current_user)
-            except Exception as e:
-                # Loggear y continuar para no romper la importación
-                print(f"Error clasificando pedido {p.id_pedido} en importación: {e}")
-                p.categoria_nombre_ia = "Sin clasificar"
-                p.clasificado_ia = True
+        # Sin IA en la importación (era muy lenta: una llamada por pedido). La categoría
+        # se toma del recurso del catálogo (por id o por nombre); si no, queda sin categoría.
+        if not p.id_cat_recurso:
+            if p.id_recurso:
+                rec = db.query(Recurso).filter(Recurso.id_recurso == p.id_recurso).first()
+            else:
+                rec = db.query(Recurso).filter(func.lower(Recurso.nombre) == p.nombre_recurso.strip().lower()).first()
+            if rec and rec.id_cat_recurso:
+                p.id_cat_recurso = rec.id_cat_recurso
+        id_grupo_final = p.id_grupo_recurso
 
         # Resolver automáticamente código contable y subvención
         codigo_cuenta = None
@@ -533,6 +535,9 @@ def importar_pedidos_aceptados(
         # Resolucion/creación de Recurso en pre_recurso para que quede en el catálogo
         if p.id_recurso:
             id_recurso_final = p.id_recurso
+            if not id_grupo_final:
+                rec = db.query(Recurso).filter(Recurso.id_recurso == p.id_recurso).first()
+                id_grupo_final = rec.id_grupo_recurso if rec else None
         else:
             recurso_existente = db.query(Recurso).filter(
                 func.lower(Recurso.nombre) == p.nombre_recurso.strip().lower()
@@ -540,6 +545,9 @@ def importar_pedidos_aceptados(
 
             if recurso_existente:
                 id_recurso_final = recurso_existente.id_recurso
+                id_grupo_final = id_grupo_final or recurso_existente.id_grupo_recurso
+                if not p.id_cat_recurso and recurso_existente.id_cat_recurso:
+                    p.id_cat_recurso = recurso_existente.id_cat_recurso
             else:
                 # Determinar el grupo del recurso basado en la categoría
                 id_grupo_final = p.id_grupo_recurso or 1  # Si el pedido especificó grupo, usarlo; sino General
@@ -609,7 +617,7 @@ def importar_pedidos_aceptados(
             codigo_cuenta=codigo_cuenta,
             id_actividad=p.id_actividad_pme,
             id_cat_recurso=p.id_cat_recurso,
-            id_grupo_recurso=p.id_grupo_recurso or id_grupo_final,
+            id_grupo_recurso=id_grupo_final,
         )
         db.add(detalle)
         p.estado_jefe = "importado"
@@ -846,6 +854,148 @@ def crear_pedido_publico(token: str, payload: PedidoCreate, db: Session = Depend
     db.commit()
     db.refresh(pedido)
     return _build_pedido(pedido)
+
+
+class PedidosLotePayload(BaseModel):
+    items: List[PedidoCreate]
+    pin: Optional[str] = None
+
+
+def _get_convocatoria_publica_activa(token: str, pin: Optional[str], db: Session) -> PreConvocatoria:
+    c = db.query(PreConvocatoria).filter(PreConvocatoria.token == token).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Formulario no encontrado")
+    if c.estado != "activo":
+        raise HTTPException(status_code=403, detail="Este formulario está cerrado")
+    if c.fecha_expiracion < date.today():
+        raise HTTPException(status_code=403, detail="Este formulario ha expirado")
+    if c.pin and (pin or "").strip() != c.pin:
+        raise HTTPException(status_code=403, detail="PIN incorrecto")
+    return c
+
+
+def _year_solicitud(s: SolicitudPresupuesto) -> Optional[int]:
+    """Año del presupuesto al que pertenece la solicitud (el del año N se planifica en N-1)."""
+    if s.presupuesto_anual:
+        return s.presupuesto_anual.year
+    return s.fecha.year + 1 if s.fecha else None
+
+
+@router.get("/publica/{token}/presupuesto-anterior")
+def presupuesto_anterior_publico(
+    token: str, pin: Optional[str] = None, year: Optional[int] = None, db: Session = Depends(get_db)
+):
+    """Ítems de presupuestos anteriores del área de la convocatoria (todas sus subáreas),
+    para elegir y copiarlos a esta convocatoria."""
+    c = _get_convocatoria_publica_activa(token, pin, db)
+    if not c.id_cargo:
+        return {"years": [], "year": None, "items": []}
+
+    # Subáreas del área; si la subárea no tiene área, solo ella misma
+    id_area = c.cargo.id_area if c.cargo else None
+    if id_area:
+        cargos_area = [x for (x,) in db.query(Subarea.id_cargo).filter(Subarea.id_area == id_area).all()]
+    else:
+        cargos_area = [c.id_cargo]
+
+    year_actual = _year_solicitud(c.solicitud) if c.solicitud else None
+    detalles = (
+        db.query(PresupuestoDetalle)
+        .join(SolicitudPresupuesto, PresupuestoDetalle.id_presupuesto == SolicitudPresupuesto.id_presupuesto)
+        .filter(
+            SolicitudPresupuesto.id_colegio == c.id_colegio,
+            SolicitudPresupuesto.id_presupuesto != c.id_presupuesto,
+            SolicitudPresupuesto.activo == True,
+            or_(PresupuestoDetalle.estado_aprobacion.is_(None), PresupuestoDetalle.estado_aprobacion != "Rechazado"),
+            # Ítems de solicitudes del área, o ítems asignados a una subárea del área
+            or_(PresupuestoDetalle.id_cargo.in_(cargos_area), SolicitudPresupuesto.id_cargo.in_(cargos_area)),
+        )
+        .order_by(PresupuestoDetalle.nombre_producto)
+        .all()
+    )
+
+    por_year: dict = {}
+    for d in detalles:
+        y = _year_solicitud(d.solicitud)
+        if y is None or (year_actual and y >= year_actual):
+            continue
+        por_year.setdefault(y, []).append(d)
+
+    years = sorted(por_year.keys(), reverse=True)
+    if not years:
+        return {"years": [], "year": None, "items": []}
+    elegido = year if year in por_year else years[0]
+
+    items = []
+    for d in por_year[elegido]:
+        grupo = d.grupo_directo or (d.recurso.grupo if d.recurso else None)
+        items.append({
+            "id_pre_detalle":   d.id_pre_detalle,
+            "nombre_recurso":   d.nombre_producto,
+            "descripcion":      d.descripcion,
+            "formato_unidad":   d.formato_unidad,
+            "cantidad":         float(d.cantidad),
+            "precio_estimado":  float(d.valor_unitario_iva),
+            "total":            float(d.total_iva),
+            "mes":              d.fecha_ejecucion.strftime("%m") if d.fecha_ejecucion else "01",
+            "motivo":           d.motivo,
+            "destino":          d.destino_gasto,
+            "id_recurso":       d.id_recurso,
+            "id_grupo_recurso": grupo.id_grupo_recurso if grupo else None,
+            "grupo_nombre":     grupo.nombre if grupo else None,
+            "id_actividad_pme": d.id_actividad,
+            "subarea_nombre":   (d.cargo_detalle or d.solicitud.cargo).nombre if (d.cargo_detalle or d.solicitud.cargo) else None,
+            "es_mi_subarea":    (d.id_cargo or d.solicitud.id_cargo) == c.id_cargo,
+        })
+    return {
+        "years": years,
+        "year": elegido,
+        "area_nombre": c.cargo.area.nombre if (c.cargo and c.cargo.area) else None,
+        "items": items,
+    }
+
+
+@router.post("/publica/{token}/pedidos/lote", status_code=201)
+def crear_pedidos_lote_publico(token: str, payload: PedidosLotePayload, db: Session = Depends(get_db)):
+    """Crea varios pedidos de una vez (p.ej. copiados del presupuesto anterior)."""
+    c = _get_convocatoria_publica_activa(token, payload.pin, db)
+    if not payload.items:
+        raise HTTPException(status_code=422, detail="No hay recursos para agregar")
+    if len(payload.items) > 500:
+        raise HTTPException(status_code=422, detail="Máximo 500 recursos por lote")
+
+    creados = []
+    for it in payload.items:
+        if not it.nombre_recurso.strip() or it.cantidad <= 0 or it.precio_estimado <= 0 or not it.motivo.strip():
+            continue
+        id_act_pme, nombre_act_pme = _resolver_actividad_pme(it.id_actividad_pme, c.id_colegio, db)
+        p = PrePedidoExterno(
+            id_convocatoria=c.id_convocatoria,
+            nombre_recurso=it.nombre_recurso.strip(),
+            descripcion=(it.descripcion or "").strip() or None,
+            formato_unidad=it.formato_unidad,
+            cantidad=it.cantidad,
+            precio_estimado=it.precio_estimado,
+            fecha_ejecucion=it.fecha_ejecucion,
+            tipo_fecha=it.tipo_fecha,
+            motivo=it.motivo.strip(),
+            destino=(it.destino or "").strip() or None,
+            id_actividad_pme=id_act_pme,
+            actividad_pme_nombre=nombre_act_pme,
+            id_grupo_recurso=it.id_grupo_recurso if (it.id_grupo_recurso and it.id_grupo_recurso > 0) else None,
+            estado_jefe="pendiente",
+            clasificado_ia=False,
+            creado_en=datetime.utcnow(),
+            id_recurso=it.id_recurso,
+        )
+        db.add(p)
+        creados.append(p)
+    if not creados:
+        raise HTTPException(status_code=422, detail="Ningún recurso tenía cantidad, precio y motivo válidos")
+    db.commit()
+    for p in creados:
+        db.refresh(p)
+    return [_build_pedido(p) for p in creados]
 
 
 def _get_pedido_publico_editable(token: str, id_pedido: int, pin: Optional[str], db: Session) -> PrePedidoExterno:

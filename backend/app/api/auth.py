@@ -40,7 +40,7 @@ def _aplicar_colegio_activo(user: User, request: Request):
         set_committed_value(user, "id_colegio", cid)
 
 
-async def get_current_user(request: Request, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+def get_current_user(request: Request, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -72,7 +72,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db), toke
     return user
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     from sqlalchemy import or_, func
     identifier = (login_data.identifier or "").strip()
     print(f"DEBUG: Intento de login para identificador: '{identifier}'")
@@ -124,11 +124,11 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.get("/permisos")
-async def get_permisos(
+def get_permisos(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -145,7 +145,7 @@ async def get_permisos(
     }
 
 @router.post("/cambiar-password")
-async def cambiar_password(
+def cambiar_password(
     data: CambiarPasswordRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
