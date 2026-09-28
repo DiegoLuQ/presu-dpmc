@@ -57,6 +57,8 @@ interface FlatItem {
     subvencion_nombre?: string;
     estado_aprobacion: string;
     comentario_revision?: string;
+    cargo_detalle?: string;
+    observacion?: string;
     raw_detalle: any;
 }
 
@@ -440,6 +442,8 @@ export default function SolicitudesPage() {
                     subvencion_nombre: (d as any).subvencion_nombre || (d as any).subvencion?.nombre_corto || '',
                     estado_aprobacion: d.estado_aprobacion || 'Sin Revisar',
                     comentario_revision: d.comentario_revision || undefined,
+                    cargo_detalle: d.cargo_nombre || d.subarea_nombre || undefined,
+                    observacion: d.observacion || undefined,
                     raw_detalle: d,
                 });
             }
@@ -1651,6 +1655,22 @@ export default function SolicitudesPage() {
                                                         <span className="font-medium text-primary ml-1">({item.subarea_nombre})</span>
                                                     )}
                                                 </div>
+                                                {(() => {
+                                                    const esConvocatoria = (item.observacion || '').toLowerCase().includes('convocatoria');
+                                                    const cargoDistinto = item.cargo_detalle && item.cargo_detalle.toLowerCase() !== (item.subarea_nombre || '').toLowerCase();
+                                                    if (esConvocatoria || cargoDistinto) {
+                                                        const textoOrigen = item.observacion || (item.cargo_detalle ? `Cargo: ${item.cargo_detalle}` : 'Convocatoria');
+                                                        return (
+                                                            <div className="mt-1 flex items-center gap-1">
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/70" title={item.observacion || `Pedido solicitado por cargo: ${item.cargo_detalle}`}>
+                                                                    <span className="text-[11px]">📋</span>
+                                                                    <span>{item.cargo_detalle || textoOrigen}</span>
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </td>
 
                                             {/* Cantidad y Valores */}

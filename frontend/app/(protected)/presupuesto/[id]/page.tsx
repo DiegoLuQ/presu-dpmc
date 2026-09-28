@@ -1231,6 +1231,23 @@ export default function DetalleSolicitudPage() {
                                                                     <span className="font-medium text-primary ml-1">({solicitud.subarea_nombre})</span>
                                                                 )}
                                                             </div>
+                                                            {(() => {
+                                                                const cargoDetalle = detalle.cargo_nombre || detalle.subarea_nombre;
+                                                                const esConvocatoria = (detalle.observacion || '').toLowerCase().includes('convocatoria');
+                                                                const cargoDistinto = cargoDetalle && cargoDetalle.toLowerCase() !== (solicitud.subarea_nombre || '').toLowerCase();
+                                                                if (esConvocatoria || cargoDistinto) {
+                                                                    const textoOrigen = detalle.observacion || (cargoDetalle ? `Cargo: ${cargoDetalle}` : 'Convocatoria');
+                                                                    return (
+                                                                        <div className="mt-1 flex items-center gap-1">
+                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/70" title={detalle.observacion || `Pedido solicitado por cargo: ${cargoDetalle}`}>
+                                                                                <span className="text-[11px]">📋</span>
+                                                                                <span>{cargoDetalle || textoOrigen}</span>
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
                                                         </td>
 
                                                         {/* Cantidad y Valores */}
