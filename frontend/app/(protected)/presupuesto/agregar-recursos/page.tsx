@@ -61,6 +61,8 @@ interface RecursoHistorial {
     id_cargo?: number | null;
     id_subarea?: number | null;
     dimension_pme?: string | null;
+    id_grupo_recurso?: number | null;
+    grupo_nombre?: string | null;
 }
 
 // Actividad PME asociada a un insumo, devuelta por
@@ -1753,7 +1755,9 @@ export default function AgregarRecursosPage() {
                             codigo_cuenta: det.codigo_cuenta || null,
                             id_cargo: det.id_cargo || null,
                             id_subarea: det.id_subarea || null,
-                            dimension_pme: det.dimension_pme || det.actividad?.dimension || (det.id_actividad ? todasActividades.find(a => a.id === det.id_actividad)?.dimension : null) || null
+                            dimension_pme: det.dimension_pme || det.actividad?.dimension || (det.id_actividad ? todasActividades.find(a => a.id === det.id_actividad)?.dimension : null) || null,
+                            id_grupo_recurso: det.id_grupo_recurso || null,
+                            grupo_nombre: det.grupo_nombre || null
                         });
                     }
                 }
@@ -1843,6 +1847,8 @@ export default function AgregarRecursosPage() {
                 id_subvencion: h.id_subvencion || undefined,
                 codigo_cuenta: h.codigo_cuenta || undefined,
                 id_subarea: h.id_subarea || undefined,
+                id_grupo_recurso: h.id_grupo_recurso || undefined,
+                grupo_nombre: h.grupo_nombre || undefined,
             };
         });
 
@@ -1883,6 +1889,8 @@ export default function AgregarRecursosPage() {
                 id_subvencion: h.id_subvencion || undefined,
                 codigo_cuenta: h.codigo_cuenta || undefined,
                 id_subarea: h.id_subarea || undefined,
+                id_grupo_recurso: h.id_grupo_recurso || undefined,
+                grupo_nombre: h.grupo_nombre || undefined,
             };
         });
 
