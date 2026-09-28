@@ -146,6 +146,13 @@ class BudgetDetailBase(BaseModel):
     id_subarea: Optional[int] = None
     id_grupo_recurso: Optional[int] = None
 
+    @field_validator("fecha_termino", mode="before")
+    @classmethod
+    def _sanitize_fecha_termino(cls, v):
+        if v == "" or (isinstance(v, str) and not v.strip()):
+            return None
+        return v
+
 
 
 class BudgetDetailCreate(BudgetDetailBase):
@@ -166,6 +173,13 @@ class BudgetDetailUpdate(BaseModel):
     total_iva: Optional[float] = None
     fecha_ejecucion: Optional[date] = None
     fecha_termino: Optional[date] = None
+
+    @field_validator("fecha_termino", mode="before")
+    @classmethod
+    def _sanitize_fecha_termino_update(cls, v):
+        if v == "" or (isinstance(v, str) and not v.strip()):
+            return None
+        return v
     tipo_fecha: Optional[str] = None
     motivo: Optional[str] = None
     observacion: Optional[str] = None
