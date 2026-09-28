@@ -858,6 +858,17 @@ export default function AgregarRecursosPage() {
     } | null>(null);
     const [mesMasivoSeleccionado, setMesMasivoSeleccionado] = useState<string>('03');
 
+    // Modal de notificación genérico (reemplaza browser alert())
+    const [modalNotificacion, setModalNotificacion] = useState<{
+        tipo: 'error' | 'warning' | 'success' | 'info';
+        titulo: string;
+        mensaje: string;
+    } | null>(null);
+    const mostrarNotificacion = (tipo: 'error' | 'warning' | 'success' | 'info', titulo: string, mensaje: string | object) => {
+        const msg = typeof mensaje === 'string' ? mensaje : (mensaje && typeof mensaje === 'object' ? JSON.stringify(mensaje) : String(mensaje));
+        setModalNotificacion({ tipo, titulo, mensaje: msg });
+    };
+
     // Métricas y diagnóstico continuo de insumos (confirmados vs pendientes, sin cantidad, sin mes)
     const statsPendientes = useMemo(() => {
         const confirmados = recursosActual.filter(r => !!r.id_pre_detalle).length;
@@ -1226,8 +1237,13 @@ export default function AgregarRecursosPage() {
             }
         } catch (error: any) {
             console.error("Error al asesorar actividad PME:", error);
-            const msg = error.response?.data?.detail || "Error al obtener asesoría de la IA. Verifica la configuración del proveedor IA.";
-            alert(msg);
+            const detail = error.response?.data?.detail;
+            const msg = typeof detail === 'string'
+                ? detail
+                : (detail && typeof detail === 'object'
+                    ? (detail.message || JSON.stringify(detail))
+                    : "Error al obtener asesoría de la IA. Verifica la configuración del proveedor IA.");
+            mostrarNotificacion('error', 'Error en Asesoría PME', msg);
         } finally {
             setAsesoriaPmeLoading(false);
         }
@@ -1944,10 +1960,16 @@ export default function AgregarRecursosPage() {
             if (filtroSolicitudHistorial === codigoSolicitud) {
                 setFiltroSolicitudHistorial('');
             }
-            alert(`Solicitud ${codigoSolicitud} eliminada con éxito.`);
+            mostrarNotificacion('success', 'Solicitud Eliminada', `La solicitud ${codigoSolicitud} y sus insumos asociados fueron eliminados del historial.`);
         } catch (error: any) {
             console.error('Error al eliminar la solicitud del historial:', error);
-            alert(error.response?.data?.detail || 'Error al eliminar la solicitud');
+            const detail = error.response?.data?.detail;
+            const msg = typeof detail === 'string'
+                ? detail
+                : (detail && typeof detail === 'object'
+                    ? (detail.message || JSON.stringify(detail))
+                    : 'Error al eliminar la solicitud');
+            mostrarNotificacion('error', 'Error al eliminar', msg);
         }
     };
 
@@ -2530,8 +2552,23 @@ export default function AgregarRecursosPage() {
         const data = manualData || recursosActual[index];
         if (!data) return;
 
-        if (!data.cantidad || Number(data.cantidad) <= 0 || isNaN(Number(data.cantidad))) {
-            alert(`El insumo "${data.nombre_producto || 'seleccionado'}" debe tener una cantidad mayor a 0 para poder guardarse en la solicitud.`);
+        const cantidadNum = Number(data.cantidad);
+        if (!data.cantidad || isNaN(cantidadNum) || cantidadNum <= 0) {
+            mostrarNotificacion(
+                'warning',
+                'Cantidad no válida',
+                `El insumo "${data.nombre_producto || 'seleccionado'}" debe tener una cantidad mayor a 0 para poder guardarse en la solicitud.`
+            );
+            return;
+        }
+
+        const tieneMes = (data.fecha_ejecucion && data.fecha_ejecucion.trim() !== '') || (data.mes_ejecucion && String(data.mes_ejecucion).trim() !== '');
+        if (!tieneMes) {
+            mostrarNotificacion(
+                'warning',
+                'Mes / Período requerido',
+                `El insumo "${data.nombre_producto || 'seleccionado'}" debe tener asignado un mes o fecha de ejecución antes de confirmarse.`
+            );
             return;
         }
 
@@ -2652,7 +2689,12 @@ export default function AgregarRecursosPage() {
         } catch (error: any) {
             console.error('Error al persistir recurso:', error);
             const detalle = error?.response?.data?.detail;
-            alert(detalle || 'Error al procesar el recurso individual');
+            const mensajeFinal = typeof detalle === 'string'
+                ? detalle
+                : (detalle && typeof detalle === 'object'
+                    ? (detalle.message || JSON.stringify(detalle))
+                    : 'No se pudo guardar el recurso individual. Por favor verifica los datos ingresados.');
+            mostrarNotificacion('error', 'Error al guardar insumo', mensajeFinal);
             setRecursosActual(prev => prev.map((item, i) => i === index ? { ...item, _isClassifying: false } : item));
         } finally {
             setSavingItems(prev => prev.filter(i => i !== index));
@@ -2784,7 +2826,7 @@ export default function AgregarRecursosPage() {
             setRecursoAEliminar(null);
         } catch (error) {
             console.error('Error al eliminar:', error);
-            alert('Error al eliminar. Intente nuevamente.');
+            mostrarNotificacion('error', 'Error al eliminar', 'No se pudo eliminar el recurso. Por favor intente nuevamente.');
         } finally {
             setIsEliminando(false);
         }
@@ -2832,7 +2874,11 @@ export default function AgregarRecursosPage() {
 
         const itemsAProcesar = soloListos ? listos : pendientes;
         if (itemsAProcesar.length === 0) {
-            alert("No hay insumos pendientes con datos completos (cantidad mayor a 0 y mes asignado) para guardar.");
+            mostrarNotificacion(
+                'warning',
+                'Insumos incompletos',
+                'No hay insumos pendientes con datos completos (cantidad mayor a 0 y mes asignado) para guardar.'
+            );
             return;
         }
 
@@ -2994,7 +3040,12 @@ export default function AgregarRecursosPage() {
         } catch (err: any) {
             console.error('Error al guardar todos los pendientes masivamente:', err);
             const detalle = err?.response?.data?.detail;
-            alert(typeof detalle === 'string' ? detalle : 'Error al guardar los recursos pendientes en bloque');
+            const mensajeFinal = typeof detalle === 'string'
+                ? detalle
+                : (detalle && typeof detalle === 'object'
+                    ? (detalle.message || JSON.stringify(detalle))
+                    : 'Error al guardar los recursos pendientes en bloque');
+            mostrarNotificacion('error', 'Error al guardar pendientes', mensajeFinal);
         } finally {
             guardandoTodosRef.current = false;
             setGuardandoTodos(false);
@@ -7112,7 +7163,13 @@ export default function AgregarRecursosPage() {
                                         });
                                     } catch (err: any) {
                                         console.error(err);
-                                        alert(err.response?.data?.detail || "Error al enviar sugerencia");
+                                        const detail = err.response?.data?.detail;
+                                        const msg = typeof detail === 'string'
+                                            ? detail
+                                            : (detail && typeof detail === 'object'
+                                                ? (detail.message || JSON.stringify(detail))
+                                                : "Error al enviar sugerencia");
+                                        mostrarNotificacion('error', 'Error al sugerir insumo', msg);
                                     }
                                 }}
                                 className="px-10 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 active:scale-95 transition-all text-xs"
@@ -7576,6 +7633,56 @@ export default function AgregarRecursosPage() {
                                         Sí, Eliminar
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Notificación Elegante (Reemplazo moderno de alert()) */}
+            {modalNotificacion && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[400] p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-start gap-3.5">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border ${
+                                modalNotificacion.tipo === 'error'
+                                    ? 'bg-red-50 text-red-600 border-red-100'
+                                    : modalNotificacion.tipo === 'warning'
+                                    ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                    : modalNotificacion.tipo === 'success'
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                    : 'bg-blue-50 text-blue-600 border-blue-100'
+                            }`}>
+                                {modalNotificacion.tipo === 'error' && <AlertCircle size={26} strokeWidth={2.4} />}
+                                {modalNotificacion.tipo === 'warning' && <AlertTriangle size={26} strokeWidth={2.4} />}
+                                {modalNotificacion.tipo === 'success' && <Check size={26} strokeWidth={2.8} />}
+                                {modalNotificacion.tipo === 'info' && <HelpCircle size={26} strokeWidth={2.4} />}
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                                <h3 className="text-base font-black text-gray-900 tracking-tight">
+                                    {modalNotificacion.titulo}
+                                </h3>
+                                <p className="text-xs text-gray-600 font-medium mt-1 leading-relaxed whitespace-pre-line">
+                                    {modalNotificacion.mensaje}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setModalNotificacion(null)}
+                                className={`w-full py-3 text-white font-extrabold rounded-2xl text-xs shadow-md active:scale-98 transition-all cursor-pointer ${
+                                    modalNotificacion.tipo === 'error'
+                                        ? 'bg-red-600 hover:bg-red-700 shadow-red-600/25'
+                                        : modalNotificacion.tipo === 'warning'
+                                        ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+                                        : modalNotificacion.tipo === 'success'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                                        : 'bg-primary hover:bg-primary/90 shadow-primary/25'
+                                }`}
+                            >
+                                Entendido
                             </button>
                         </div>
                     </div>
