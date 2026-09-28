@@ -760,9 +760,24 @@ def list_solicitudes(
 def mis_solicitudes(
     db: Session = Depends(get_db),
     current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
-    alcance: Optional[str] = Query("area", description="Alcance de las solicitudes: 'mis' (solo mías) o 'area' (de mi misma área/equipo)")
+    alcance: Optional[str] = Query("area", description="Alcance de las solicitudes: 'mis' (solo mías) o 'area' (de mi misma área/equipo)"),
+    id_colegio: Optional[int] = Query(None, description="Filtrar por colegio"),
+    year: Optional[int] = Query(None, description="Año del presupuesto anual (o de la fecha si la solicitud no está enlazada)"),
 ):
     query = db.query(SolicitudPresupuesto).options(*get_solicitudes_eager_options())
+
+    # Filtros opcionales en el servidor (evitan traer todas las solicitudes con sus ítems)
+    if id_colegio:
+        query = query.filter(SolicitudPresupuesto.id_colegio == id_colegio)
+    if year:
+        query = query.outerjoin(
+            PresupuestoAnual, SolicitudPresupuesto.id_presupuesto_anual == PresupuestoAnual.id_presupuesto_anual
+        ).filter(
+            or_(
+                PresupuestoAnual.year == year,
+                and_(SolicitudPresupuesto.id_presupuesto_anual == None, func.extract('year', SolicitudPresupuesto.fecha) == year),
+            )
+        )
 
     if alcance in ["area", "colegio"]:
         # Si es Administrador, Sostenedor o Gerente, puede ver las de su colegio o todas
@@ -2450,6 +2465,44 @@ def update_detalle_subvencion(
     db.commit()
     db.refresh(db_obj)
     return build_detalle_response(db_obj, db=db)
+
+
+class DetallesEstadoLoteRequest(BaseModel):
+    ids: List[int]
+    nuevo_estado: str
+    comentario: Optional[str] = None
+
+
+ESTADOS_DETALLE = ["Aprobado", "Rechazado", "Pendiente", "Sin Revisar", "Aprobado con Ajustes", "Con Ajustes"]
+
+
+@router.patch("/detalles/estado-lote")
+def update_detalles_estado_lote(
+    payload: DetallesEstadoLoteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "aprobar"))
+):
+    """Cambia el estado de varios ítems en una sola transacción (antes: una petición por ítem).
+    Devuelve las solicitudes afectadas para que el cliente refresque solo esas."""
+    if payload.nuevo_estado not in ESTADOS_DETALLE:
+        raise HTTPException(status_code=422, detail="Estado inválido")
+    ids = list(dict.fromkeys(payload.ids))[:1000]
+    if not ids:
+        raise HTTPException(status_code=422, detail="No hay ítems seleccionados")
+
+    detalles = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle.in_(ids)).all()
+    comentario = (payload.comentario or "").strip() or None
+    for d in detalles:
+        d.estado_aprobacion = payload.nuevo_estado
+        if payload.nuevo_estado in ["Rechazado", "Aprobado con Ajustes", "Con Ajustes"]:
+            d.comentario_revision = comentario
+        else:
+            d.comentario_revision = None
+    db.commit()
+    return {
+        "actualizados": len(detalles),
+        "ids_presupuesto": sorted({d.id_presupuesto for d in detalles}),
+    }
 
 
 @router.patch("/detalles/{id_detalle}/estado", response_model=BudgetDetailResponse)

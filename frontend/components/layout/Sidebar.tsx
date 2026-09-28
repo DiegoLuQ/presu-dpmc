@@ -9,8 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  KeyRound,
-} from 'lucide-react';
+  KeyRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { MODULOS, permisoSeccion, seccionKey } from '@/lib/permissions/registry';
 
@@ -64,9 +63,17 @@ const MENU_ITEMS: MenuItem[] = MODULOS.map((mod) => {
 });
 
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** Móvil: el menú está abierto como cajón */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout, tienePermiso, puedeSeccion, sidebarCollapsed, setSidebarCollapsed, colegios, colegioActivo, setColegioActivo, abrirModalPerfil } = useAuth();
+  const { user, logout, tienePermiso, puedeSeccion, sidebarCollapsed: colapsadoEscritorio, setSidebarCollapsed, colegios, colegioActivo, setColegioActivo, abrirModalPerfil } = useAuth();
+  // Abierto como cajón en móvil siempre se muestra completo (con textos)
+  const sidebarCollapsed = colapsadoEscritorio && !mobileOpen;
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   // Un permiso `modulo.accion` está activo si el rol lo tiene (o su wildcard `modulo.*`).
@@ -112,11 +119,20 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className={`fixed left-0 top-0 bottom-0 ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-white/80 backdrop-blur-xl shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-white/40 flex flex-col z-40 transition-all duration-300`}>
-      {/* Botón flotante para colapsar/expandir en el riel divisorio */}
+    <aside className={`fixed left-0 top-0 bottom-0 w-64 ${colapsadoEscritorio ? 'md:w-20' : 'md:w-64'} ${mobileOpen ? 'translate-x-0 bg-white shadow-2xl' : '-translate-x-full bg-white/80'} md:translate-x-0 md:bg-white/80 md:shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-xl border-r border-white/40 flex flex-col z-50 md:z-40 transition-all duration-300`}>
+      {/* Móvil: cerrar el cajón */}
+      <button
+        onClick={onMobileClose}
+        className="md:hidden absolute right-3 top-5 w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
+        aria-label="Cerrar menú"
+      >
+        <X size={18} />
+      </button>
+
+      {/* Botón flotante para colapsar/expandir en el riel divisorio (solo escritorio) */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="absolute -right-3.5 top-7 z-50 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-primary hover:border-primary/40 rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-md hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
+        className="hidden md:flex absolute -right-3.5 top-7 z-50 w-7 h-7 bg-white border border-gray-200 text-gray-400 hover:text-primary hover:border-primary/40 rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-md hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group"
         title={sidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
         aria-label={sidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
       >

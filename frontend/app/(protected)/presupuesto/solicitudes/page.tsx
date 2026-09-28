@@ -151,32 +151,15 @@ export default function SolicitudesPage() {
 
         const initFilters = async () => {
             try {
-                // Obtener presupuestos anuales registrados
-                const res = await api.get('/presupuesto/presupuestos-anuales');
-                if (cancelado) return;
-                const pptos: any[] = res.data || [];
-
                 const currentYr = new Date().getFullYear();
                 const savedYr = localStorage.getItem('solicitudes-filter-year') || String(currentYr);
                 setSelectedYear(savedYr);
 
-                // Presupuestos con estado 'activo' para el año seleccionado (o año actual)
-                const pptosActivos = pptos.filter((p: any) => 
-                    p.estado === 'activo' && (String(p.year) === String(savedYr) || String(p.year) === String(currentYr))
-                );
-                const colegiosConPptoActivo = Array.from(new Set(pptosActivos.map((p: any) => p.id_colegio)));
-
-                const esMulticolegio = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'SOS' || (user?.colegios && user.colegios.length > 1);
-
-                // Si el usuario tiene activo y se ve el presupuesto actual de ambos colegios:
-                // Se debe filtrar por todos los colegios ('')
-                if (esMulticolegio && colegiosConPptoActivo.length > 1) {
-                    setSelectedColegio('');
-                } else {
-                    // Sino, se filtra por el colegio del usuario (su colegio activo o su id_colegio asignado)
-                    const colUsuario = colegioActivo ? String(colegioActivo) : (user.id_colegio ? String(user.id_colegio) : '');
-                    setSelectedColegio(colUsuario);
-                }
+                // Se parte siempre por el colegio del usuario (su colegio activo o su id_colegio).
+                // "Todos los colegios" sigue disponible en el filtro, pero no se carga por defecto:
+                // trae el doble de datos (todas las solicitudes con todos sus ítems).
+                const colUsuario = colegioActivo ? String(colegioActivo) : (user.id_colegio ? String(user.id_colegio) : '');
+                setSelectedColegio(colUsuario);
             } catch (err) {
                 if (cancelado) return;
                 const colUsuario = colegioActivo ? String(colegioActivo) : (user?.id_colegio ? String(user.id_colegio) : '');
@@ -253,11 +236,25 @@ export default function SolicitudesPage() {
         }
     }, [selectedColegio, selectedYear]);
 
+    // Tras una acción, vuelve a pedir solo las solicitudes afectadas y las reemplaza en la lista.
+    // Así los montos/estados calculados por el servidor quedan exactos sin descargar todo de nuevo.
+    const refrescarSolicitudes = useCallback(async (ids: number[]) => {
+        const unicos = Array.from(new Set(ids.filter(Boolean)));
+        if (unicos.length === 0) return;
+        const frescas = await Promise.all(
+            unicos.map(id => api.get(`/presupuesto/solicitudes/${id}`).then(r => r.data).catch(() => null))
+        );
+        const porId = new Map<number, any>();
+        frescas.forEach(s => { if (s) porId.set(s.id_presupuesto, s); });
+        setSolicitudes(prev => prev.map(s => porId.get(s.id_presupuesto) ?? s));
+    }, []);
+
     const handleUpdateStatus = async (id: number, nuevoEstado: string) => {
         try {
             setActionLoading(id);
-            await api.patch(`/presupuesto/solicitudes/${id}/estado?nuevo_estado=${nuevoEstado}`);
-            await fetchSolicitudes(true);
+            const { data } = await api.patch(`/presupuesto/solicitudes/${id}/estado?nuevo_estado=${nuevoEstado}`);
+            // El PATCH ya devuelve la solicitud completa actualizada
+            setSolicitudes(prev => prev.map(s => s.id_presupuesto === id ? data : s));
         } catch (error) {
             console.error('Error updating status:', error);
         } finally {
@@ -270,8 +267,8 @@ export default function SolicitudesPage() {
             setActionLoading(detalleId);
             const params = new URLSearchParams({ nuevo_estado: nuevoEstado });
             if (comentario) params.set('comentario', comentario);
-            await api.patch(`/presupuesto/detalles/${detalleId}/estado?${params.toString()}`);
-            await fetchSolicitudes(true);
+            const { data } = await api.patch(`/presupuesto/detalles/${detalleId}/estado?${params.toString()}`);
+            await refrescarSolicitudes([data?.id_presupuesto]);
         } catch (error) {
             console.error('Error actualizando estado del detalle:', error);
         } finally {
@@ -282,8 +279,8 @@ export default function SolicitudesPage() {
     const updateDetalleSubvencion = async (detalleId: number, idSubvencion: number) => {
         try {
             setUpdatingSubvId(detalleId);
-            await api.patch(`/presupuesto/detalles/${detalleId}/subvencion?id_subvencion=${idSubvencion}`);
-            await fetchSolicitudes(true);
+            const { data } = await api.patch(`/presupuesto/detalles/${detalleId}/subvencion?id_subvencion=${idSubvencion}`);
+            await refrescarSolicitudes([data?.id_presupuesto]);
         } catch (error) {
             console.error('Error actualizando subvención:', error);
         } finally {
@@ -306,7 +303,7 @@ export default function SolicitudesPage() {
                 valor_unitario: valorUnitario,
                 valor_unitario_iva: valorUnitarioIva
             });
-            await fetchSolicitudes(true);
+            await refrescarSolicitudes([detalle.id_presupuesto]);
         } catch (error) {
             console.error('Error actualizando cantidad:', error);
             alert('No se pudo actualizar la cantidad del detalle.');
@@ -455,10 +452,11 @@ export default function SolicitudesPage() {
         if (selectedRecursoIds.length === 0) return;
         try {
             setBulkLoading(true);
-            await Promise.all(
-                selectedRecursoIds.map(idDet => api.patch(`/presupuesto/detalles/${idDet}/estado?nuevo_estado=${nuevoEstado}`))
-            );
-            await fetchSolicitudes(true);
+            const { data } = await api.patch('/presupuesto/detalles/estado-lote', {
+                ids: selectedRecursoIds,
+                nuevo_estado: nuevoEstado,
+            });
+            await refrescarSolicitudes(data?.ids_presupuesto || []);
             setSelectedRecursoIds([]);
         } catch (e) {
             console.error('Error actualizando estados masivos:', e);
