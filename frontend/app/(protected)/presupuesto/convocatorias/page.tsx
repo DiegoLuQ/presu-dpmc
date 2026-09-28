@@ -115,44 +115,46 @@ export default function ConvocatoriasGlobalPage() {
     }, [convocatorias, filterArea]);
 
     return (
-        <div className="min-h-screen bg-[#f8f9fa]">
-            <main className="p-6 max-w-5xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Users size={20} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900">Convocatorias de Pedidos</h1>
-                        <p className="text-sm text-gray-500">
-                            Enlaces públicos para que las cargos envíen sus necesidades de presupuesto.
+        <div className="bg-[#f8f9fa]">
+            <main className="lg:p-6 max-w-5xl mx-auto">
+                {/* Header: en móvil el botón baja a su propia fila a ancho completo */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5 sm:mb-6">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                            <Users size={20} />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Convocatorias de Pedidos</h1>
+                            <p className="text-sm text-gray-500">
+                                Enlaces públicos para que los cargos envíen sus necesidades de presupuesto.
+                            </p>
                             {totalPendientes > 0 && (
-                                <> · <span className="font-semibold text-yellow-600">{totalPendientes} pedido(s) pendiente(s)</span></>
+                                <span className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-50 border border-yellow-200 text-xs font-semibold text-yellow-700">
+                                    {totalPendientes} pedido{totalPendientes !== 1 ? 's' : ''} pendiente{totalPendientes !== 1 ? 's' : ''}
+                                </span>
                             )}
-                        </p>
+                        </div>
                     </div>
-                    <div className="ml-auto">
-                        <button
-                            onClick={abrirSelector}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:brightness-105 active:scale-95 transition-all shadow"
-                        >
-                            <Plus size={16} /> Nueva convocatoria
-                        </button>
-                    </div>
+                    <button
+                        onClick={abrirSelector}
+                        className="sm:ml-auto w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-primary text-white text-sm font-bold rounded-xl hover:brightness-105 active:scale-95 transition-all shadow"
+                    >
+                        <Plus size={16} /> Nueva convocatoria
+                    </button>
                 </div>
 
                 {/* Filtro por Área (Solo para Administrador y si hay convocatorias) */}
                 {user?.rol?.codigo === 'ADM' && areasConConvocatoria.length > 0 && (
-                    <div className="mb-6 flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm">
                         <div className="flex items-center gap-2">
                             <ListFilter size={16} className="text-gray-400" />
                             <span className="text-xs font-semibold text-gray-500">Filtrar por Área:</span>
                         </div>
-                        <div className="relative">
+                        <div className="relative w-full sm:w-auto">
                             <select
                                 value={filterArea}
                                 onChange={(e) => setFilterArea(e.target.value)}
-                                className="pr-8 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                className="w-full sm:w-auto pr-8 pl-3 py-2.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm sm:text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                             >
                                 <option value="">Todas las áreas</option>
                                 {areasConConvocatoria.map(a => (
@@ -169,7 +171,7 @@ export default function ConvocatoriasGlobalPage() {
                         <Loader2 size={24} className="animate-spin text-gray-400" />
                     </div>
                 ) : convocatorias.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-10 sm:p-12 text-center">
                         <Users size={36} className="mx-auto mb-3 text-gray-300" />
                         <p className="text-gray-500 font-medium">No hay convocatorias aún</p>
                         <p className="text-sm text-gray-400 mt-1">Crea una convocatoria desde una de tus solicitudes de presupuesto.</p>
@@ -190,7 +192,7 @@ export default function ConvocatoriasGlobalPage() {
                                     {/* Cabecera del acordeón: solicitud enlazada */}
                                     <button
                                         onClick={() => toggleSolicitud(grupo.id_presupuesto)}
-                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50/60 transition-colors text-left"
+                                        className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 hover:bg-gray-50/60 transition-colors text-left"
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -219,10 +221,10 @@ export default function ConvocatoriasGlobalPage() {
 
                                     {/* Convocatorias de la solicitud */}
                                     {abierto && (
-                                        <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50/40">
+                                        <div className="border-t border-gray-100 p-3 sm:p-4 space-y-3 bg-gray-50/40">
                                             {grupo.convocatorias.map(conv => (
-                                                <div key={conv.id_convocatoria} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                                                    <div className="flex items-start justify-between gap-3">
+                                                <div key={conv.id_convocatoria} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 sm:p-4">
+                                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                                         <div className="flex items-center gap-3 min-w-0">
                                                             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                                                 <Package size={16} />
@@ -237,8 +239,8 @@ export default function ConvocatoriasGlobalPage() {
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <div className="text-right text-xs text-gray-500 mr-1">
+                                                        <div className="flex items-center gap-2 sm:shrink-0 border-t border-gray-100 pt-3 sm:border-0 sm:pt-0">
+                                                            <div className="flex sm:block gap-3 text-xs text-gray-500 sm:text-right mr-auto sm:mr-1">
                                                                 <div><span className="font-semibold text-gray-700">{conv.total_pedidos}</span> pedidos</div>
                                                                 <div><span className="font-semibold text-yellow-600">{conv.pedidos_pendientes}</span> pendientes</div>
                                                             </div>
@@ -246,14 +248,15 @@ export default function ConvocatoriasGlobalPage() {
                                                                 <button
                                                                     onClick={() => copiarUrl(conv)}
                                                                     title="Copiar enlace del formulario"
-                                                                    className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                                                                    aria-label="Copiar enlace del formulario"
+                                                                    className="p-2.5 sm:p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
                                                                 >
                                                                     {copiado === conv.id_convocatoria ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
                                                                 </button>
                                                             )}
                                                             <button
                                                                 onClick={() => router.push(`/presupuesto/${conv.id_presupuesto}/convocatorias`)}
-                                                                className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                                                                className="flex items-center gap-1 px-3 py-2.5 sm:py-2 text-xs font-semibold text-primary bg-primary/5 sm:bg-transparent hover:bg-primary/10 sm:hover:bg-primary/5 rounded-lg transition-colors"
                                                             >
                                                                 Gestionar <ChevronRight size={14} />
                                                             </button>
@@ -263,7 +266,7 @@ export default function ConvocatoriasGlobalPage() {
                                                     {conv.estado === 'activo' && (
                                                         <div className="mt-3 flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
                                                             <Link2 size={13} className="text-gray-400 shrink-0" />
-                                                            <span className="text-xs text-gray-600 font-mono truncate flex-1">
+                                                            <span className="text-xs text-gray-600 font-mono truncate flex-1 min-w-0">
                                                                 {BASE_URL}/pedidos/{conv.token}
                                                             </span>
                                                             <button
@@ -287,11 +290,11 @@ export default function ConvocatoriasGlobalPage() {
 
             {/* Modal: seleccionar solicitud */}
             {modalSolicitud && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setModalSolicitud(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4" onClick={() => setModalSolicitud(false)}>
+                    <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-1">
                             <h3 className="text-base font-bold text-gray-900">Elige una solicitud</h3>
-                            <button onClick={() => setModalSolicitud(false)} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                            <button onClick={() => setModalSolicitud(false)} aria-label="Cerrar" className="p-2 -mr-1 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
                                 <X size={16} />
                             </button>
                         </div>
@@ -312,7 +315,7 @@ export default function ConvocatoriasGlobalPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                            <div className="space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1">
                                 {solicitudes.map(s => {
                                     const nombrePresupuesto = s.presupuesto_anual_nombre || (s.codigo ? `Presupuesto ${s.codigo}` : `Presupuesto Solicitud #${s.id_presupuesto}`);
                                     const anio = s.presupuesto_anual_year || (s.fecha ? new Date(s.fecha).getFullYear() : null);
@@ -327,7 +330,7 @@ export default function ConvocatoriasGlobalPage() {
                                             <div className="min-w-0 flex-1">
                                                 {/* Nombre del presupuesto y badge */}
                                                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                                    <span className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors truncate">
+                                                    <span className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors break-words">
                                                         {nombrePresupuesto}
                                                     </span>
                                                     <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">

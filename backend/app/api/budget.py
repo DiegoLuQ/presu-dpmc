@@ -5,7 +5,7 @@ from datetime import datetime, date
 import re
 import unicodedata
 from app.db.session import get_db
-from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle, SolicitudCompartida
+from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle, SolicitudCompartida, SeccionAcceso
 from app.schemas.budget import (
     BudgetRequestCreate, BudgetRequestResponse,
     ContabilidadCreate, ContabilidadResponse,
@@ -101,23 +101,91 @@ def _puede_editar_por_compartida(db: Session, user: User, id_presupuesto: int) -
     return _permiso_compartido(db, user, id_presupuesto) == "editar"
 
 
-def _usuario_puede_gestionar_solicitud(db: Session, user: User, solicitud: SolicitudPresupuesto) -> bool:
-    if not user:
-        return False
+# ── Control de acceso a solicitudes e ítems ────────────────────────────────
+# Regla única para ver y modificar una solicitud por su id (evita que un usuario
+# cambie el id en la URL y vea o modifique solicitudes ajenas):
+#   - ADM, SOS, GERENTE, OPE: gestión central, todos los colegios.
+#   - Dueño de la solicitud.
+#   - Área con la que un administrador la compartió (ver, o editar si el permiso es 'editar').
+#   - Revisores (FIN, DIR, Jefe de Compras, listas blancas de revisión): solo en SUS colegios.
+ROLES_MULTICOLEGIO = ["ADM", "SOS", "GERENTE", "OPE"]
+ROLES_REVISORES = ["FIN", "DIR"]
+
+
+def _colegios_de_usuario(user: User) -> set:
+    ids = {c.id_colegio for c in (getattr(user, "colegios", None) or [])}
+    if user.id_colegio:
+        ids.add(user.id_colegio)
+    return ids
+
+
+def _es_multicolegio(user: User) -> bool:
+    return bool(user.rol and user.rol.codigo in ROLES_MULTICOLEGIO)
+
+
+def _en_lista_blanca(db: Session, user: User, seccion: str) -> bool:
+    """Solo membresía explícita. (usuario_puede_seccion, con la lista vacía, cae al permiso
+    del rol; para 'go_compras.programar_jefe' ese permiso es 'presupuesto.editar', que tienen
+    todos los usuarios que editan sus propias solicitudes.)"""
+    return db.query(SeccionAcceso.id_user).filter(
+        SeccionAcceso.seccion == seccion, SeccionAcceso.id_user == user.id_user
+    ).first() is not None
+
+
+def _es_revisor(db: Session, user: User) -> bool:
     codigo_rol = user.rol.codigo if user.rol else None
-    if codigo_rol in ["ADM", "SOS", "GERENTE", "FIN"]:
-        return True
-    if _es_jefe_compras(user):
-        return True
-    if usuario_puede_seccion(db, user, "presupuesto.solicitudes"):
-        return True
-    if solicitud.id_user == user.id_user:
-        return True
-    if codigo_rol == "DIR" and solicitud.id_colegio == user.id_colegio:
+    return (
+        codigo_rol in ROLES_REVISORES
+        or _es_jefe_compras(user)
+        # Revisión global de solicitudes (lista blanca o, si está vacía, permiso 'aprobar' del rol)
+        or usuario_puede_seccion(db, user, "presupuesto.solicitudes")
+        or _en_lista_blanca(db, user, "go_compras.programar_jefe")
+    )
+
+
+def _en_colegio_del_usuario(user: User, solicitud: SolicitudPresupuesto) -> bool:
+    return solicitud.id_colegio in _colegios_de_usuario(user)
+
+
+def _puede_ver_solicitud(db: Session, user: User, solicitud: SolicitudPresupuesto) -> bool:
+    if not user or not solicitud:
+        return False
+    if _es_multicolegio(user) or solicitud.id_user == user.id_user:
         return True
     if _permiso_compartido(db, user, solicitud.id_presupuesto):
         return True
-    return False
+    return _es_revisor(db, user) and _en_colegio_del_usuario(user, solicitud)
+
+
+def _puede_modificar_solicitud(db: Session, user: User, solicitud: SolicitudPresupuesto) -> bool:
+    if not user or not solicitud:
+        return False
+    if _es_multicolegio(user) or solicitud.id_user == user.id_user:
+        return True
+    if _puede_editar_por_compartida(db, user, solicitud.id_presupuesto):
+        return True
+    return _es_revisor(db, user) and _en_colegio_del_usuario(user, solicitud)
+
+
+def _exigir_ver(db: Session, user: User, solicitud: SolicitudPresupuesto) -> None:
+    if not _puede_ver_solicitud(db, user, solicitud):
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
+
+
+def _exigir_modificar(db: Session, user: User, solicitud: SolicitudPresupuesto) -> None:
+    if not _puede_modificar_solicitud(db, user, solicitud):
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
+
+
+def _exigir_mismo_colegio(user: User, solicitud: SolicitudPresupuesto) -> None:
+    """Para acciones de revisión (aprobar, subvención, código contable): el permiso del rol
+    ya se validó; aquí se impide actuar sobre solicitudes de otro colegio."""
+    if not solicitud or not (_es_multicolegio(user) or _en_colegio_del_usuario(user, solicitud)):
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
+
+
+# Compatibilidad con el nombre anterior
+_usuario_puede_gestionar_solicitud = _puede_ver_solicitud
 
 
 # Las etiquetas que usa el formulario ("Funcionarios", "Alumnos") no son el
@@ -1176,6 +1244,7 @@ def toggle_activo_compra(
 
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    _exigir_modificar(db, current_user, solicitud)
 
     solicitud.activo = payload.activo
     db.commit()
@@ -1411,6 +1480,7 @@ def asignar_presupuesto_anual(
     ).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    _exigir_mismo_colegio(current_user, solicitud)
 
     if payload.id_presupuesto_anual is not None:
         ppto = db.query(PresupuestoAnual).filter(
@@ -1448,6 +1518,25 @@ def _compartida_dict(c: SolicitudCompartida) -> dict:
         "permiso": c.permiso,
         "creado_en": c.creado_en.isoformat() if c.creado_en else None,
     }
+
+
+@router.get("/solicitudes/conteo")
+def contar_solicitudes(
+    id_presupuesto_anual: Optional[int] = Query(None),
+    estado: Optional[str] = Query(None, description="Ej: Pendiente"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+):
+    """Conteo liviano de solicitudes (para el dashboard), sin traer ítems."""
+    query = db.query(func.count(SolicitudPresupuesto.id_presupuesto))
+    # Mismo alcance por colegio que el listado de solicitudes
+    if not (current_user.rol and current_user.rol.codigo in ["ADM", "SOS", "GERENTE"]):
+        query = query.filter(SolicitudPresupuesto.id_colegio == current_user.id_colegio)
+    if id_presupuesto_anual:
+        query = query.filter(SolicitudPresupuesto.id_presupuesto_anual == id_presupuesto_anual)
+    if estado:
+        query = query.filter(SolicitudPresupuesto.estado == estado)
+    return {"total": query.scalar() or 0}
 
 
 @router.get("/solicitudes/compartidas-conmigo")
@@ -2199,10 +2288,7 @@ def agregar_recursos_solicitud(
     if not db_obj:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    # Verificar permiso (dueño, admin o área con la que se compartió con permiso de edición)
-    if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL:
-        if db_obj.id_user != current_user.id_user and not _puede_editar_por_compartida(db, current_user, db_obj.id_presupuesto):
-            raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
+    _exigir_modificar(db, current_user, db_obj)
     
     # Agregar recursos
     for det in obj.detalles:
@@ -2251,6 +2337,7 @@ def update_solicitud_estado(
     ).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    _exigir_mismo_colegio(current_user, db_obj)
 
     db_obj.estado = nuevo_estado
     db.commit()
@@ -2295,8 +2382,10 @@ def delete_solicitud(
     if not db_obj:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
 
-    # Verificar permiso (dueño o rol con acceso total)
-    es_admin_o_sostenedor = bool(current_user.rol and current_user.rol.codigo in ROLES_CON_ACCESO_TOTAL)
+    # Verificar permiso (dueño o rol con acceso total; los no multicolegio, solo en su colegio)
+    es_admin_o_sostenedor = bool(current_user.rol and current_user.rol.codigo in ROLES_CON_ACCESO_TOTAL) and (
+        _es_multicolegio(current_user) or _en_colegio_del_usuario(current_user, db_obj)
+    )
     if not es_admin_o_sostenedor:
         if db_obj.id_user != current_user.id_user:
             raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
@@ -2380,19 +2469,16 @@ def update_detalle(
     if not db_obj:
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
 
-    # Verificar acceso (dueño, roles con acceso total o sección de Jefe de Compras)
+    # Verificar acceso (dueño, compartida con edición, o revisores/compras de su colegio)
     solicitud = db.query(SolicitudPresupuesto).filter(
         SolicitudPresupuesto.id_presupuesto == db_obj.id_presupuesto
     ).first()
     cargo_nombre = (current_user.cargo.nombre or "").lower() if current_user.cargo else ((current_user.subarea.nombre or "").lower() if current_user.subarea else "")
     cargos_nombres = [(s.nombre or "").lower() for s in (current_user.cargos or current_user.subareas or []) if s.nombre]
-    es_jefe_subarea = any(k in cargo_nombre or any(k in s for s in cargos_nombres) for k in ["jefe de compras", "jefe compras", "asistente de compras", "asistente compras"])
-    es_jefe_compras = es_jefe_subarea or usuario_puede_seccion(db, current_user, "go_compras.programar_jefe")
-    if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL and not es_jefe_compras:
-        if not solicitud or (
-            solicitud.id_user != current_user.id_user
-            and not _puede_editar_por_compartida(db, current_user, solicitud.id_presupuesto)
-        ):
+    es_asistente_compras = any(k in cargo_nombre or any(k in s for s in cargos_nombres) for k in ["asistente de compras", "asistente compras"])
+    if not _puede_modificar_solicitud(db, current_user, solicitud):
+        # El asistente de compras también edita ítems, pero solo de su colegio
+        if not (es_asistente_compras and solicitud and _en_colegio_del_usuario(current_user, solicitud)):
             raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
 
     update_data = obj.dict(exclude_unset=True)
@@ -2427,6 +2513,7 @@ def asignar_codigo_detalle(
     ).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
 
     cuenta = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == payload.codigo_cuenta).first()
     if not cuenta:
@@ -2456,6 +2543,7 @@ def update_detalle_subvencion(
     ).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
 
     subv = db.query(Subvencion).filter(Subvencion.id_subvencion == id_subvencion).first()
     if not subv:
@@ -2491,6 +2579,9 @@ def update_detalles_estado_lote(
         raise HTTPException(status_code=422, detail="No hay ítems seleccionados")
 
     detalles = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle.in_(ids)).all()
+    # Todos los ítems deben pertenecer a colegios del usuario; si uno no, no se cambia ninguno
+    for d in detalles:
+        _exigir_mismo_colegio(current_user, d.solicitud)
     comentario = (payload.comentario or "").strip() or None
     for d in detalles:
         d.estado_aprobacion = payload.nuevo_estado
@@ -2518,6 +2609,7 @@ def update_detalle_estado(
     ).first()
     if not db_obj:
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
 
     db_obj.estado_aprobacion = nuevo_estado
     if nuevo_estado in ["Rechazado", "Aprobado con Ajustes", "Con Ajustes"]:
@@ -2548,9 +2640,7 @@ def delete_detalle(
         SolicitudPresupuesto.id_presupuesto == db_obj.id_presupuesto
     ).first()
     
-    if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL:
-        if solicitud.id_user != current_user.id_user and not _puede_editar_por_compartida(db, current_user, solicitud.id_presupuesto):
-            raise HTTPException(status_code=403, detail="No tienes acceso")
+    _exigir_modificar(db, current_user, solicitud)
 
     # Si el detalle apunta a un recurso sugerido (pendiente de aprobación), al
     # eliminarlo revisamos si queda algún otro detalle que lo use. Si no, borramos
@@ -2585,6 +2675,8 @@ def buscar_actividades(
     target_colegio_id = id_colegio
     if not target_colegio_id and id_presupuesto:
         sol = db.query(SolicitudPresupuesto).filter(SolicitudPresupuesto.id_presupuesto == id_presupuesto).first()
+        if sol:
+            _exigir_ver(db, current_user, sol)
         if sol and sol.id_colegio:
             target_colegio_id = sol.id_colegio
 
@@ -2786,6 +2878,8 @@ def actividades_sugeridas_por_recurso(
     target_colegio_id = id_colegio
     if not target_colegio_id and id_presupuesto:
         sol = db.query(SolicitudPresupuesto).filter(SolicitudPresupuesto.id_presupuesto == id_presupuesto).first()
+        if sol:
+            _exigir_ver(db, current_user, sol)
         if sol and sol.id_colegio:
             target_colegio_id = sol.id_colegio
 
@@ -4802,6 +4896,7 @@ def crear_solicitud_modificacion(
     detalle = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == payload.id_pre_detalle).first()
     if not detalle:
         raise HTTPException(status_code=404, detail="Insumo no encontrado")
+    _exigir_ver(db, current_user, detalle.solicitud)
 
     prop_data = {
         "motivo": payload.valor_propuesto.strip(),

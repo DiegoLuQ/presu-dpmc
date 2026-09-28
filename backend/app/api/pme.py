@@ -19,16 +19,22 @@ from app.api.deps import verificar_permisos
 router = APIRouter(prefix="/pme", tags=["PME"])
 
 
-def _build_actividad_dict(act: Actividad, db: Session) -> dict:
+def _build_actividad_dict(act: Actividad, db: Session, directores: Optional[dict] = None) -> dict:
+    """`directores` es un caché {id_director: nombre} compartido al armar listas, para no
+    consultar al mismo director una vez por cada actividad."""
     accion = act.accion
     pme = accion.pme if accion else None
     colegio = pme.colegio if pme else None
 
     director_nombre = None
     if colegio and colegio.id_director:
-        director = db.query(User).filter(User.id_user == colegio.id_director).first()
-        if director:
-            director_nombre = director.nombre
+        if directores is not None and colegio.id_director in directores:
+            director_nombre = directores[colegio.id_director]
+        else:
+            director = db.query(User).filter(User.id_user == colegio.id_director).first()
+            director_nombre = director.nombre if director else None
+            if directores is not None:
+                directores[colegio.id_director] = director_nombre
 
     codigos_list = []
     codigo_principal = None
@@ -148,7 +154,8 @@ def list_all_actividades(
         query = query.filter(Accion.id_pme == id_pme)
 
     actividades = query.all()
-    return [_build_actividad_dict(act, db) for act in actividades]
+    directores: dict = {}
+    return [_build_actividad_dict(act, db, directores) for act in actividades]
 
 
 # Ahora las rutas genéricas
@@ -160,7 +167,10 @@ def list_all_acciones(
     id_pme: Optional[int] = Query(None, description="Filtrar por PME")
 ):
     query = db.query(Accion).options(
-        selectinload(Accion.actividades),
+        selectinload(Accion.actividades).selectinload(Actividad.codigos_contables).options(
+            selectinload(ActividadCodigoContable.cuenta),
+            selectinload(ActividadCodigoContable.subvencion),
+        ),
         selectinload(Accion.pme).selectinload(PME.colegio)
     )
     
@@ -231,11 +241,22 @@ def list_pmes(
             query = query.filter(PME.year == year)
     
     pmes = query.all()
-    
+
+    pme_ids = [x.id_pme for x in pmes]
+    acciones_por_pme = dict(
+        db.query(Accion.id_pme, func.count(Accion.id_accion))
+        .filter(Accion.id_pme.in_(pme_ids)).group_by(Accion.id_pme).all()
+    ) if pme_ids else {}
+    actividades_por_pme = dict(
+        db.query(Accion.id_pme, func.count(Actividad.id_actividad))
+        .join(Actividad, Actividad.id_accion == Accion.id_accion)
+        .filter(Accion.id_pme.in_(pme_ids)).group_by(Accion.id_pme).all()
+    ) if pme_ids else {}
+
     result = []
     for pme in pmes:
-        acciones_count = db.query(Accion).filter(Accion.id_pme == pme.id_pme).count()
-        actividades_count = db.query(Actividad).join(Accion).filter(Accion.id_pme == pme.id_pme).count()
+        acciones_count = acciones_por_pme.get(pme.id_pme, 0)
+        actividades_count = actividades_por_pme.get(pme.id_pme, 0)
         
         pme_dict = {
             "id_pme": pme.id_pme,
@@ -311,7 +332,10 @@ def list_acciones_by_pme(
         raise HTTPException(status_code=404, detail="PME no encontrado")
     
     acciones = db.query(Accion).options(
-        selectinload(Accion.actividades)
+        selectinload(Accion.actividades).selectinload(Actividad.codigos_contables).options(
+            selectinload(ActividadCodigoContable.cuenta),
+            selectinload(ActividadCodigoContable.subvencion),
+        )
     ).filter(Accion.id_pme == id_pme).all()
     
     return acciones
@@ -419,7 +443,8 @@ def list_actividades_by_accion(
         selectinload(Actividad.codigos_contables).selectinload(ActividadCodigoContable.subvencion)
     ).filter(Actividad.id_accion == id_accion).all()
 
-    return [_build_actividad_dict(act, db) for act in actividades]
+    directores: dict = {}
+    return [_build_actividad_dict(act, db, directores) for act in actividades]
 
 
 @router.post("/acciones/{id_accion}/actividades", response_model=ActividadResponse, status_code=201)

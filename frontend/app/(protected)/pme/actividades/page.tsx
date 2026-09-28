@@ -379,20 +379,29 @@ export default function ActividadesPage() {
         setDeletingActividad(null);
     };
 
-    const handleEdit = async (act: Actividad) => {
-        loadCuentas();
-        let currentAcciones = allAcciones;
+    // Datos del formulario (acciones y catálogo de recursos): se piden solo si aún no están
+    // cargados. Antes se descargaban completos en cada clic de Crear / Editar.
+    const asegurarDatosFormulario = async (): Promise<any[]> => {
+        let acciones = allAcciones;
         try {
             const [resAcc, resRec] = await Promise.all([
-                api.get('/pme/acciones'),
-                api.get('/presupuesto/recursos')
+                acciones.length === 0 ? api.get('/pme/acciones') : Promise.resolve(null),
+                recursos.length === 0 ? api.get('/presupuesto/recursos') : Promise.resolve(null),
             ]);
-            currentAcciones = resAcc.data || [];
-            setAllAcciones(currentAcciones);
-            setRecursos(resRec.data || []);
+            if (resAcc) {
+                acciones = resAcc.data || [];
+                setAllAcciones(acciones);
+            }
+            if (resRec) setRecursos(resRec.data || []);
         } catch (error) {
-            console.error('Error fetching data for edit:', error);
+            console.error('Error cargando datos del formulario:', error);
         }
+        return acciones;
+    };
+
+    const handleEdit = async (act: Actividad) => {
+        loadCuentas();
+        const currentAcciones = await asegurarDatosFormulario();
 
         // Determinar el PME de la actividad
         const matchedAcc = currentAcciones.find(a => a.id_accion === act.id_accion);
@@ -709,16 +718,7 @@ export default function ActividadesPage() {
                         <div className="flex gap-2">
                             <button
                                 onClick={async () => {
-                                    try {
-                                        const [resAcc, resRec] = await Promise.all([
-                                            api.get('/pme/acciones'),
-                                            api.get('/presupuesto/recursos')
-                                        ]);
-                                        setAllAcciones(resAcc.data || []);
-                                        setRecursos(resRec.data || []);
-                                    } catch (error) {
-                                        console.error('Error fetching initial data:', error);
-                                    }
+                                    await asegurarDatosFormulario();
                                     setViewMode('form');
                                     setEditingActividad(null);
                                     resetForm();

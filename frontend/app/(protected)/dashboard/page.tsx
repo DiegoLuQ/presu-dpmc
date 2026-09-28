@@ -31,7 +31,11 @@ export default function DashboardPage() {
     // redirigen de vuelta a /dashboard cuando falta su propio permiso).
     const destinoAlternativo = !tieneDashboard ? primeraRutaAccesible(tienePermiso, puedeSeccion) : null;
 
-    const [solicitudes, setSolicitudes] = useState<BudgetRequest[]>([]);
+    // Solo el número de solicitudes pendientes del presupuesto elegido (antes se descargaban
+    // todas las solicitudes con todos sus ítems solo para contarlas)
+    const [pendientesCount, setPendientesCount] = useState(0);
+    // La lista de presupuestos ya respondió (para no pedir el historial sin filtro)
+    const [presupuestosCargados, setPresupuestosCargados] = useState(false);
     const [comprasHistorial, setComprasHistorial] = useState<BudgetRequest[]>([]);
     const [ots, setOts] = useState<any[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -71,7 +75,8 @@ export default function DashboardPage() {
                     setSelectedPptoId(prev => prev ?? preferido.id_presupuesto_anual);
                 }
             })
-            .catch(err => { if (!cancelado) console.error('Error cargando presupuestos:', err); });
+            .catch(err => { if (!cancelado) console.error('Error cargando presupuestos:', err); })
+            .finally(() => { if (!cancelado) setPresupuestosCargados(true); });
         return () => { cancelado = true; };
     }, [user, tieneDashboard]);
 
@@ -81,11 +86,15 @@ export default function DashboardPage() {
             const histUrl = selectedPptoId
                 ? `/presupuesto/compras/historial?id_presupuesto_anual=${selectedPptoId}`
                 : '/presupuesto/compras/historial';
-            const [resSol, resHist] = await Promise.all([
-                api.get('/presupuesto/solicitudes'),
+            const [resConteo, resHist] = await Promise.all([
+                selectedPptoId
+                    ? api.get('/presupuesto/solicitudes/conteo', {
+                        params: { id_presupuesto_anual: selectedPptoId, estado: 'Pendiente' },
+                    }).catch(() => ({ data: { total: 0 } }))
+                    : Promise.resolve({ data: { total: 0 } }),
                 api.get(histUrl)
             ]);
-            setSolicitudes(resSol.data);
+            setPendientesCount(resConteo.data?.total || 0);
             setComprasHistorial(resHist.data);
 
             // Check LocalStorage OTs
@@ -105,11 +114,13 @@ export default function DashboardPage() {
         }
     }, [selectedPptoId]);
 
+    // Esperar a conocer el presupuesto elegido: si no, la primera carga pedía el historial
+    // completo sin filtro (todas las solicitudes con todos sus ítems) y luego se repetía.
     useEffect(() => {
-        if (user && tieneDashboard) {
-            fetchDashboardData();
-        }
-    }, [user, tieneDashboard, fetchDashboardData]);
+        if (!user || !tieneDashboard || !presupuestosCargados) return;
+        if (presupuestos.length > 0 && !selectedPptoId) return;
+        fetchDashboardData();
+    }, [user, tieneDashboard, presupuestosCargados, presupuestos.length, selectedPptoId, fetchDashboardData]);
 
     // ── Cálculos de Métricas de Compras y Presupuestos ────────────────────────────
     const stats = useMemo<DashboardStats>(() => {
@@ -118,14 +129,8 @@ export default function DashboardPage() {
         let totalReal = 0;     // Total Real Proyectado (completados real + pendientes real)
         let totalPendiente = 0;
         let alertasCount = 0;
-        let solicitudesPendientesCount = 0;
-
-        // Contar solicitudes pendientes enlazadas al presupuesto seleccionado.
-        solicitudes.forEach(sol => {
-            if (sol.estado === 'Pendiente' && selectedPptoId && sol.id_presupuesto_anual === selectedPptoId) {
-                solicitudesPendientesCount++;
-            }
-        });
+        // Solicitudes pendientes enlazadas al presupuesto seleccionado (conteo del servidor)
+        const solicitudesPendientesCount = selectedPptoId ? pendientesCount : 0;
 
         // Cargar OTs completadas desde el estado React
         const completedItemUids = new Set<string>();
@@ -170,7 +175,7 @@ export default function DashboardPage() {
             alertasCount,
             solicitudesPendientesCount
         };
-    }, [solicitudes, comprasHistorial, ots, selectedPptoId]);
+    }, [pendientesCount, comprasHistorial, ots, selectedPptoId]);
 
     // Generar alertas dinámicas
     const alertsList = useMemo(() => {
