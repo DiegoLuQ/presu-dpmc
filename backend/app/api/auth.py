@@ -9,6 +9,10 @@ from app.models import User, Cargo, Subarea
 from app.schemas.auth import LoginRequest, Token, UserResponse, TokenData, CambiarPasswordRequest
 from app.core.config import settings
 from app.core import security
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -75,7 +79,6 @@ def get_current_user(request: Request, db: Session = Depends(get_db), token: str
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     from sqlalchemy import or_, func
     identifier = (login_data.identifier or "").strip()
-    print(f"DEBUG: Intento de login para identificador: '{identifier}'")
     user = db.query(User).filter(
         or_(
             func.lower(User.rut) == identifier.lower(),
@@ -83,26 +86,22 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
     ).first()
     if not user:
-        print(f"DEBUG: Usuario '{identifier}' NO encontrado en la base de datos.")
+        logger.warning("Login fallido: usuario no encontrado")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo electrónico o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    print(f"DEBUG: Usuario encontrado: id={user.id_user}, rut='{user.rut}', correo='{user.correo}'")
-    pw_val = user.password or ""
-    pw_type = pw_val[:7] if len(pw_val) >= 7 else f"len={len(pw_val)}"
-    print(f"DEBUG: Formato hash almacenado: {pw_type}")
 
     if not security.verify_password(login_data.password, user.password):
-        print(f"DEBUG: Falló la verificación de contraseña para usuario id={user.id_user}")
+        logger.warning("Login fallido: contraseña incorrecta (id_user=%s)", user.id_user)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo electrónico o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    print(f"DEBUG: Login exitoso para {identifier} (id={user.id_user})")
+    logger.info("Login exitoso (id_user=%s)", user.id_user)
     
     user_with_rol = db.query(User).options(
         selectinload(User.rol),

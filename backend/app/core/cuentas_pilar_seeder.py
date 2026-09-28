@@ -1,5 +1,8 @@
 from sqlalchemy import text
 from app.db.session import engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PEGA AQUÍ el JSON de las 103 cuentas cuando lo tengas.
@@ -17,7 +20,7 @@ CUENTAS_PILAR: list[dict] = [
 
 def seed_cuentas_pilar():
     if not CUENTAS_PILAR:
-        print("cuentas_pilar_seeder: sin datos, omitiendo.")
+        logger.info("cuentas_pilar_seeder: sin datos, omitiendo.")
         return
 
     with engine.begin() as conn:
@@ -34,4 +37,4 @@ def seed_cuentas_pilar():
                     "codigo": row["codigo"],
                 },
             )
-    print(f"cuentas_pilar_seeder: {len(CUENTAS_PILAR)} cuentas actualizadas.")
+    logger.info(f"cuentas_pilar_seeder: {len(CUENTAS_PILAR)} cuentas actualizadas.")

@@ -5,7 +5,7 @@ from datetime import datetime, date
 import re
 import unicodedata
 from app.db.session import get_db
-from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle
+from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle, SolicitudCompartida
 from app.schemas.budget import (
     BudgetRequestCreate, BudgetRequestResponse,
     ContabilidadCreate, ContabilidadResponse,
@@ -62,6 +62,45 @@ def _es_jefe_compras(user: User) -> bool:
     return any("jefe de compras" in cn or "jefe compras" in cn for cn in cargo_nombres)
 
 
+def _areas_de_usuario(db: Session, user: User) -> set:
+    """Áreas del usuario: las de su cargo principal y cargos adicionales (incluye áreas adicionales del cargo)."""
+    cargos_ids = []
+    if user.id_cargo:
+        cargos_ids.append(user.id_cargo)
+    for c in (user.cargos or []):
+        if c.id_cargo not in cargos_ids:
+            cargos_ids.append(c.id_cargo)
+    areas = set()
+    if cargos_ids:
+        for c in db.query(Cargo).filter(Cargo.id_cargo.in_(cargos_ids)).all():
+            if c.id_area:
+                areas.add(c.id_area)
+            for a in (c.areas_adicionales or []):
+                areas.add(a.id_area)
+    return areas
+
+
+def _permiso_compartido(db: Session, user: User, id_presupuesto: int) -> Optional[str]:
+    """Permiso ('ver' | 'editar') que el usuario tiene sobre una solicitud compartida con alguna
+    de sus áreas; None si no está compartida con él. Si hay varias, gana 'editar'."""
+    areas = _areas_de_usuario(db, user)
+    if not areas:
+        return None
+    permisos = {
+        p for (p,) in db.query(SolicitudCompartida.permiso).filter(
+            SolicitudCompartida.id_presupuesto == id_presupuesto,
+            SolicitudCompartida.id_area.in_(areas),
+        ).all()
+    }
+    if "editar" in permisos:
+        return "editar"
+    return "ver" if permisos else None
+
+
+def _puede_editar_por_compartida(db: Session, user: User, id_presupuesto: int) -> bool:
+    return _permiso_compartido(db, user, id_presupuesto) == "editar"
+
+
 def _usuario_puede_gestionar_solicitud(db: Session, user: User, solicitud: SolicitudPresupuesto) -> bool:
     if not user:
         return False
@@ -75,6 +114,8 @@ def _usuario_puede_gestionar_solicitud(db: Session, user: User, solicitud: Solic
     if solicitud.id_user == user.id_user:
         return True
     if codigo_rol == "DIR" and solicitud.id_colegio == user.id_colegio:
+        return True
+    if _permiso_compartido(db, user, solicitud.id_presupuesto):
         return True
     return False
 
@@ -752,6 +793,10 @@ def mis_solicitudes(
                 filtros_or = [SolicitudPresupuesto.id_user == current_user.id_user]
                 if cargos_ids:
                     filtros_or.append(SolicitudPresupuesto.id_cargo.in_(cargos_ids))
+                # Solicitudes que un administrador compartió con alguna de sus áreas
+                filtros_or.append(SolicitudPresupuesto.id_presupuesto.in_(
+                    db.query(SolicitudCompartida.id_presupuesto).filter(SolicitudCompartida.id_area.in_(areas_usuario))
+                ))
                 
                 query = query.filter(or_(*filtros_or))
                 if current_user.id_colegio:
@@ -1357,6 +1402,108 @@ def asignar_presupuesto_anual(
     db.commit()
     db.refresh(solicitud)
     return build_solicitud_response(solicitud, db)
+
+
+# ── Compartir solicitudes con otras áreas (solo Administrador) ───────────────
+
+class CompartirSolicitudRequest(BaseModel):
+    id_area: int
+    permiso: str = "ver"   # ver | editar
+
+
+def _solo_admin(user: User) -> None:
+    if not (user.rol and user.rol.codigo == "ADM"):
+        raise HTTPException(status_code=403, detail="Solo el Administrador puede compartir solicitudes.")
+
+
+def _compartida_dict(c: SolicitudCompartida) -> dict:
+    return {
+        "id_compartida": c.id_compartida,
+        "id_presupuesto": c.id_presupuesto,
+        "id_area": c.id_area,
+        "area_nombre": c.area.nombre if c.area else None,
+        "permiso": c.permiso,
+        "creado_en": c.creado_en.isoformat() if c.creado_en else None,
+    }
+
+
+@router.get("/solicitudes/compartidas-conmigo")
+def solicitudes_compartidas_conmigo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+):
+    """{id_presupuesto: permiso} de las solicitudes compartidas con las áreas del usuario."""
+    areas = _areas_de_usuario(db, current_user)
+    if not areas:
+        return {}
+    resultado: dict = {}
+    for c in db.query(SolicitudCompartida).filter(SolicitudCompartida.id_area.in_(areas)).all():
+        if resultado.get(c.id_presupuesto) != "editar":
+            resultado[c.id_presupuesto] = c.permiso
+    return resultado
+
+
+@router.get("/solicitudes/{id_presupuesto}/compartir")
+def listar_comparticiones(
+    id_presupuesto: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+):
+    _solo_admin(current_user)
+    filas = db.query(SolicitudCompartida).filter(SolicitudCompartida.id_presupuesto == id_presupuesto).all()
+    return [_compartida_dict(c) for c in filas]
+
+
+@router.post("/solicitudes/{id_presupuesto}/compartir")
+def compartir_solicitud(
+    id_presupuesto: int,
+    payload: CompartirSolicitudRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+):
+    """Comparte la solicitud con un área. Si ya estaba compartida, actualiza el permiso."""
+    _solo_admin(current_user)
+    if payload.permiso not in ("ver", "editar"):
+        raise HTTPException(status_code=422, detail="Permiso inválido: usa 'ver' o 'editar'.")
+    solicitud = db.query(SolicitudPresupuesto).filter(SolicitudPresupuesto.id_presupuesto == id_presupuesto).first()
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    if not db.query(Area).filter(Area.id_area == payload.id_area).first():
+        raise HTTPException(status_code=404, detail="Área no encontrada")
+
+    fila = db.query(SolicitudCompartida).filter(
+        SolicitudCompartida.id_presupuesto == id_presupuesto,
+        SolicitudCompartida.id_area == payload.id_area,
+    ).first()
+    if fila:
+        fila.permiso = payload.permiso
+    else:
+        fila = SolicitudCompartida(
+            id_presupuesto=id_presupuesto,
+            id_area=payload.id_area,
+            permiso=payload.permiso,
+            creado_por=current_user.id_user,
+        )
+        db.add(fila)
+    db.commit()
+    db.refresh(fila)
+    return _compartida_dict(fila)
+
+
+@router.delete("/solicitudes/{id_presupuesto}/compartir/{id_area}")
+def dejar_de_compartir(
+    id_presupuesto: int,
+    id_area: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+):
+    _solo_admin(current_user)
+    borradas = db.query(SolicitudCompartida).filter(
+        SolicitudCompartida.id_presupuesto == id_presupuesto,
+        SolicitudCompartida.id_area == id_area,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"eliminadas": borradas}
 
 
 @router.get("/solicitudes/{id_presupuesto}", response_model=BudgetRequestResponse)
@@ -2029,9 +2176,9 @@ def agregar_recursos_solicitud(
     if not db_obj:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    # Verificar permiso (dueño o admin)
+    # Verificar permiso (dueño, admin o área con la que se compartió con permiso de edición)
     if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL:
-        if db_obj.id_user != current_user.id_user:
+        if db_obj.id_user != current_user.id_user and not _puede_editar_por_compartida(db, current_user, db_obj.id_presupuesto):
             raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
     
     # Agregar recursos
@@ -2170,6 +2317,11 @@ def delete_solicitud(
         ActaEntrega.id_presupuesto == id_presupuesto
     ).delete(synchronize_session=False)
 
+    # Quitar las comparticiones con otras áreas
+    db.query(SolicitudCompartida).filter(
+        SolicitudCompartida.id_presupuesto == id_presupuesto
+    ).delete(synchronize_session=False)
+
     # Eliminar convocatorias asociadas y sus pedidos
     convocatorias = db.query(PreConvocatoria).filter(
         PreConvocatoria.id_presupuesto == id_presupuesto
@@ -2214,7 +2366,10 @@ def update_detalle(
     es_jefe_subarea = any(k in cargo_nombre or any(k in s for s in cargos_nombres) for k in ["jefe de compras", "jefe compras", "asistente de compras", "asistente compras"])
     es_jefe_compras = es_jefe_subarea or usuario_puede_seccion(db, current_user, "go_compras.programar_jefe")
     if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL and not es_jefe_compras:
-        if not solicitud or solicitud.id_user != current_user.id_user:
+        if not solicitud or (
+            solicitud.id_user != current_user.id_user
+            and not _puede_editar_por_compartida(db, current_user, solicitud.id_presupuesto)
+        ):
             raise HTTPException(status_code=403, detail="No tienes acceso a esta solicitud")
 
     update_data = obj.dict(exclude_unset=True)
@@ -2333,7 +2488,7 @@ def delete_detalle(
     ).first()
     
     if current_user.rol and current_user.rol.codigo not in ROLES_CON_ACCESO_TOTAL:
-        if solicitud.id_user != current_user.id_user:
+        if solicitud.id_user != current_user.id_user and not _puede_editar_por_compartida(db, current_user, solicitud.id_presupuesto):
             raise HTTPException(status_code=403, detail="No tienes acceso")
 
     # Si el detalle apunta a un recurso sugerido (pendiente de aprobación), al

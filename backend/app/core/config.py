@@ -11,6 +11,13 @@ class Settings(BaseSettings):
 
     AI_ENCRYPTION_KEY: str = ""
 
+    # Logs y monitoreo de errores
+    LOG_LEVEL: str = "INFO"
+    SLOW_REQUEST_MS: int = 2000          # peticiones más lentas se registran como WARNING
+    SENTRY_DSN: str = ""                 # vacío = Sentry desactivado
+    SENTRY_ENVIRONMENT: str = "production"
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+
     # CORS origins
     ALLOW_ORIGINS: List[str] = [
         "http://localhost:3000",

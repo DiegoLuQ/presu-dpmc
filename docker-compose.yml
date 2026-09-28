@@ -1,5 +1,12 @@
 version: '3.8'
 
+# Rotación de logs: máx. 5 archivos de 20 MB por contenedor (evita llenar el disco)
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   backend:
     build:
@@ -19,6 +26,11 @@ services:
       - PROJECT_NAME=${PROJECT_NAME:-MCDP PPA}
       - VIRTUAL_HOST=${VIRTUAL_HOST}
       - VIRTUAL_PATH=/api/
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SLOW_REQUEST_MS=${SLOW_REQUEST_MS:-2000}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+    logging: *default-logging
     networks:
       - red_produccion
 
@@ -37,6 +49,7 @@ services:
       - VIRTUAL_PATH=/
       - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    logging: *default-logging
     networks:
       - red_produccion
     depends_on:

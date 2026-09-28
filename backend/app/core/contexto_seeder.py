@@ -1,5 +1,8 @@
 from app.db.session import SessionLocal
 from app.models import RolContextoDefault
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Default context per role: determines which ReglaMapeoContexto is "suggested"
 ROL_CONTEXTOS = [
@@ -34,9 +37,9 @@ def seed_contextos_rol():
             if not existe:
                 db.add(RolContextoDefault(**data))
         db.commit()
-        print("Contextos de rol sincronizados.")
+        logger.info("Contextos de rol sincronizados.")
     except Exception as e:
         db.rollback()
-        print(f"Warning: contexto seed failed: {e}")
+        logger.warning(f"Warning: contexto seed failed: {e}")
     finally:
         db.close()

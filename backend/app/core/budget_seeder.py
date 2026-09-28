@@ -11,9 +11,12 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models import (
     Area, Subarea, Contabilidad, Recurso, CategoriaRecurso,
-    PME, Accion, Actividad, SolicitudPresupuesto, 
+    PME, Accion, Actividad, SolicitudPresupuesto,
     PresupuestoDetalle, Colegio, User
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 def seed_budget():
     db = SessionLocal()
@@ -22,11 +25,10 @@ def seed_budget():
         # subáreas, se omite todo el seed para no resucitar áreas/subáreas (u otros
         # datos) que el usuario eliminó manualmente.
         if db.query(Subarea).count() > 0:
-            print("Budget seed omitido: ya existen subáreas (BD configurada).")
+            logger.info("Budget seed omitido: ya existen subáreas (BD configurada).")
             return
 
-        print("Starting Budget Seeding...")
-
+        logger.info("Starting Budget Seeding...")
         # 1. More Areas & Subareas if they don't exist
         areas_data = [
             ("Académica", ["Matemáticas", "Lenguaje", "Ciencias", "Historia"]),
@@ -42,15 +44,13 @@ def seed_budget():
                 area = Area(nombre=area_name)
                 db.add(area)
                 db.flush()
-                print(f"Added Area: {area_name}")
-            
+                logger.info(f"Added Area: {area_name}")
             for sub_name in subareas:
                 sub = db.query(Subarea).filter(Subarea.nombre == sub_name, Subarea.id_area == area.id_area).first()
                 if not sub:
                     sub = Subarea(nombre=sub_name, id_area=area.id_area)
                     db.add(sub)
-                    print(f"  Added Subarea: {sub_name}")
-        
+                    logger.info(f"  Added Subarea: {sub_name}")
         db.commit()
 
         # 2. Accounting (Contabilidad) - DESHABILITADO PARA PRUEBAS MANUALES
@@ -80,8 +80,7 @@ def seed_budget():
             ]
             db.add_all(categorias)
             db.flush()
-            print("Added Resource Categories")
-        
+            logger.info("Added Resource Categories")
         # Obtener primera categoría para los recursos
         cat_oficina = db.query(CategoriaRecurso).first()
         
@@ -98,8 +97,7 @@ def seed_budget():
             for nom, desc, fmt in recursos_data:
                 if not db.query(Recurso).filter(Recurso.nombre == nom).first():
                     db.add(Recurso(nombre=nom, descripcion=desc, formato=fmt, id_cat_recurso=cat_oficina.id_cat_recurso))
-                    print(f"Added Resource: {nom}")
-        
+                    logger.info(f"Added Resource: {nom}")
         db.commit()
 
         # 4. PME / Actions / Activities for Colegio (solo si existe al menos un colegio)
@@ -119,7 +117,7 @@ def seed_budget():
                 act2 = Actividad(id_accion=accion.id_accion, nombre_actividad="Adquisición de Materiales", dimension="RECURSOS")
                 db.add(act1)
                 db.add(act2)
-                print("Added PME Structure for 2026")
+                logger.info("Added PME Structure for 2026")
             db.commit()
 
         # 5. Dummy Budget Requests - solo si existen los datos necesarios
@@ -146,13 +144,11 @@ def seed_budget():
                 precio_unitario=150000
             )
             db.add(det1)
-            print("Added Sample Budget Request with Details")
-        
+            logger.info("Added Sample Budget Request with Details")
         db.commit()
-        print("\nBudget Seeding Completed Successfully!")
-
+        logger.info("\nBudget Seeding Completed Successfully!")
     except Exception as e:
-        print(f"Error during seeding: {e}")
+        logger.warning(f"Error during seeding: {e}")
         db.rollback()
     finally:
         db.close()

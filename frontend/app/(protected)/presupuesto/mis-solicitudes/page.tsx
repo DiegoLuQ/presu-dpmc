@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api/client';
-import { Search, Plus, DollarSign, FileText, CheckCircle, Clock, XCircle, Loader2, Download, Eye, ArrowRight, Package, Trash2, AlertTriangle, Send, Wallet, Link2 } from 'lucide-react';
+import { Search, Plus, DollarSign, FileText, CheckCircle, Clock, XCircle, Loader2, Download, Eye, ArrowRight, Package, Trash2, AlertTriangle, Send, Wallet, Link2, Share2, Users } from 'lucide-react';
+import { CompartirSolicitudModal } from '@/components/presupuesto/CompartirSolicitudModal';
 import { BudgetRequest, PresupuestoAnual } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
@@ -27,6 +28,9 @@ export default function MisSolicitudesPage() {
     const esAdmin = !!user?.rol && user.rol.codigo === 'ADM';
     const [presupuestosAnuales, setPresupuestosAnuales] = useState<PresupuestoAnual[]>([]);
     const [enlazandoId, setEnlazandoId] = useState<number | null>(null);
+    // Compartir con otras áreas: modal (solo ADM) y permisos de las compartidas conmigo
+    const [solicitudACompartir, setSolicitudACompartir] = useState<BudgetRequest | null>(null);
+    const [compartidasConmigo, setCompartidasConmigo] = useState<Record<number, 'ver' | 'editar'>>({});
 
     // Inicializar colegio del usuario si existe
     useEffect(() => {
@@ -38,12 +42,14 @@ export default function MisSolicitudesPage() {
     const fetchSolicitudes = useCallback(async () => {
         try {
             setLoading(true);
-            const [resSols, resPptos] = await Promise.all([
+            const [resSols, resPptos, resComp] = await Promise.all([
                 api.get('/presupuesto/solicitudes/mis'),
-                api.get('/presupuesto/presupuestos-anuales').catch(() => ({ data: [] }))
+                api.get('/presupuesto/presupuestos-anuales').catch(() => ({ data: [] })),
+                api.get('/presupuesto/solicitudes/compartidas-conmigo').catch(() => ({ data: {} }))
             ]);
             setSolicitudes(resSols.data);
             setPresupuestosAnuales(resPptos.data || []);
+            setCompartidasConmigo(resComp.data || {});
         } catch (error) {
             console.error('Error fetching solicitudes:', error);
         } finally {
@@ -323,6 +329,9 @@ export default function MisSolicitudesPage() {
                                     const style = getStatusStyle(req.estado);
                                     const StatusIcon = style.icon;
                                     const montoSol = getMontoSolicitado(req);
+                                    // Compartida conmigo por un administrador (y no soy el dueño)
+                                    const permisoCompartido = compartidasConmigo[req.id_presupuesto];
+                                    const soloCompartida = !!permisoCompartido && req.id_user !== user?.id_user;
                                     const montoAprob = getMontoAprobado(req);
                                     const montoAjustes = getMontoConAjustes(req);
 
@@ -340,6 +349,14 @@ export default function MisSolicitudesPage() {
                                             <td className="px-3.5 py-3.5 text-xs">
                                                 <div className="font-semibold text-gray-900 leading-tight">{req.area_nombre || 'N/A'}</div>
                                                 {req.subarea_nombre && <div className="text-gray-400 text-[11px] leading-tight">{req.subarea_nombre}</div>}
+                                                {permisoCompartido && (
+                                                    <span
+                                                        className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold"
+                                                        title="Un administrador compartió esta solicitud con tu área"
+                                                    >
+                                                        <Users size={10} /> Compartida · {permisoCompartido === 'editar' ? 'puedes editar' : 'solo ver'}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-3.5 py-3.5 whitespace-nowrap text-xs">
                                                 {req.presupuesto_anual_nombre ? (
@@ -420,7 +437,7 @@ export default function MisSolicitudesPage() {
                                             </td>
                                             <td className="px-3.5 py-3.5 whitespace-nowrap text-center">
                                                 <div className="flex justify-center items-center gap-1">
-                                                    {(req.estado === 'Pendiente' || req.estado === 'Revisar') && (
+                                                    {(req.estado === 'Pendiente' || req.estado === 'Revisar') && !soloCompartida && (
                                                         <button
                                                             onClick={() => setSolicitudAEnviar(req)}
                                                             disabled={enviando === req.id_presupuesto}
@@ -431,7 +448,7 @@ export default function MisSolicitudesPage() {
                                                             {req.estado === 'Revisar' ? 'Reenviar' : 'Enviar'}
                                                         </button>
                                                     )}
-                                                    {(req.estado === 'Pendiente' || req.estado === 'Revisar') && (
+                                                    {(req.estado === 'Pendiente' || req.estado === 'Revisar') && !(soloCompartida && permisoCompartido === 'ver') && (
                                                         <button
                                                             onClick={() => router.push(`/presupuesto/agregar-recursos?id=${req.id_presupuesto}`)}
                                                             title="Editar o agregar recursos a esta solicitud"
@@ -449,6 +466,15 @@ export default function MisSolicitudesPage() {
                                                         Ver
                                                         <ArrowRight size={12} />
                                                     </button>
+                                                    {esAdmin && (
+                                                        <button
+                                                            onClick={() => setSolicitudACompartir(req)}
+                                                            title="Compartir con otra área"
+                                                            className="p-1 text-gray-400 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer"
+                                                        >
+                                                            <Share2 size={14} />
+                                                        </button>
+                                                    )}
                                                     {esAdmin && (
                                                         <button
                                                             onClick={() => {
@@ -471,6 +497,13 @@ export default function MisSolicitudesPage() {
                     </table>
                 </div>
             </div>
+
+            {solicitudACompartir && (
+                <CompartirSolicitudModal
+                    solicitud={solicitudACompartir}
+                    onClose={() => setSolicitudACompartir(null)}
+                />
+            )}
 
             {/* Modal Confirmar Enviar / Reenviar */}
             {solicitudAEnviar && (

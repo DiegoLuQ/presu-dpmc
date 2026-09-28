@@ -1,4 +1,7 @@
 import logging
+import time
+import uuid
+from app.core.logging_config import setup_logging, setup_sentry, request_id_ctx
 from app.api import auth, catalogos, roles, users, budget, requerimientos, pme, ai_config, convocatorias
 from app.core.config import settings
 from app.core.roles_seeder import seed_roles
@@ -10,12 +13,10 @@ from app.models import Base
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Filtrar peticiones OPTIONS (preflight CORS) para no saturar el terminal
-class UvicornAccessFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return "OPTIONS" not in record.getMessage()
-
-logging.getLogger("uvicorn.access").addFilter(UvicornAccessFilter())
+setup_logging()
+setup_sentry()
+logger = logging.getLogger("app")
+access_logger = logging.getLogger("app.access")
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -28,9 +29,9 @@ async def startup_event():
             break
         except Exception as e:
             if attempt == 10:
-                print(f"[FATAL] Could not connect to database after 10 attempts: {e}")
+                logger.critical("No se pudo conectar a la BD tras 10 intentos: %s", e)
                 raise e
-            print(f"Waiting for database to be ready (attempt {attempt}/10)... Error: {e}")
+            logger.warning("Esperando la BD (intento %s/10): %s", attempt, e)
             time.sleep(3)
             
     # Ejecución automática de migraciones pendientes (ALTER TABLE y seeds)
@@ -38,7 +39,7 @@ async def startup_event():
         from apply_migrations import apply_migrations
         apply_migrations()
     except Exception as e:
-        print(f"[ERROR] Error al ejecutar migraciones automáticas en startup: {e}")
+        logger.exception("Error al ejecutar migraciones automáticas en startup: %s", e)
 
     seed_roles()
     seed_contextos_rol()
@@ -47,17 +48,32 @@ async def startup_event():
     try:
         seed_budget()
     except Exception as e:
-        print(f"Warning: budget seed failed: {e}")
+        logger.warning("Budget seed falló: %s", e)
 
 @app.middleware("http")
-async def log_errors(request, call_next):
-    import traceback
+async def log_requests(request, call_next):
+    """Asigna un request_id, mide la duración y registra cada petición (sin OPTIONS)."""
+    rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:8]
+    token = request_id_ctx.set(rid)
+    inicio = time.perf_counter()
     try:
-        return await call_next(request)
-    except Exception as e:
-        print(f"[ERROR] Exception during {request.method} {request.url}: {e}")
-        traceback.print_exc()
-        raise e
+        response = await call_next(request)
+        ms = (time.perf_counter() - inicio) * 1000
+        response.headers["X-Request-ID"] = rid
+        if request.method != "OPTIONS":
+            lenta = ms >= settings.SLOW_REQUEST_MS
+            nivel = logging.WARNING if (lenta or response.status_code >= 500) else logging.INFO
+            access_logger.log(
+                nivel, "%s %s -> %s %.0f ms%s",
+                request.method, request.url.path, response.status_code, ms, " (LENTA)" if lenta else "",
+            )
+        return response
+    except Exception:
+        ms = (time.perf_counter() - inicio) * 1000
+        logger.exception("Excepción no controlada en %s %s (%.0f ms)", request.method, request.url.path, ms)
+        raise
+    finally:
+        request_id_ctx.reset(token)
 
 # CORS Configuration
 origins = settings.ALLOW_ORIGINS

@@ -16,6 +16,10 @@ from app.services.ai_service import (
 import json
 import time
 import re
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/ai", tags=["IA"])
 
@@ -873,10 +877,10 @@ def call_ai_con_fallback(
                 es_recuperable = True
 
             if not es_recuperable:
-                print(f"[IA Fallback] Error no recuperable con {desc}: {err}")
+                logger.error("[IA Fallback] Error no recuperable con %s: %s", desc, err)
                 raise
 
-            print(f"[IA Fallback] {desc} falló con error ({err}). Intentando siguiente opción...")
+            logger.warning("[IA Fallback] %s falló (%s). Intentando siguiente opción...", desc, err)
             continue
 
     if ultimo_error:
@@ -1034,7 +1038,7 @@ def asesorar_actividad_pme(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error al llamar a la IA para asesoría PME: {e}")
+        logger.exception("Error al llamar a la IA para asesoría PME: %s", e)
         raise HTTPException(status_code=502, detail=f"Error al llamar a la IA: {str(e)}")
 
 

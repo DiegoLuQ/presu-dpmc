@@ -44,3 +44,4 @@ tqdm==4.68.2
 typing_extensions==4.15.0
 typing-inspection==0.4.2
 uvicorn==0.41.0
+sentry-sdk[fastapi]>=2.0,<3

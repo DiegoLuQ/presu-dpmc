@@ -10,11 +10,14 @@ from sqlalchemy.orm import Session
 from app.models import Rol
 from app.db.session import SessionLocal
 from app.core.permissions import PERMISOS_POR_ROL
+import logging
+
+logger = logging.getLogger(__name__)
 
 def seed_roles():
     db = SessionLocal()
     try:
-        print("Sincronizando tabla de roles...")
+        logger.info("Sincronizando tabla de roles...")
         roles_data = [
             {"nombre": "Administrador", "codigo": "ADM", "prefijo": "ADM"},
             {"nombre": "Director", "codigo": "DIR", "prefijo": "DIR"},
@@ -41,7 +44,7 @@ def seed_roles():
             db_rol = db.query(Rol).filter(Rol.codigo == role_item["codigo"]).first()
             
             if not db_rol:
-                print(f"Creando rol: {role_item['codigo']}")
+                logger.info(f"Creando rol: {role_item['codigo']}")
                 permisos = PERMISOS_POR_ROL.get(role_item["codigo"], [])
                 db_rol = Rol(**role_item, permisos=json.dumps(permisos) if permisos else [])
                 db.add(db_rol)
@@ -52,9 +55,9 @@ def seed_roles():
                 # (permite que los cambios desde la UI persistan)
                 
         db.commit()
-        print("Roles sincronizados con éxito.")
+        logger.info("Roles sincronizados con éxito.")
     except Exception as e:
-        print(f"Error al poblar roles: {e}")
+        logger.warning(f"Error al poblar roles: {e}")
         db.rollback()
     finally:
         db.close()

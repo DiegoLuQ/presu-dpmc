@@ -412,6 +412,22 @@ class SolicitudPresupuesto(Base):
     presupuesto_anual = relationship("PresupuestoAnual", back_populates="solicitudes")
     detalles = relationship("PresupuestoDetalle", back_populates="solicitud")
 
+class SolicitudCompartida(Base):
+    """Solicitud de presupuesto compartida por un administrador con otra área.
+    permiso: 'ver' (solo lectura) | 'editar' (puede agregar, editar y eliminar ítems)."""
+    __tablename__ = "pre_solicitud_compartida"
+    id_compartida = Column(Integer, primary_key=True, index=True)
+    id_presupuesto = Column(Integer, ForeignKey("pre_solicitud.id_presupuesto", ondelete="CASCADE"), nullable=False, index=True)
+    id_area = Column(Integer, ForeignKey("org_area.id_area", ondelete="CASCADE"), nullable=False, index=True)
+    permiso = Column(String(10), nullable=False, default="ver")
+    creado_por = Column(Integer, ForeignKey("auth_usuario.id_user"), nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('id_presupuesto', 'id_area', name='uq_solicitud_compartida_area'),)
+
+    area = relationship("Area")
+
+
 class PresupuestoDetalle(Base):
     __tablename__ = "pre_detalle"
     id_pre_detalle = Column(Integer, primary_key=True, index=True)
