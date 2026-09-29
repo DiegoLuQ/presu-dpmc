@@ -733,6 +733,46 @@ export default function AgregarRecursosPage() {
     const [showPMEResults, setShowPMEResults] = useState(false);
     const [selectedHistorial, setSelectedHistorial] = useState<number[]>([]);
     const [filtroSolicitudHistorial, setFiltroSolicitudHistorial] = useState<string>('');
+    // "Anteriores": buscador por nombre, filtro múltiple por motivo y paginación
+    const HISTORIAL_POR_PAGINA = 25;
+    const SIN_MOTIVO = '(Sin motivo)';
+    const [busquedaHistorial, setBusquedaHistorial] = useState('');
+    const [filtroMotivosHistorial, setFiltroMotivosHistorial] = useState<string[]>([]);
+    const [paginaHistorial, setPaginaHistorial] = useState(1);
+    const normalizarTexto = (t?: string | null) =>
+        (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const motivoDe = (h: RecursoHistorial) => (h.motivo || '').trim() || SIN_MOTIVO;
+
+    // Ítems de la solicitud anterior elegida (o de todas)
+    const historialBase = useMemo(
+        () => historialRecursos.filter(h => !filtroSolicitudHistorial || h.codigo_solicitud === filtroSolicitudHistorial),
+        [historialRecursos, filtroSolicitudHistorial]
+    );
+    // Motivos disponibles (con conteo) para el filtro múltiple
+    const opcionesMotivoHistorial = useMemo(() => {
+        const conteo: Record<string, number> = {};
+        historialBase.forEach(h => { const m = motivoDe(h); conteo[m] = (conteo[m] || 0) + 1; });
+        return Object.keys(conteo)
+            .sort((a, b) => a.localeCompare(b, 'es'))
+            .map(m => ({ valor: m, label: m, count: conteo[m] }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historialBase]);
+    const historialFiltrado = useMemo(() => {
+        const q = normalizarTexto(busquedaHistorial);
+        return historialBase.filter(h =>
+            (!q || normalizarTexto(h.nombre_producto).includes(q)) &&
+            (filtroMotivosHistorial.length === 0 || filtroMotivosHistorial.includes(motivoDe(h)))
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historialBase, busquedaHistorial, filtroMotivosHistorial]);
+    const totalPaginasHistorial = Math.max(1, Math.ceil(historialFiltrado.length / HISTORIAL_POR_PAGINA));
+    const paginaHistorialActual = Math.min(paginaHistorial, totalPaginasHistorial);
+    const historialPagina = historialFiltrado.slice(
+        (paginaHistorialActual - 1) * HISTORIAL_POR_PAGINA,
+        paginaHistorialActual * HISTORIAL_POR_PAGINA
+    );
+    // Volver a la página 1 al cambiar cualquier filtro
+    useEffect(() => { setPaginaHistorial(1); }, [busquedaHistorial, filtroMotivosHistorial, filtroSolicitudHistorial]);
     const [filtroAlcanceHistorial, setFiltroAlcanceHistorial] = useState<'mis' | 'area'>('area');
     const [cargandoHistorial, setCargandoHistorial] = useState(false);
     const [savingItems, setSavingItems] = useState<number[]>([]);
@@ -4488,7 +4528,7 @@ export default function AgregarRecursosPage() {
                                                                 </div>
                                                                 <select
                                                                     value={filtroSolicitudHistorial}
-                                                                    onChange={(e) => setFiltroSolicitudHistorial(e.target.value)}
+                                                                    onChange={(e) => { setFiltroSolicitudHistorial(e.target.value); setFiltroMotivosHistorial([]); }}
                                                                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all text-xs font-bold text-gray-800 cursor-pointer"
                                                                 >
                                                                     <option value="">-- Todas las solicitudes anteriores ({codigosUnicos.length}) --</option>
@@ -4551,9 +4591,56 @@ export default function AgregarRecursosPage() {
                                                         );
                                                     })()}
                                                 </div>
+                                                {/* Buscador por nombre y filtro múltiple por motivo */}
+                                                <div className="space-y-2">
+                                                    <div className="relative">
+                                                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                        <input
+                                                            type="text"
+                                                            value={busquedaHistorial}
+                                                            onChange={(e) => setBusquedaHistorial(e.target.value)}
+                                                            placeholder="Buscar insumo por nombre..."
+                                                            className="w-full pl-8 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                                                        />
+                                                        {busquedaHistorial && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setBusquedaHistorial('')}
+                                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-md"
+                                                                title="Limpiar búsqueda"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {opcionesMotivoHistorial.length > 0 && (
+                                                        <FiltroMultiSelectGenerico
+                                                            icono="📝"
+                                                            tituloVacio="Todos los motivos"
+                                                            tituloPlural="motivos"
+                                                            seleccionados={filtroMotivosHistorial}
+                                                            onChange={setFiltroMotivosHistorial}
+                                                            opciones={opcionesMotivoHistorial}
+                                                            placeholderBusqueda="Buscar motivo..."
+                                                            anchoMinimo="min-w-[260px]"
+                                                        />
+                                                    )}
+                                                    {(busquedaHistorial || filtroMotivosHistorial.length > 0) && (
+                                                        <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500">
+                                                            <span>{historialFiltrado.length} de {historialBase.length} ítems</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setBusquedaHistorial(''); setFiltroMotivosHistorial([]); }}
+                                                                className="text-red-600 hover:underline font-bold"
+                                                            >
+                                                                Limpiar filtros
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                                 <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
-                                                    {historialRecursos
-                                                        .filter(h => !filtroSolicitudHistorial || h.codigo_solicitud === filtroSolicitudHistorial)
+                                                    {historialPagina
                                                         .map(h => (
                                                             <div key={h.id_pre_detalle} className="p-3 bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition-all">
                                                                 <div className="flex items-start gap-2">
@@ -4586,10 +4673,44 @@ export default function AgregarRecursosPage() {
                                                                 </div>
                                                             </div>
                                                         ))}
-                                                    {historialRecursos.filter(h => !filtroSolicitudHistorial || h.codigo_solicitud === filtroSolicitudHistorial).length === 0 && (
-                                                        <div className="p-8 text-center text-gray-400 italic text-sm">No hay ítems aprobados disponibles</div>
+                                                    {historialFiltrado.length === 0 && (
+                                                        <div className="p-8 text-center text-gray-400 italic text-sm">
+                                                            {historialBase.length === 0 ? 'No hay ítems aprobados disponibles' : 'Ningún ítem coincide con la búsqueda'}
+                                                        </div>
                                                     )}
                                                 </div>
+
+                                                {/* Paginación (25 por página) */}
+                                                {historialFiltrado.length > HISTORIAL_POR_PAGINA && (
+                                                    <div className="flex items-center justify-between gap-2 pt-1">
+                                                        <span className="text-[10px] font-semibold text-gray-500">
+                                                            {(paginaHistorialActual - 1) * HISTORIAL_POR_PAGINA + 1}–{Math.min(paginaHistorialActual * HISTORIAL_POR_PAGINA, historialFiltrado.length)} de {historialFiltrado.length}
+                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPaginaHistorial(p => Math.max(1, p - 1))}
+                                                                disabled={paginaHistorialActual <= 1}
+                                                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                aria-label="Página anterior"
+                                                            >
+                                                                <ChevronLeft size={14} />
+                                                            </button>
+                                                            <span className="text-[11px] font-bold text-gray-700 px-1.5">
+                                                                {paginaHistorialActual} / {totalPaginasHistorial}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPaginaHistorial(p => Math.min(totalPaginasHistorial, p + 1))}
+                                                                disabled={paginaHistorialActual >= totalPaginasHistorial}
+                                                                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                aria-label="Página siguiente"
+                                                            >
+                                                                <ChevronRight size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
