@@ -786,6 +786,44 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
     return [_build_solicitud(s) for s in solicitudes]
 
 
+def opciones_sin_detalles():
+    """Carga de solicitudes para listados resumen: sin sus ítems (pueden ser miles)."""
+    return [
+        joinedload(SolicitudPresupuesto.colegio),
+        joinedload(SolicitudPresupuesto.presupuesto_anual),
+        joinedload(SolicitudPresupuesto.user),
+        joinedload(SolicitudPresupuesto.cargo).joinedload(Cargo.area),
+    ]
+
+
+def build_solicitudes_resumen(solicitudes: List[SolicitudPresupuesto], db: Session) -> List[dict]:
+    """Como build_solicitudes_batch_response pero sin ítems: agrega n_items, n_items_aprobados,
+    monto_total y monto_aprobado calculados en SQL."""
+    from sqlalchemy.orm.attributes import set_committed_value
+    ids = [x.id_presupuesto for x in solicitudes]
+    agregados = {}
+    if ids:
+        es_aprobado = PresupuestoDetalle.estado_aprobacion == "Aprobado"
+        filas = db.query(
+            PresupuestoDetalle.id_presupuesto,
+            func.count(PresupuestoDetalle.id_pre_detalle),
+            func.coalesce(func.sum(case((es_aprobado, 1), else_=0)), 0),
+            func.coalesce(func.sum(PresupuestoDetalle.total_iva), 0),
+            func.coalesce(func.sum(case((es_aprobado, PresupuestoDetalle.total_iva), else_=0)), 0),
+        ).filter(PresupuestoDetalle.id_presupuesto.in_(ids)).group_by(PresupuestoDetalle.id_presupuesto).all()
+        agregados = {f[0]: (int(f[1]), int(f[2]), float(f[3]), float(f[4])) for f in filas}
+    for x in solicitudes:
+        set_committed_value(x, "detalles", [])  # evita la carga perezosa al armar la respuesta
+    resultado = build_solicitudes_batch_response(solicitudes, db)
+    for r in resultado:
+        n, n_aprob, total, aprobado = agregados.get(r["id_presupuesto"], (0, 0, 0.0, 0.0))
+        r["n_items"] = n
+        r["n_items_aprobados"] = n_aprob
+        r["monto_total"] = total
+        r["monto_aprobado"] = aprobado
+    return resultado
+
+
 def build_solicitud_response(solicitud: SolicitudPresupuesto, db: Session) -> dict:
     res = build_solicitudes_batch_response([solicitud], db)
     return res[0] if res else {}
@@ -831,10 +869,14 @@ def mis_solicitudes(
     alcance: Optional[str] = Query("area", description="Alcance de las solicitudes: 'mis' (solo mías) o 'area' (de mi misma área/equipo)"),
     id_colegio: Optional[int] = Query(None, description="Filtrar por colegio"),
     year: Optional[int] = Query(None, description="Año del presupuesto anual (o de la fecha si la solicitud no está enlazada)"),
+    resumen: bool = Query(False, description="Sin ítems: solo n_items, n_items_aprobados y montos por solicitud"),
+    id_presupuesto: Optional[int] = Query(None, description="Solo esta solicitud (dentro del mismo alcance)"),
 ):
-    query = db.query(SolicitudPresupuesto).options(*get_solicitudes_eager_options())
+    query = db.query(SolicitudPresupuesto).options(*(opciones_sin_detalles() if resumen else get_solicitudes_eager_options()))
 
     # Filtros opcionales en el servidor (evitan traer todas las solicitudes con sus ítems)
+    if id_presupuesto:
+        query = query.filter(SolicitudPresupuesto.id_presupuesto == id_presupuesto)
     if id_colegio:
         query = query.filter(SolicitudPresupuesto.id_colegio == id_colegio)
     if year:
@@ -903,6 +945,8 @@ def mis_solicitudes(
         query = query.filter(SolicitudPresupuesto.id_user == current_user.id_user)
 
     solicitudes = query.order_by(SolicitudPresupuesto.fecha.desc()).all()
+    if resumen:
+        return build_solicitudes_resumen(solicitudes, db)
     return build_solicitudes_batch_response(solicitudes, db)
 
 
@@ -917,17 +961,8 @@ def historial_compras(
     resumen: bool = Query(False, description="Sin ítems: solo n_items y monto_aprobado por solicitud"),
 ):
     """Historial de compras: solicitudes de todos los colegios y años."""
-    if resumen:
-        # Sin cargar los ítems (pueden ser miles); los totales se calculan en SQL más abajo
-        opciones = [
-            joinedload(SolicitudPresupuesto.colegio),
-            joinedload(SolicitudPresupuesto.presupuesto_anual),
-            joinedload(SolicitudPresupuesto.user),
-            joinedload(SolicitudPresupuesto.cargo).joinedload(Cargo.area),
-        ]
-    else:
-        opciones = get_solicitudes_eager_options()
-    query = db.query(SolicitudPresupuesto).options(*opciones)
+    # En modo resumen no se cargan los ítems (pueden ser miles); los totales se calculan en SQL
+    query = db.query(SolicitudPresupuesto).options(*(opciones_sin_detalles() if resumen else get_solicitudes_eager_options()))
     if not incluir_pendientes:
         query = query.filter(SolicitudPresupuesto.estado.in_(["Aprobado", "Aceptado"]))
 
@@ -948,29 +983,9 @@ def historial_compras(
         )
 
     solicitudes = query.order_by(SolicitudPresupuesto.fecha.desc()).all()
-    if not resumen:
-        return build_solicitudes_batch_response(solicitudes, db)
-
-    from sqlalchemy.orm.attributes import set_committed_value
-    ids = [x.id_presupuesto for x in solicitudes]
-    agregados = {}
-    if ids:
-        filas = db.query(
-            PresupuestoDetalle.id_presupuesto,
-            func.count(PresupuestoDetalle.id_pre_detalle),
-            func.coalesce(func.sum(PresupuestoDetalle.total_iva), 0),
-            func.coalesce(func.sum(case((PresupuestoDetalle.estado_aprobacion == "Aprobado", PresupuestoDetalle.total_iva), else_=0)), 0),
-        ).filter(PresupuestoDetalle.id_presupuesto.in_(ids)).group_by(PresupuestoDetalle.id_presupuesto).all()
-        agregados = {f[0]: (int(f[1]), float(f[2]), float(f[3])) for f in filas}
-    for x in solicitudes:
-        set_committed_value(x, "detalles", [])  # evita la carga perezosa al armar la respuesta
-    resultado = build_solicitudes_batch_response(solicitudes, db)
-    for r in resultado:
-        n, total, aprobado = agregados.get(r["id_presupuesto"], (0, 0.0, 0.0))
-        r["n_items"] = n
-        r["monto_total"] = total
-        r["monto_aprobado"] = aprobado
-    return resultado
+    if resumen:
+        return build_solicitudes_resumen(solicitudes, db)
+    return build_solicitudes_batch_response(solicitudes, db)
 
 
 # ── Actas de Entrega Oficiales (Seguimiento, Correlativo y PDF) ───────────────

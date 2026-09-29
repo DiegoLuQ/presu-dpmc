@@ -703,6 +703,10 @@ export default function AgregarRecursosPage() {
     const [subvencionesActivas, setSubvencionesActivas] = useState<{ id_subvencion: number; nombre_corto: string; nombre_completo: string }[]>([]);
     const [recursosActual, setRecursosActual] = useState<DetallePresupuestoForm[]>([]);
     const [historialRecursos, setHistorialRecursos] = useState<RecursoHistorial[]>([]);
+    // "Anteriores": primero solo la lista de solicitudes (sin ítems); los ítems se cargan al elegir una
+    const [solicitudesAnteriores, setSolicitudesAnteriores] = useState<{
+        id_presupuesto: number; codigo: string; user_nombre?: string | null; n_items: number;
+    }[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [guardados, setGuardados] = useState<number[]>([]);
@@ -738,10 +742,13 @@ export default function AgregarRecursosPage() {
     const SIN_MOTIVO = '(Sin motivo)';
     const [busquedaHistorial, setBusquedaHistorial] = useState('');
     const [filtroMotivosHistorial, setFiltroMotivosHistorial] = useState<string[]>([]);
+    const [filtroActividadesHistorial, setFiltroActividadesHistorial] = useState<string[]>([]);
+    const SIN_ACTIVIDAD = '(Sin actividad PME)';
     const [paginaHistorial, setPaginaHistorial] = useState(1);
     const normalizarTexto = (t?: string | null) =>
         (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const motivoDe = (h: RecursoHistorial) => (h.motivo || '').trim() || SIN_MOTIVO;
+    const actividadDe = (h: RecursoHistorial) => (h.actividad_nombre || '').trim() || SIN_ACTIVIDAD;
 
     // Ítems de la solicitud anterior elegida (o de todas)
     const historialBase = useMemo(
@@ -757,14 +764,23 @@ export default function AgregarRecursosPage() {
             .map(m => ({ valor: m, label: m, count: conteo[m] }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [historialBase]);
+    const opcionesActividadHistorial = useMemo(() => {
+        const conteo: Record<string, number> = {};
+        historialBase.forEach(h => { const a = actividadDe(h); conteo[a] = (conteo[a] || 0) + 1; });
+        return Object.keys(conteo)
+            .sort((a, b) => (a === SIN_ACTIVIDAD ? 1 : b === SIN_ACTIVIDAD ? -1 : a.localeCompare(b, 'es')))
+            .map(a => ({ valor: a, label: a, count: conteo[a] }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historialBase]);
     const historialFiltrado = useMemo(() => {
         const q = normalizarTexto(busquedaHistorial);
         return historialBase.filter(h =>
             (!q || normalizarTexto(h.nombre_producto).includes(q)) &&
-            (filtroMotivosHistorial.length === 0 || filtroMotivosHistorial.includes(motivoDe(h)))
+            (filtroMotivosHistorial.length === 0 || filtroMotivosHistorial.includes(motivoDe(h))) &&
+            (filtroActividadesHistorial.length === 0 || filtroActividadesHistorial.includes(actividadDe(h)))
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [historialBase, busquedaHistorial, filtroMotivosHistorial]);
+    }, [historialBase, busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial]);
     const totalPaginasHistorial = Math.max(1, Math.ceil(historialFiltrado.length / HISTORIAL_POR_PAGINA));
     const paginaHistorialActual = Math.min(paginaHistorial, totalPaginasHistorial);
     const historialPagina = historialFiltrado.slice(
@@ -772,7 +788,7 @@ export default function AgregarRecursosPage() {
         paginaHistorialActual * HISTORIAL_POR_PAGINA
     );
     // Volver a la página 1 al cambiar cualquier filtro
-    useEffect(() => { setPaginaHistorial(1); }, [busquedaHistorial, filtroMotivosHistorial, filtroSolicitudHistorial]);
+    useEffect(() => { setPaginaHistorial(1); }, [busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial, filtroSolicitudHistorial]);
     const [filtroAlcanceHistorial, setFiltroAlcanceHistorial] = useState<'mis' | 'area'>('area');
     const [cargandoHistorial, setCargandoHistorial] = useState(false);
     const [savingItems, setSavingItems] = useState<number[]>([]);
@@ -899,7 +915,6 @@ export default function AgregarRecursosPage() {
         sinPrecio: number;
         listos: number;
     } | null>(null);
-    const [mesMasivoSeleccionado, setMesMasivoSeleccionado] = useState<string>('03');
 
     // Modal de notificación genérico (reemplaza browser alert())
     const [modalNotificacion, setModalNotificacion] = useState<{
@@ -934,33 +949,6 @@ export default function AgregarRecursosPage() {
             tieneIncompletos: sinCantidad > 0 || sinMes > 0
         };
     }, [recursosActual]);
-
-    // Asignación rápida de mes masivo a todos los borradores que no tienen fecha
-    const aplicarMesMasivoAPendientes = (mesCodigo: string) => {
-        const anioActual = new Date().getFullYear();
-        const fechaArmada = `${anioActual}-${mesCodigo}-01`;
-        setRecursosActual(prev => prev.map(item => {
-            if (!item.id_pre_detalle && (!item.fecha_ejecucion || item.fecha_ejecucion.trim() === '' || !item.mes_ejecucion)) {
-                return {
-                    ...item,
-                    mes_ejecucion: mesCodigo,
-                    fecha_ejecucion: fechaArmada,
-                    tipo_fecha: 'mensual'
-                };
-            }
-            return item;
-        }));
-        // Si el modal de diagnóstico está abierto, actualizamos sus métricas
-        setModalDiagnosticoPendientes(prev => {
-            if (!prev) return null;
-            const pendientesListos = recursosActual.filter(r => !r.id_pre_detalle && (r.cantidad && Number(r.cantidad) > 0)).length;
-            return {
-                ...prev,
-                sinMes: 0,
-                listos: pendientesListos
-            };
-        });
-    };
 
     const [filtroRecursosPMEModal, setFiltroRecursosPMEModal] = useState('');
     const [columnasVisibles, setColumnasVisibles] = useState<Record<string, boolean>>(COLUMNAS_VISIBLES_DEFAULT);
@@ -1774,11 +1762,48 @@ export default function AgregarRecursosPage() {
         }
     };
 
+    // Lista de solicitudes anteriores (resumen, sin ítems) del alcance elegido
     const cargarHistorial = async (alcanceOverride?: 'mis' | 'colegio' | 'area') => {
         const alcance = alcanceOverride || filtroAlcanceHistorial;
         setCargandoHistorial(true);
+        setHistorialRecursos([]);
+        setSelectedHistorial([]);
+        setFiltroSolicitudHistorial('');
         try {
-            const res = await api.get(`/presupuesto/solicitudes/mis?alcance=${alcance === 'mis' ? 'mis' : 'area'}&limit=100`);
+            const res = await api.get('/presupuesto/solicitudes/mis', {
+                params: { alcance: alcance === 'mis' ? 'mis' : 'area', resumen: true },
+            });
+            // Solo las que tienen ítems copiables: todos si la solicitud está aprobada, si no, los aprobados
+            const lista = (res.data || [])
+                .map((sol: any) => {
+                    const solAprobada = sol.estado === 'Aprobado' || sol.estado === 'Aceptado';
+                    return {
+                        id_presupuesto: sol.id_presupuesto,
+                        codigo: sol.codigo,
+                        user_nombre: sol.user_nombre,
+                        n_items: solAprobada ? (sol.n_items || 0) : (sol.n_items_aprobados || 0),
+                    };
+                })
+                .filter((sol: { n_items: number; codigo: string }) => sol.n_items > 0 && sol.codigo);
+            setSolicitudesAnteriores(lista);
+        } catch (error) {
+            console.error('Error cargando solicitudes anteriores:', error);
+        } finally {
+            setCargandoHistorial(false);
+        }
+    };
+
+    // Ítems de UNA solicitud anterior (se piden recién al elegirla)
+    const cargarItemsAnterior = async (codigo: string) => {
+        setHistorialRecursos([]);
+        setSelectedHistorial([]);
+        const sol = solicitudesAnteriores.find(x => x.codigo === codigo);
+        if (!sol) return;
+        setCargandoHistorial(true);
+        try {
+            const res = await api.get('/presupuesto/solicitudes/mis', {
+                params: { alcance: filtroAlcanceHistorial === 'mis' ? 'mis' : 'area', id_presupuesto: sol.id_presupuesto },
+            });
             const todas = res.data;
             const hist: RecursoHistorial[] = [];
             for (const sol of todas) {
@@ -1865,7 +1890,7 @@ export default function AgregarRecursosPage() {
                 return huboCambios ? actualizados : prev;
             });
         } catch (error) {
-            console.error('Error cargando historial:', error);
+            console.error('Error cargando ítems de la solicitud anterior:', error);
         } finally {
             setCargandoHistorial(false);
         }
@@ -4258,7 +4283,7 @@ export default function AgregarRecursosPage() {
                                             onClick={() => {
                                                 setActiveTab('historial');
                                                 setSidebarCollapsed(false);
-                                                if (historialRecursos.length === 0) cargarHistorial();
+                                                if (solicitudesAnteriores.length === 0) cargarHistorial();
                                             }}
                                             className={`p-2.5 rounded-xl transition-all ${activeTab === 'historial' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-primary/5 hover:text-primary'}`}
                                             title="Historial"
@@ -4299,7 +4324,7 @@ export default function AgregarRecursosPage() {
                                                     type="button"
                                                     onClick={() => {
                                                         setActiveTab('historial');
-                                                        if (historialRecursos.length === 0) cargarHistorial();
+                                                        if (solicitudesAnteriores.length === 0) cargarHistorial();
                                                     }}
                                                     className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                                                         activeTab === 'historial'
@@ -4513,7 +4538,7 @@ export default function AgregarRecursosPage() {
 
                                                     {/* Selector de solicitudes aprobadas */}
                                                     {(() => {
-                                                        const codigosUnicos = Array.from(new Set(historialRecursos.map(h => h.codigo_solicitud).filter(Boolean)));
+                                                        const codigosUnicos = solicitudesAnteriores.map(x => x.codigo);
                                                         return (
                                                             <div className="space-y-1">
                                                                 <div className="flex items-center justify-between">
@@ -4528,14 +4553,21 @@ export default function AgregarRecursosPage() {
                                                                 </div>
                                                                 <select
                                                                     value={filtroSolicitudHistorial}
-                                                                    onChange={(e) => { setFiltroSolicitudHistorial(e.target.value); setFiltroMotivosHistorial([]); }}
+                                                                    onChange={(e) => {
+                                                                        setFiltroSolicitudHistorial(e.target.value);
+                                                                        setFiltroMotivosHistorial([]);
+                                                                        setFiltroActividadesHistorial([]);
+                                                                        setBusquedaHistorial('');
+                                                                        if (e.target.value) cargarItemsAnterior(e.target.value);
+                                                                        else { setHistorialRecursos([]); setSelectedHistorial([]); }
+                                                                    }}
                                                                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all text-xs font-bold text-gray-800 cursor-pointer"
                                                                 >
-                                                                    <option value="">-- Todas las solicitudes anteriores ({codigosUnicos.length}) --</option>
+                                                                    <option value="">-- Elige una solicitud anterior ({codigosUnicos.length}) --</option>
                                                                     {codigosUnicos.map(cod => {
-                                                                        const primerItem = historialRecursos.find(h => h.codigo_solicitud === cod);
-                                                                        const autor = primerItem?.solicitante_nombre ? ` • ${primerItem.solicitante_nombre}` : '';
-                                                                        const count = historialRecursos.filter(h => h.codigo_solicitud === cod).length;
+                                                                        const solAnt = solicitudesAnteriores.find(x => x.codigo === cod);
+                                                                        const autor = solAnt?.user_nombre ? ` • ${solAnt.user_nombre}` : '';
+                                                                        const count = solAnt?.n_items || 0;
                                                                         return (
                                                                             <option key={cod} value={cod}>
                                                                                 📋 {cod}{autor} ({count} ítems)
@@ -4558,9 +4590,9 @@ export default function AgregarRecursosPage() {
 
                                                     {/* Botón para copiar o eliminar toda la solicitud seleccionada */}
                                                     {(() => {
-                                                        const cod = filtroSolicitudHistorial || Array.from(new Set(historialRecursos.map(h => h.codigo_solicitud).filter(Boolean)))[0];
-                                                        if (!cod) return null;
+                                                        const cod = filtroSolicitudHistorial;
                                                         const count = historialRecursos.filter(h => h.codigo_solicitud === cod).length;
+                                                        if (!cod || count === 0) return null;
                                                         const esAdminOSos = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'SOS';
 
                                                         return (
@@ -4592,6 +4624,7 @@ export default function AgregarRecursosPage() {
                                                     })()}
                                                 </div>
                                                 {/* Buscador por nombre y filtro múltiple por motivo */}
+                                                {historialBase.length > 0 && (
                                                 <div className="space-y-2">
                                                     <div className="relative">
                                                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -4625,12 +4658,25 @@ export default function AgregarRecursosPage() {
                                                             anchoMinimo="min-w-[260px]"
                                                         />
                                                     )}
-                                                    {(busquedaHistorial || filtroMotivosHistorial.length > 0) && (
+                                                    {/* Actividades PME: solo las usadas en esta solicitud anterior */}
+                                                    {opcionesActividadHistorial.length > 0 && (
+                                                        <FiltroMultiSelectGenerico
+                                                            icono="🎯"
+                                                            tituloVacio="Todas las actividades PME"
+                                                            tituloPlural="actividades"
+                                                            seleccionados={filtroActividadesHistorial}
+                                                            onChange={setFiltroActividadesHistorial}
+                                                            opciones={opcionesActividadHistorial}
+                                                            placeholderBusqueda="Buscar actividad..."
+                                                            anchoMinimo="min-w-[300px]"
+                                                        />
+                                                    )}
+                                                    {(busquedaHistorial || filtroMotivosHistorial.length > 0 || filtroActividadesHistorial.length > 0) && (
                                                         <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500">
                                                             <span>{historialFiltrado.length} de {historialBase.length} ítems</span>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => { setBusquedaHistorial(''); setFiltroMotivosHistorial([]); }}
+                                                                onClick={() => { setBusquedaHistorial(''); setFiltroMotivosHistorial([]); setFiltroActividadesHistorial([]); }}
                                                                 className="text-red-600 hover:underline font-bold"
                                                             >
                                                                 Limpiar filtros
@@ -4638,6 +4684,7 @@ export default function AgregarRecursosPage() {
                                                         </div>
                                                     )}
                                                 </div>
+                                                )}
 
                                                 <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
                                                     {historialPagina
@@ -4673,9 +4720,15 @@ export default function AgregarRecursosPage() {
                                                                 </div>
                                                             </div>
                                                         ))}
-                                                    {historialFiltrado.length === 0 && (
+                                                    {historialFiltrado.length === 0 && !cargandoHistorial && (
                                                         <div className="p-8 text-center text-gray-400 italic text-sm">
-                                                            {historialBase.length === 0 ? 'No hay ítems aprobados disponibles' : 'Ningún ítem coincide con la búsqueda'}
+                                                            {!filtroSolicitudHistorial
+                                                                ? (solicitudesAnteriores.length > 0
+                                                                    ? 'Elige una solicitud anterior para ver sus ítems'
+                                                                    : 'No hay solicitudes anteriores con ítems aprobados')
+                                                                : historialBase.length === 0
+                                                                    ? 'Esta solicitud no tiene ítems aprobados disponibles'
+                                                                    : 'Ningún ítem coincide con la búsqueda'}
                                                         </div>
                                                     )}
                                                 </div>
@@ -7484,37 +7537,6 @@ export default function AgregarRecursosPage() {
                             </div>
                         </div>
 
-                        {/* Herramienta Asignación Rápida de Mes Masivo */}
-                        {modalDiagnosticoPendientes.sinMes > 0 && (
-                            <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2">
-                                <div className="flex items-center gap-2 text-xs font-extrabold text-blue-900">
-                                    <Calendar size={14} className="text-blue-600" />
-                                    <span>Asignar mes masivo a los {modalDiagnosticoPendientes.sinMes} insumos sin fecha:</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <select
-                                        value={mesMasivoSeleccionado}
-                                        onChange={(e) => setMesMasivoSeleccionado(e.target.value)}
-                                        className="flex-1 px-3 py-1.5 bg-white border border-blue-200 rounded-xl text-xs font-bold text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                    >
-                                        {MESES.map(m => (
-                                            <option key={m.value} value={m.value}>{m.label}</option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => aplicarMesMasivoAPendientes(mesMasivoSeleccionado)}
-                                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
-                                    >
-                                        Aplicar Mes
-                                    </button>
-                                </div>
-                                <p className="text-[11px] text-blue-800/80 font-medium">
-                                    Asigna este mes a todos los borradores para que solo tengas que completar la cantidad.
-                                </p>
-                            </div>
-                        )}
-
                         {/* Aviso explicativo */}
                         <div className="text-[12px] text-gray-600 bg-gray-50 border border-gray-200/70 p-3 rounded-2xl space-y-1">
                             <p className="font-semibold text-gray-800">¿Cómo resolverlo?</p>
@@ -7522,7 +7544,7 @@ export default function AgregarRecursosPage() {
                                 1. En la tabla de insumos, ingresa una <b>cantidad mayor a 0</b> en cada fila marcada en rojo.
                             </p>
                             <p>
-                                2. Asegúrate de que tengan un <b>mes asignado</b> (puedes usar el botón de arriba para asignarlo a todos de golpe).
+                                2. Asegúrate de que cada una tenga su <b>mes asignado</b>.
                             </p>
                         </div>
 

@@ -281,6 +281,7 @@ class BudgetRequestResponse(BaseModel):
     detalles: List[BudgetDetailResponse]
     # Solo en listados "resumen" (sin ítems): se calculan en el servidor
     n_items: Optional[int] = None
+    n_items_aprobados: Optional[int] = None
     monto_aprobado: Optional[float] = None
 
     class Config:
