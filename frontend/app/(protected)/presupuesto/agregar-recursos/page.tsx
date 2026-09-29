@@ -2603,34 +2603,12 @@ export default function AgregarRecursosPage() {
             // como SUGERIDO (PENDIENTE_APROBACION) y se obtiene su id_recurso real.
             let idRecursoFinal = data.id_recurso ?? undefined;
             if (data._esNuevo && !data.id_recurso) {
-                let idCatInicial = data._idCategoria;
-                let idGrpInicial = data._idGrupo;
+                const idCatInicial = data._idCategoria;
+                const idGrpInicial = data._idGrupo;
 
-                // Consultar a la IA solo si el usuario no eligió categoría o línea; lo que el
-                // usuario eligió manualmente nunca se sobrescribe. (Antes se consultaba siempre,
-                // lo que hacía lento el "Guardando…" y gastaba consultas de IA innecesarias.)
-                const faltaCategoria = !idCatInicial;
-                const faltaLinea = !idGrpInicial;
-                if (faltaCategoria || faltaLinea) {
-                    try {
-                        const proveedorOverride = localStorage.getItem('ai_provider_override');
-                        const aiRes = await api.post('/ai/asesorar-categoria', {
-                            nombre: data.nombre_producto,
-                            descripcion: data.descripcion,
-                            motivo: data.motivo,
-                            destino_gasto: data.destino_gasto,
-                            proveedor_override: proveedorOverride,
-                        });
-                        if (faltaCategoria && aiRes.data?.recomendaciones?.[0]?.id_cat_recurso) {
-                            idCatInicial = aiRes.data.recomendaciones[0].id_cat_recurso;
-                        }
-                        if (faltaLinea && aiRes.data?.grupo?.id_grupo_recurso) {
-                            idGrpInicial = aiRes.data.grupo.id_grupo_recurso;
-                        }
-                    } catch (aiErr) {
-                        console.warn("No se pudo obtener recomendación IA previa, se usará categoría por defecto:", aiErr);
-                    }
-                }
+                // Sin clasificación automática por IA: se usa la categoría y la línea que eligió el
+                // usuario (si no eligió, el recurso queda "Nuevo / Sugerido" sin categoría y el
+                // administrador lo clasifica al aprobarlo).
 
                 try {
                     const sugRes = await api.post('/presupuesto/recursos/sugerir', {
@@ -2918,45 +2896,8 @@ export default function AgregarRecursosPage() {
         guardandoTodosRef.current = true;
         setGuardandoTodos(true);
         try {
-            // 1. Identificar insumos completamente nuevos que NO tienen categoría asignada y requieren categorización por IA
-            const nuevosSinCategoria = itemsAProcesar.filter(({ rec }) => !rec.id_recurso && !(rec as any).id_cat_recurso && !(rec as any)._idCategoria);
-
-            if (nuevosSinCategoria.length > 0) {
-                setProgresoGuardado(`Clasificando ${nuevosSinCategoria.length} insumo(s) nuevo(s) con IA en lote…`);
-                try {
-                    const proveedorOverride = localStorage.getItem('ai_provider_override');
-
-                    // Dividir en bloques de 30 para respetar LOTE_CLASIFICACION_MAX
-                    const TAMANO_LOTE = 30;
-                    for (let i = 0; i < nuevosSinCategoria.length; i += TAMANO_LOTE) {
-                        const bloque = nuevosSinCategoria.slice(i, i + TAMANO_LOTE);
-                        const insumosPayload = bloque.map(({ rec }) => ({
-                            nombre: rec.nombre_producto,
-                            descripcion: rec.descripcion || rec.nombre_producto,
-                            motivo: rec.motivo || '',
-                            destino_gasto: (rec as any).destino_gasto || ''
-                        }));
-
-                        const aiRes = await api.post('/ai/clasificar-insumos-lote', {
-                            insumos: insumosPayload,
-                            proveedor_override: proveedorOverride
-                        });
-
-                        const clasificaciones = aiRes.data?.clasificaciones || [];
-                        bloque.forEach(({ rec, index }, bIdx) => {
-                            const clasif = clasificaciones[bIdx];
-                            if (clasif?.id_cat_recurso) {
-                                (rec as any)._idCategoria = clasif.id_cat_recurso;
-                            }
-                            if (clasif?.id_grupo_recurso) {
-                                (rec as any)._idGrupo = clasif.id_grupo_recurso;
-                            }
-                        });
-                    }
-                } catch (aiErr) {
-                    console.warn("No se pudo clasificar insumos en lote con IA, se usará flujo por defecto:", aiErr);
-                }
-            }
+            // 1. Sin clasificación automática por IA: los insumos nuevos se registran con la
+            //    categoría y línea que eligió el usuario (o sin ellas, para que las asigne el administrador).
 
             // 2. Resolver sugerencia de recursos nuevos mediante el endpoint masivo /recursos/sugerir-lote
             setProgresoGuardado(`Procesando insumos a registrar en catálogo…`);
@@ -2972,7 +2913,7 @@ export default function AgregarRecursosPage() {
                     nombre: rec.nombre_producto,
                     descripcion_solicitud: rec.descripcion || rec.nombre_producto,
                     formato: rec.formato_unidad || 'Unidad',
-                    id_cat_recurso: (rec as any).id_cat_recurso || (rec as any)._idCategoria || 1,
+                    id_cat_recurso: (rec as any).id_cat_recurso || (rec as any)._idCategoria || undefined,
                     id_grupo_recurso: (rec as any)._idGrupo || undefined
                 }));
 
@@ -3799,7 +3740,7 @@ export default function AgregarRecursosPage() {
                                                                 {(rec as any)._isClassifying && (
                                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[9px] font-bold animate-pulse border border-violet-100 shrink-0">
                                                                         <Loader2 size={10} className="animate-spin" />
-                                                                        Clasificando...
+                                                                        Guardando...
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -4875,7 +4816,7 @@ export default function AgregarRecursosPage() {
                                                                 {(rec as any)._isClassifying && (
                                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[9px] font-bold animate-pulse border border-violet-100 shrink-0">
                                                                         <Loader2 size={10} className="animate-spin" />
-                                                                        Clasificando...
+                                                                        Guardando...
                                                                     </span>
                                                                 )}
                                                             </div>
