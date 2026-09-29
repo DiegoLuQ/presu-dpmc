@@ -741,7 +741,6 @@ export default function AgregarRecursosPage() {
     const [subcatResuelta, setSubcatResuelta] = useState<{ codigo_cuenta: string; nombre: string } | null>(null);
     const [loadingSubcat, setLoadingSubcat] = useState(false);
     const [asesorandoCategoria, setAsesorandoCategoria] = useState(false);
-    const [clasificandoNuevo, setClasificandoNuevo] = useState(false);
     const [camposFaltantes, setCamposFaltantes] = useState<string[] | null>(null);
     const [asesoriaCategoria, setAsesoriaCategoria] = useState<{ recomendaciones: { id_cat_recurso: number; nombre: string; razon: string }[]; grupo: { id_grupo_recurso: number; nombre: string; razon: string } | null; proveedor: string; modelo: string } | null>(null);
     // ids sugeridos por IA para resaltar en verde mientras coincidan con lo seleccionado
@@ -1076,11 +1075,33 @@ export default function AgregarRecursosPage() {
             (form.id_recurso !== null && form.id_recurso !== undefined) ||
             (form.id_actividad !== null && form.id_actividad !== undefined) ||
             (form.destino_gasto && form.destino_gasto.trim() !== '') ||
-            (form.id_subvencion !== null && form.id_subvencion !== undefined) ||
+            // (id_subvencion y codigo_cuenta no cuentan: los completa la página automáticamente)
             (form.id_subarea !== null && form.id_subarea !== undefined) ||
             (form.id_grupo_recurso !== null && form.id_grupo_recurso !== undefined)
         );
     };
+
+    // Punto de partida del formulario (vacío, o los datos que "Guardar y agregar otro" arrastra al
+    // siguiente insumo). Solo hay borrador si el usuario cambió algo respecto de él.
+    const borradorBaseRef = useRef<string | null>(null);
+    const firmaBorrador = (form: typeof formularioRecurso) => JSON.stringify([
+        form.nombre_producto, form.descripcion, Number(form.valor_unitario_iva) || 0, Number(form.cantidad) || 0,
+        form.formato_unidad, form.id_recurso, form.motivo, form.id_actividad, form.destino_gasto,
+        form.id_grupo_recurso, form.id_subarea, form.mes_ejecucion, form.tipo_fecha,
+        form.fecha_ejecucion, form.fecha_termino, form.dimension_pme,
+    ]);
+    const esInsumoYaGuardado = (form: any, lista: any[]) => {
+        if (!form || form.id_pre_detalle) return false; // edición de un ítem existente: no es fantasma
+        const norm = (v: any) => String(v ?? '').trim().toLowerCase();
+        return lista.some(d =>
+            norm(d.nombre_producto) === norm(form.nombre_producto) &&
+            Number(d.cantidad) === Number(form.cantidad) &&
+            Number(d.valor_unitario_iva) === Number(form.valor_unitario_iva) &&
+            norm(d.motivo) === norm(form.motivo)
+        );
+    };
+    const hayBorrador = (form: typeof formularioRecurso) =>
+        tieneContenidoBorrador(form) && firmaBorrador(form) !== borradorBaseRef.current;
 
     // Aplica un motivo predeterminado y auto-asigna el grupo/línea sugerido si existe
     const aplicarMotivo = (motivoTexto: string) => {
@@ -1545,8 +1566,8 @@ export default function AgregarRecursosPage() {
     useEffect(() => {
         if (!panelHidratadoRef.current || !panelStorageKey) return;
         try {
-            // Guardar automáticamente cada vez que haya contenido en el formulario
-            if (tieneContenidoBorrador(formularioRecurso)) {
+            // Guardar automáticamente cada vez que el usuario haya ingresado algo nuevo
+            if (hayBorrador(formularioRecurso)) {
                 const payload = {
                     showRecursoModal: Boolean(showRecursoModal),
                     formularioRecurso,
@@ -1564,6 +1585,10 @@ export default function AgregarRecursosPage() {
                     timestamp: Date.now()
                 };
                 localStorage.setItem(panelStorageKey, JSON.stringify(payload));
+            } else {
+                // Sin datos nuevos (p. ej. tras "Añadir y Cerrar" o "Guardar y agregar otro"): no dejar
+                // un borrador viejo que luego se restauraría como si fuera un insumo pendiente
+                localStorage.removeItem(panelStorageKey);
             }
             // ¡CRÍTICO!: Cuando showRecursoModal pasa a false (el usuario cerró el modal o cambió de pestaña),
             // NUNCA se borra el borrador de localStorage. Queda preservado intacto hasta que se guarde o descarte.
@@ -1673,7 +1698,10 @@ export default function AgregarRecursosPage() {
                     const rawPanel = localStorage.getItem(panelStorageKey);
                     if (rawPanel) {
                         const data = JSON.parse(rawPanel);
-                        if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
+                        if (data && data.formularioRecurso && esInsumoYaGuardado(data.formularioRecurso, detalles)) {
+                            // Borrador de un insumo que ya se agregó (quedaba guardado por error): descartarlo
+                            localStorage.removeItem(panelStorageKey);
+                        } else if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
                             if (data.formularioRecurso) setFormularioRecurso(data.formularioRecurso);
                             if (typeof data.faseActual === 'number') setFaseActual(data.faseActual);
                             if (data.layoutModo) setLayoutModo(data.layoutModo);
@@ -2192,6 +2220,7 @@ export default function AgregarRecursosPage() {
                 console.error('Error al limpiar borrador:', e);
             }
         }
+        borradorBaseRef.current = null;
         setBorradorRestaurado(false);
         setFormularioRecurso({
             nombre_producto: '',
@@ -2236,7 +2265,9 @@ export default function AgregarRecursosPage() {
                 const rawPanel = localStorage.getItem(panelStorageKey);
                 if (rawPanel) {
                     const data = JSON.parse(rawPanel);
-                    if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
+                    if (data && data.formularioRecurso && esInsumoYaGuardado(data.formularioRecurso, recursosActual)) {
+                        localStorage.removeItem(panelStorageKey);
+                    } else if (data && data.formularioRecurso && tieneContenidoBorrador(data.formularioRecurso)) {
                         setFormularioRecurso(data.formularioRecurso);
                         if (typeof data.faseActual === 'number') setFaseActual(data.faseActual);
                         if (data.layoutModo) setLayoutModo(data.layoutModo);
@@ -2392,7 +2423,10 @@ export default function AgregarRecursosPage() {
         setRecursosActual(prev => [...prev, nuevoRecurso]);
         setShowRecursoModal(false);
 
-        // Al confirmar y guardar con éxito el insumo, limpiar el borrador en localStorage
+        // Al confirmar y guardar con éxito el insumo, limpiar el borrador en localStorage.
+        // El formulario conserva los datos hasta la próxima apertura; se marcan como punto de
+        // partida para que el guardado automático no los vuelva a guardar como borrador.
+        borradorBaseRef.current = firmaBorrador(formularioRecurso);
         if (panelStorageKey) {
             try { localStorage.removeItem(panelStorageKey); } catch {}
         }
@@ -2450,7 +2484,7 @@ export default function AgregarRecursosPage() {
         setToastAgregadoContinuo(`¡"${prodNombre}" guardado! Puedes ingresar el siguiente insumo con el mismo motivo.`);
         setTimeout(() => setToastAgregadoContinuo(null), 7000);
 
-        setFormularioRecurso({
+        const siguienteFormulario = {
             nombre_producto: '',
             descripcion: '',
             id_recurso: null,
@@ -2473,7 +2507,14 @@ export default function AgregarRecursosPage() {
             dimension_pme: dimensionActual,
             id_subarea: subareaActual,
             id_grupo_recurso: grupoActual
-        });
+        };
+        // Lo arrastrado al siguiente insumo es el nuevo punto de partida: no es un borrador
+        borradorBaseRef.current = firmaBorrador(siguienteFormulario as typeof formularioRecurso);
+        if (panelStorageKey) {
+            try { localStorage.removeItem(panelStorageKey); } catch {}
+        }
+        setBorradorRestaurado(false);
+        setFormularioRecurso(siguienteFormulario as typeof formularioRecurso);
 
         setFaseActual(0);
         setSearchRecurso('');
@@ -2521,6 +2562,7 @@ export default function AgregarRecursosPage() {
         }
 
         // Al confirmar y guardar con éxito el insumo editado, limpiar el borrador en localStorage
+        borradorBaseRef.current = firmaBorrador(formularioRecurso);
         if (panelStorageKey) {
             try { localStorage.removeItem(panelStorageKey); } catch {}
         }
@@ -2564,25 +2606,30 @@ export default function AgregarRecursosPage() {
                 let idCatInicial = data._idCategoria;
                 let idGrpInicial = data._idGrupo;
 
-                // Si la categoría no fue seleccionada manualmente o es fallback (null/undefined),
-                // consultar a la IA sincrónicamente antes de registrar la sugerencia en la BD.
-                try {
-                    const proveedorOverride = localStorage.getItem('ai_provider_override');
-                    const aiRes = await api.post('/ai/asesorar-categoria', {
-                        nombre: data.nombre_producto,
-                        descripcion: data.descripcion,
-                        motivo: data.motivo,
-                        destino_gasto: data.destino_gasto,
-                        proveedor_override: proveedorOverride,
-                    });
-                    if (aiRes.data?.recomendaciones?.[0]?.id_cat_recurso) {
-                        idCatInicial = aiRes.data.recomendaciones[0].id_cat_recurso;
+                // Consultar a la IA solo si el usuario no eligió categoría o línea; lo que el
+                // usuario eligió manualmente nunca se sobrescribe. (Antes se consultaba siempre,
+                // lo que hacía lento el "Guardando…" y gastaba consultas de IA innecesarias.)
+                const faltaCategoria = !idCatInicial;
+                const faltaLinea = !idGrpInicial;
+                if (faltaCategoria || faltaLinea) {
+                    try {
+                        const proveedorOverride = localStorage.getItem('ai_provider_override');
+                        const aiRes = await api.post('/ai/asesorar-categoria', {
+                            nombre: data.nombre_producto,
+                            descripcion: data.descripcion,
+                            motivo: data.motivo,
+                            destino_gasto: data.destino_gasto,
+                            proveedor_override: proveedorOverride,
+                        });
+                        if (faltaCategoria && aiRes.data?.recomendaciones?.[0]?.id_cat_recurso) {
+                            idCatInicial = aiRes.data.recomendaciones[0].id_cat_recurso;
+                        }
+                        if (faltaLinea && aiRes.data?.grupo?.id_grupo_recurso) {
+                            idGrpInicial = aiRes.data.grupo.id_grupo_recurso;
+                        }
+                    } catch (aiErr) {
+                        console.warn("No se pudo obtener recomendación IA previa, se usará categoría por defecto:", aiErr);
                     }
-                    if (aiRes.data?.grupo?.id_grupo_recurso) {
-                        idGrpInicial = aiRes.data.grupo.id_grupo_recurso;
-                    }
-                } catch (aiErr) {
-                    console.warn("No se pudo obtener recomendación IA previa, se usará categoría por defecto:", aiErr);
                 }
 
                 try {
@@ -5164,7 +5211,7 @@ export default function AgregarRecursosPage() {
                             </div>
 
                             {/* Banner informativo de persistencia automática en localStorage */}
-                            {tieneContenidoBorrador(formularioRecurso) && (
+                            {hayBorrador(formularioRecurso) && (
                                 <div className="mt-3 px-3.5 py-1.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl flex items-center justify-between text-[11px] text-emerald-900 animate-in fade-in duration-200">
                                     <span className="flex items-center gap-1.5 font-medium">
                                         <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -6930,7 +6977,7 @@ export default function AgregarRecursosPage() {
                                 >
                                     Cerrar
                                 </button>
-                                {tieneContenidoBorrador(formularioRecurso) && (
+                                {hayBorrador(formularioRecurso) && (
                                     <button
                                         type="button"
                                         onClick={limpiarFormularioRecurso}
@@ -6972,7 +7019,7 @@ export default function AgregarRecursosPage() {
                                         {!isEditando && (
                                             <button
                                                 type="button"
-                                                disabled={loadingSubcat || clasificandoNuevo}
+                                                disabled={loadingSubcat}
                                                 onClick={() => {
                                                     const faltan = getCamposFaltantes();
                                                     if (faltan.length > 0) { setCamposFaltantes(faltan); return; }
@@ -6987,7 +7034,7 @@ export default function AgregarRecursosPage() {
                                         )}
                                         <button
                                             type="button"
-                                            disabled={loadingSubcat || clasificandoNuevo}
+                                            disabled={loadingSubcat}
                                             onClick={() => {
                                                 const faltan = getCamposFaltantes();
                                                 if (faltan.length > 0) { setCamposFaltantes(faltan); return; }
@@ -6995,8 +7042,8 @@ export default function AgregarRecursosPage() {
                                             }}
                                             className="px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:brightness-105 active:scale-[0.98] transition-all text-[13px] flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
                                         >
-                                            {(loadingSubcat || clasificandoNuevo) ? <Loader2 size={16} className="animate-spin" /> : (isEditando ? <Check size={16} strokeWidth={2.5} /> : <Check size={16} strokeWidth={2.5} />)}
-                                            {clasificandoNuevo ? 'Clasificando con IA...' : (isEditando ? 'Actualizar' : 'Añadir y Cerrar')}
+                                            {loadingSubcat ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
+                                            {isEditando ? 'Actualizar' : 'Añadir y Cerrar'}
                                         </button>
                                     </>
                                 )}

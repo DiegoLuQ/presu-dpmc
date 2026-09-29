@@ -9,8 +9,9 @@ import {
     Search, TrendingDown, DollarSign, FileText, CheckCircle, Clock, 
     Loader2, Check, Download, Eye, AlertTriangle, RotateCcw, Info, 
     Trash2, Send, ListFilter, Layers, Package, ExternalLink, XCircle, Tag, Calendar, Edit3, X, MessageSquare, AlertCircle,
-    ChevronDown, ChevronUp
+    ChevronDown, ChevronUp, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Save
 } from 'lucide-react';
+import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import { primeraRutaAccesible } from '@/lib/permissions/registry';
 import ComprasFilters from '@/components/go-compras/ComprasFilters';
@@ -30,6 +31,169 @@ const MESES = [
     { value: '11', label: 'Noviembre' },
     { value: '12', label: 'Diciembre' },
 ];
+
+// ── Orden de tablas ─────────────────────────────────────────────────────────
+type SortDir = 'asc' | 'desc';
+interface SortState { key: string; dir: SortDir }
+
+// Clic en encabezado: sin orden → ascendente → descendente → sin orden
+const siguienteOrden = (actual: SortState | null, key: string): SortState | null => {
+    if (!actual || actual.key !== key) return { key, dir: 'asc' };
+    if (actual.dir === 'asc') return { key, dir: 'desc' };
+    return null;
+};
+
+// Ordena sin mutar; los valores vacíos van siempre al final
+function ordenarPor<T>(lista: T[], sort: SortState | null, valor: (x: T, key: string) => string | number | null | undefined): T[] {
+    if (!sort) return lista;
+    const f = sort.dir === 'asc' ? 1 : -1;
+    return [...lista].sort((a, b) => {
+        const va = valor(a, sort.key);
+        const vb = valor(b, sort.key);
+        const aVacio = va === null || va === undefined || va === '';
+        const bVacio = vb === null || vb === undefined || vb === '';
+        if (aVacio && bVacio) return 0;
+        if (aVacio) return 1;
+        if (bVacio) return -1;
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * f;
+        return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base', numeric: true }) * f;
+    });
+}
+
+function SortableTh({ label, sortKey, sort, onSort, numerico = false, className = '' }: {
+    label: React.ReactNode;
+    sortKey: string;
+    sort: SortState | null;
+    onSort: (key: string) => void;
+    numerico?: boolean;
+    className?: string;
+}) {
+    const activo = sort?.key === sortKey;
+    const Icono = !activo ? ArrowUpDown : sort!.dir === 'asc' ? ArrowUp : ArrowDown;
+    const modo = numerico ? 'menor a mayor / mayor a menor' : 'A–Z / Z–A';
+    return (
+        <th scope="col" className={className} aria-sort={activo ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+            <button
+                type="button"
+                onClick={() => onSort(sortKey)}
+                className={`inline-flex items-center gap-1 uppercase font-bold tracking-wider hover:text-gray-800 transition-colors cursor-pointer ${activo ? 'text-primary' : ''}`}
+                title={`Ordenar (${modo})`}
+            >
+                {label}
+                <Icono size={12} className={activo ? 'text-primary' : 'text-gray-300'} />
+            </button>
+        </th>
+    );
+}
+
+// ── Columnas configurables ──────────────────────────────────────────────────
+interface ColumnaDef { key: string; label: string }
+
+const COLS_SOLICITUDES: ColumnaDef[] = [
+    { key: 'solicitud', label: 'Solicitud / Colegio' },
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'usuario', label: 'Usuario' },
+    { key: 'area', label: 'Área' },
+    { key: 'recursos', label: 'Recursos' },
+    { key: 'monto_total', label: 'Monto Total' },
+    { key: 'monto_aprobado', label: 'Monto Aprobado' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
+];
+const COLS_RECURSOS: ColumnaDef[] = [
+    { key: 'producto', label: 'Producto' },
+    { key: 'area', label: 'Área / Solicitante' },
+    { key: 'valores', label: 'Cant. / Valores' },
+    { key: 'mes', label: 'Mes y Justificación' },
+    { key: 'linea', label: 'Línea' },
+    { key: 'subvencion', label: 'Subvención' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
+];
+const COLS_STORAGE = { solicitudes: 'solicitudes-cols-solicitudes', recursos: 'solicitudes-cols-recursos' };
+
+const colsPorDefecto = (defs: ColumnaDef[]) => Object.fromEntries(defs.map(c => [c.key, true])) as Record<string, boolean>;
+
+const leerColumnasGuardadas = (clave: string, defs: ColumnaDef[]): Record<string, boolean> => {
+    try {
+        const raw = localStorage.getItem(clave);
+        if (raw) return { ...colsPorDefecto(defs), ...JSON.parse(raw) };
+    } catch { /* sin localStorage o JSON inválido */ }
+    return colsPorDefecto(defs);
+};
+
+// Botón "Columnas": mostrar/ocultar columnas y guardar la configuración en este navegador
+function ConfigColumnas({ defs, visibles, onChange, storageKey }: {
+    defs: ColumnaDef[];
+    visibles: Record<string, boolean>;
+    onChange: (v: Record<string, boolean>) => void;
+    storageKey: string;
+}) {
+    const [abierto, setAbierto] = useState(false);
+    const [guardado, setGuardado] = useState(false);
+    const guardar = () => {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(visibles));
+            setGuardado(true);
+            setTimeout(() => setGuardado(false), 1800);
+        } catch { /* ignorar */ }
+    };
+    const restablecer = () => {
+        onChange(colsPorDefecto(defs));
+        try { localStorage.removeItem(storageKey); } catch { /* ignorar */ }
+    };
+    const ocultas = defs.filter(c => !visibles[c.key]).length;
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setAbierto(a => !a)}
+                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
+                title="Mostrar u ocultar columnas"
+            >
+                <SlidersHorizontal size={14} /> Columnas
+                {ocultas > 0 && <span className="px-1.5 rounded-md bg-primary/10 text-primary text-[10px] font-black">{ocultas} ocultas</span>}
+            </button>
+            {abierto && (
+                <>
+                    <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
+                    <div className="absolute right-0 mt-1.5 z-40 w-60 bg-white border border-gray-200 rounded-xl shadow-xl p-2">
+                        <div className="max-h-72 overflow-y-auto">
+                            {defs.map(c => (
+                                <label key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs font-semibold text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={visibles[c.key] !== false}
+                                        onChange={() => onChange({ ...visibles, [c.key]: visibles[c.key] === false })}
+                                        className="w-4 h-4 rounded text-primary focus:ring-primary border-gray-300"
+                                    />
+                                    {c.label}
+                                </label>
+                            ))}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                onClick={guardar}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 cursor-pointer"
+                            >
+                                {guardado ? <><Check size={13} /> Guardado</> : <><Save size={13} /> Guardar configuración</>}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={restablecer}
+                                className="px-2.5 py-2 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 cursor-pointer"
+                                title="Mostrar todas las columnas y borrar la configuración guardada"
+                            >
+                                Restablecer
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
 
 interface FlatItem {
     id_presupuesto: number;
@@ -55,6 +219,7 @@ interface FlatItem {
     actividad_nombre?: string;
     id_subvencion?: number;
     subvencion_nombre?: string;
+    grupo_nombre?: string;
     estado_aprobacion: string;
     comentario_revision?: string;
     cargo_detalle?: string;
@@ -95,10 +260,21 @@ export default function SolicitudesPage() {
     const [filtroTexto, setFiltroTexto] = useState('');
     const [filtroEstadoRecursos, setFiltroEstadoRecursos] = useState<'todos' | 'Sin Revisar' | 'Aprobado' | 'Rechazado' | 'Pendiente' | 'Con Ajustes' | 'Aprobado con Ajustes'>('todos');
     const [filtroSubvencionRecursos, setFiltroSubvencionRecursos] = useState<string>('todos');
-    const [filtroArea, setFiltroArea] = useState<string>('todos');
+    // Filtros múltiples compartidos por ambas vistas (vacío = todos)
+    const [filtroAreas, setFiltroAreas] = useState<string[]>([]);
+    const [filtroLineas, setFiltroLineas] = useState<string[]>([]);
     const [filtroCategoria, setFiltroCategoria] = useState<string>('todos');
     const [filtroActividad, setFiltroActividad] = useState<string>('todos');
-    const [filtroMes, setFiltroMes] = useState<string>('todos');
+    const [filtroMeses, setFiltroMeses] = useState<string[]>([]);
+    // Orden de cada tabla y columnas visibles (guardables en este navegador)
+    const [sortSol, setSortSol] = useState<SortState | null>(null);
+    const [sortRec, setSortRec] = useState<SortState | null>(null);
+    const [colsSol, setColsSol] = useState<Record<string, boolean>>(() => colsPorDefecto(COLS_SOLICITUDES));
+    const [colsRec, setColsRec] = useState<Record<string, boolean>>(() => colsPorDefecto(COLS_RECURSOS));
+    useEffect(() => {
+        setColsSol(leerColumnasGuardadas(COLS_STORAGE.solicitudes, COLS_SOLICITUDES));
+        setColsRec(leerColumnasGuardadas(COLS_STORAGE.recursos, COLS_RECURSOS));
+    }, []);
     const [paginaItems, setPaginaItems] = useState(1);
     const [pageSizeRecursos, setPageSizeRecursos] = useState<number>(50);
     const [paginaSolicitudes, setPaginaSolicitudes] = useState(1);
@@ -437,6 +613,7 @@ export default function SolicitudesPage() {
                     actividad_nombre: d.actividad_nombre,
                     id_subvencion: d.id_subvencion,
                     subvencion_nombre: (d as any).subvencion_nombre || (d as any).subvencion?.nombre_corto || '',
+                    grupo_nombre: (d as any).grupo_nombre || '',
                     estado_aprobacion: d.estado_aprobacion || 'Sin Revisar',
                     comentario_revision: d.comentario_revision || undefined,
                     cargo_detalle: d.cargo_nombre || d.subarea_nombre || undefined,
@@ -484,6 +661,21 @@ export default function SolicitudesPage() {
             if (d.area_nombre && d.area_nombre.trim()) set.add(d.area_nombre.trim());
         });
         return Array.from(set).sort();
+    }, [allFlatItems]);
+
+    const opcionesLineas = useMemo(() => {
+        const set = new Set<string>();
+        allFlatItems.forEach(d => {
+            if (d.grupo_nombre && d.grupo_nombre.trim()) set.add(d.grupo_nombre.trim());
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+    }, [allFlatItems]);
+
+    // Conteo de ítems por valor, para mostrarlo en los selectores múltiples
+    const contarPor = useCallback((fn: (d: FlatItem) => string) => {
+        const m: Record<string, number> = {};
+        allFlatItems.forEach(d => { const k = fn(d); if (k) m[k] = (m[k] || 0) + 1; });
+        return m;
     }, [allFlatItems]);
 
     const opcionesCategorias = useMemo(() => {
@@ -557,9 +749,16 @@ export default function SolicitudesPage() {
                 return subNom.toLowerCase().trim() === filtroSubvencionSolicitudes.toLowerCase().trim();
             });
 
-            return matchesSearch && matchesEstado && matchesSubvencion;
+            const matchesArea = filtroAreas.length === 0 || filtroAreas.includes((req.area_nombre || '').trim());
+            // Mes y línea son de cada ítem: la solicitud entra si tiene al menos un ítem que cumpla ambos
+            const matchesItems = (filtroMeses.length === 0 && filtroLineas.length === 0) || (req.detalles || []).some(d =>
+                (filtroMeses.length === 0 || filtroMeses.includes(labelFecha(d.fecha_ejecucion, d.tipo_fecha))) &&
+                (filtroLineas.length === 0 || filtroLineas.includes(((d as any).grupo_nombre || '').trim()))
+            );
+
+            return matchesSearch && matchesEstado && matchesSubvencion && matchesArea && matchesItems;
         });
-    }, [solicitudes, searchTerm, filterEstado, filtroSubvencionSolicitudes]);
+    }, [solicitudes, searchTerm, filterEstado, filtroSubvencionSolicitudes, filtroAreas, filtroMeses, filtroLineas]);
 
     // Filtros para vista consolidada de recursos (idéntico a [id]/page.tsx)
     const itemsBaseRecursos = useMemo(() => {
@@ -576,15 +775,16 @@ export default function SolicitudesPage() {
                 || (item.user_nombre || '').toLowerCase().includes(q)
                 || (item.subarea_nombre || '').toLowerCase().includes(q);
 
-            const matchArea = filtroArea === 'todos' || (item.area_nombre || '').trim() === filtroArea;
+            const matchArea = filtroAreas.length === 0 || filtroAreas.includes((item.area_nombre || '').trim());
+            const matchLinea = filtroLineas.length === 0 || filtroLineas.includes((item.grupo_nombre || '').trim());
             const matchCategoria = filtroCategoria === 'todos' || (item.categoria_nombre || '').trim() === filtroCategoria;
             const matchActividad = filtroActividad === 'todos' || (item.actividad_nombre || '').trim() === filtroActividad;
-            const matchMes = filtroMes === 'todos' || labelFecha(item.fecha_ejecucion, item.tipo_fecha) === filtroMes;
+            const matchMes = filtroMeses.length === 0 || filtroMeses.includes(labelFecha(item.fecha_ejecucion, item.tipo_fecha));
             const matchSubvencion = filtroSubvencionRecursos === 'todos' || (item.subvencion_nombre || 'GENERAL').toLowerCase().trim() === filtroSubvencionRecursos.toLowerCase().trim();
 
-            return matchTexto && matchArea && matchCategoria && matchActividad && matchMes && matchSubvencion;
+            return matchTexto && matchArea && matchLinea && matchCategoria && matchActividad && matchMes && matchSubvencion;
         });
-    }, [allFlatItems, filtroTexto, filtroArea, filtroCategoria, filtroActividad, filtroMes, filtroSubvencionRecursos]);
+    }, [allFlatItems, filtroTexto, filtroAreas, filtroLineas, filtroCategoria, filtroActividad, filtroMeses, filtroSubvencionRecursos]);
 
     const filteredItems = useMemo(() => {
         return itemsBaseRecursos.filter(item => {
@@ -603,8 +803,10 @@ export default function SolicitudesPage() {
         if (filtroSubvencionSolicitudes !== 'todos') {
             items = items.filter(item => (item.subvencion_nombre || 'GENERAL').toLowerCase().trim() === filtroSubvencionSolicitudes.toLowerCase().trim());
         }
+        if (filtroMeses.length > 0) items = items.filter(item => filtroMeses.includes(labelFecha(item.fecha_ejecucion, item.tipo_fecha)));
+        if (filtroLineas.length > 0) items = items.filter(item => filtroLineas.includes((item.grupo_nombre || '').trim()));
         return items;
-    }, [vistaModo, filteredItems, filteredSolicitudes, allFlatItems, filtroSubvencionSolicitudes]);
+    }, [vistaModo, filteredItems, filteredSolicitudes, allFlatItems, filtroSubvencionSolicitudes, filtroMeses, filtroLineas]);
 
     // Solicitudes únicas presentes en las métricas filtradas
     const countSolicitudesMetricas = useMemo(() => {
@@ -673,16 +875,60 @@ export default function SolicitudesPage() {
         };
     }, [itemsBaseRecursos]);
 
-    const filtroActivoRecursos = filtroTexto.trim() !== '' || filtroEstadoRecursos !== 'todos' || filtroSubvencionRecursos !== 'todos' || filtroArea !== 'todos' || filtroCategoria !== 'todos' || filtroActividad !== 'todos' || filtroMes !== 'todos';
-    const filtroActivoSolicitudes = searchTerm.trim() !== '' || filterEstado !== 'todos' || filtroSubvencionSolicitudes !== 'todos';
+    const filtrosMultiplesActivos = filtroAreas.length > 0 || filtroMeses.length > 0 || filtroLineas.length > 0;
+    const filtroActivoRecursos = filtroTexto.trim() !== '' || filtroEstadoRecursos !== 'todos' || filtroSubvencionRecursos !== 'todos' || filtroCategoria !== 'todos' || filtroActividad !== 'todos' || filtrosMultiplesActivos;
+    const filtroActivoSolicitudes = searchTerm.trim() !== '' || filterEstado !== 'todos' || filtroSubvencionSolicitudes !== 'todos' || filtrosMultiplesActivos;
+    const limpiarFiltrosMultiples = () => { setFiltroAreas([]); setFiltroMeses([]); setFiltroLineas([]); };
+
+    // ── Orden (se aplica antes de paginar) ──
+    const montoAprobadoSol = (req: BudgetRequest) => (req.detalles || []).reduce((acc, d) =>
+        d.estado_aprobacion === 'Aprobado' ? acc + (d.total_iva || (d.cantidad * d.valor_unitario_iva)) : acc, 0);
+    const valorOrdenSol = (req: BudgetRequest, key: string): string | number | null | undefined => {
+        switch (key) {
+            case 'solicitud': return req.id_presupuesto;
+            case 'fecha': return req.fecha ? new Date(req.fecha).getTime() : null;
+            case 'usuario': return req.user_nombre;
+            case 'area': return req.area_nombre;
+            case 'recursos': return req.detalles?.length || 0;
+            case 'monto_total': return req.monto_total || 0;
+            case 'monto_aprobado': return montoAprobadoSol(req);
+            case 'estado': return req.estado;
+            default: return null;
+        }
+    };
+    const valorOrdenRec = (item: FlatItem, key: string): string | number | null | undefined => {
+        switch (key) {
+            case 'producto': return item.nombre_producto;
+            case 'area': return item.area_nombre;
+            case 'valores': return item.total_iva || 0;
+            case 'mes': {
+                const mes = item.fecha_ejecucion ? parseInt(item.fecha_ejecucion.split('-')[1], 10) : NaN;
+                return isNaN(mes) ? null : mes;
+            }
+            case 'linea': return item.grupo_nombre;
+            case 'subvencion': return item.subvencion_nombre || 'GENERAL';
+            case 'estado': return estadoNormal(item);
+            default: return null;
+        }
+    };
+    const solicitudesOrdenadas = useMemo(() => ordenarPor(filteredSolicitudes, sortSol, valorOrdenSol),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [filteredSolicitudes, sortSol]);
+    const itemsOrdenados = useMemo(() => ordenarPor(filteredItems, sortRec, valorOrdenRec),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [filteredItems, sortRec]);
+    const ordenarSol = (key: string) => setSortSol(prev => siguienteOrden(prev, key));
+    const ordenarRec = (key: string) => setSortRec(prev => siguienteOrden(prev, key));
+    const numColsSol = COLS_SOLICITUDES.filter(c => colsSol[c.key] !== false).length || 1;
+    const numColsRec = 1 + COLS_RECURSOS.filter(c => colsRec[c.key] !== false && (c.key !== 'acciones' || canApprove)).length;
 
     // Resetear paginación de solicitudes al filtrar o cambiar tamaño
     useEffect(() => {
         setPaginaSolicitudes(1);
-    }, [searchTerm, filterEstado, filtroSubvencionSolicitudes, selectedColegio, selectedYear, pageSizeSolicitudes]);
+    }, [searchTerm, filterEstado, filtroSubvencionSolicitudes, filtroAreas, filtroMeses, filtroLineas, sortSol, selectedColegio, selectedYear, pageSizeSolicitudes]);
 
     const totalPaginasSolicitudes = Math.ceil(filteredSolicitudes.length / pageSizeSolicitudes) || 1;
-    const solicitudesPaginadas = filteredSolicitudes.slice(
+    const solicitudesPaginadas = solicitudesOrdenadas.slice(
         (paginaSolicitudes - 1) * pageSizeSolicitudes,
         paginaSolicitudes * pageSizeSolicitudes
     );
@@ -690,10 +936,10 @@ export default function SolicitudesPage() {
     // Resetear paginación de ítems al filtrar o cambiar tamaño
     useEffect(() => {
         setPaginaItems(1);
-    }, [filtroTexto, filtroEstadoRecursos, filtroSubvencionRecursos, filtroArea, filtroCategoria, filtroActividad, filtroMes, vistaModo, pageSizeRecursos]);
+    }, [filtroTexto, filtroEstadoRecursos, filtroSubvencionRecursos, filtroAreas, filtroLineas, filtroCategoria, filtroActividad, filtroMeses, sortRec, vistaModo, pageSizeRecursos]);
 
     const totalPaginasItems = Math.ceil(filteredItems.length / pageSizeRecursos) || 1;
-    const itemsPaginados = filteredItems.slice(
+    const itemsPaginados = itemsOrdenados.slice(
         (paginaItems - 1) * pageSizeRecursos,
         paginaItems * pageSizeRecursos
     );
@@ -899,6 +1145,47 @@ export default function SolicitudesPage() {
                                 ))}
                             </select>
 
+                            {/* Filtros múltiples: Mes, Área y Línea (compartidos por ambas vistas) */}
+                            <FiltroMultiSelectGenerico
+                                icono="📅"
+                                tituloVacio="Todos los meses"
+                                tituloPlural="meses"
+                                seleccionados={filtroMeses}
+                                onChange={setFiltroMeses}
+                                opciones={(() => { const c = contarPor(d => labelFecha(d.fecha_ejecucion, d.tipo_fecha)); return opcionesMeses.map(m => ({ valor: m, label: m, count: c[m] || 0 })); })()}
+                                placeholderBusqueda="Buscar mes..."
+                                anchoMinimo="min-w-[220px]"
+                            />
+                            <FiltroMultiSelectGenerico
+                                icono="🏢"
+                                tituloVacio="Todas las áreas"
+                                tituloPlural="áreas"
+                                seleccionados={filtroAreas}
+                                onChange={setFiltroAreas}
+                                opciones={(() => { const c = contarPor(d => (d.area_nombre || '').trim()); return opcionesAreas.map(a => ({ valor: a, label: a, count: c[a] || 0 })); })()}
+                                placeholderBusqueda="Buscar área..."
+                                anchoMinimo="min-w-[240px]"
+                            />
+                            {opcionesLineas.length > 0 && (
+                                <FiltroMultiSelectGenerico
+                                    icono="🏷️"
+                                    tituloVacio="Todas las líneas"
+                                    tituloPlural="líneas"
+                                    seleccionados={filtroLineas}
+                                    onChange={setFiltroLineas}
+                                    opciones={(() => { const c = contarPor(d => (d.grupo_nombre || '').trim()); return opcionesLineas.map(l => ({ valor: l, label: l, count: c[l] || 0 })); })()}
+                                    placeholderBusqueda="Buscar línea..."
+                                    anchoMinimo="min-w-[260px]"
+                                />
+                            )}
+
+                            <ConfigColumnas
+                                defs={COLS_SOLICITUDES}
+                                visibles={colsSol}
+                                onChange={setColsSol}
+                                storageKey={COLS_STORAGE.solicitudes}
+                            />
+
                             {/* Limpiar filtros en modo solicitudes */}
                             {filtroActivoSolicitudes && (
                                 <button
@@ -906,6 +1193,7 @@ export default function SolicitudesPage() {
                                         setSearchTerm('');
                                         setFilterEstado('todos');
                                         setFiltroSubvencionSolicitudes('todos');
+                                        limpiarFiltrosMultiples();
                                     }}
                                     className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
                                     title="Restablecer filtros de solicitudes"
@@ -1109,39 +1397,25 @@ export default function SolicitudesPage() {
                         <table className="min-w-full divide-y divide-gray-100">
                             <thead className="bg-gray-50/50">
                                 <tr>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Solicitud / Colegio
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Fecha
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Usuario
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Área
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Recursos
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Monto Total
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Monto Aprobado
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Estado
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                        Acciones
-                                    </th>
+                                    {colsSol.solicitud && <SortableTh label="Solicitud / Colegio" sortKey="solicitud" sort={sortSol} onSort={ordenarSol} numerico className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.fecha && <SortableTh label="Fecha" sortKey="fecha" sort={sortSol} onSort={ordenarSol} numerico className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.usuario && <SortableTh label="Usuario" sortKey="usuario" sort={sortSol} onSort={ordenarSol} className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.area && <SortableTh label="Área" sortKey="area" sort={sortSol} onSort={ordenarSol} className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.recursos && <SortableTh label="Recursos" sortKey="recursos" sort={sortSol} onSort={ordenarSol} numerico className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.monto_total && <SortableTh label="Monto Total" sortKey="monto_total" sort={sortSol} onSort={ordenarSol} numerico className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.monto_aprobado && <SortableTh label="Monto Aprobado" sortKey="monto_aprobado" sort={sortSol} onSort={ordenarSol} numerico className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.estado && <SortableTh label="Estado" sortKey="estado" sort={sortSol} onSort={ordenarSol} className="px-6 py-4 text-left text-xs text-gray-500" />}
+                                    {colsSol.acciones && (
+                                        <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                            Acciones
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center text-gray-400">
+                                        <td colSpan={numColsSol} className="px-6 py-12 text-center text-gray-400">
                                             <div className="flex flex-col items-center gap-2">
                                                 <Loader2 className="animate-spin" size={24} />
                                                 <span>Cargando solicitudes...</span>
@@ -1150,7 +1424,7 @@ export default function SolicitudesPage() {
                                     </tr>
                                 ) : filteredSolicitudes.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="px-6 py-12 text-center text-gray-400">
+                                        <td colSpan={numColsSol} className="px-6 py-12 text-center text-gray-400">
                                             No se encontraron solicitudes
                                         </td>
                                     </tr>
@@ -1167,6 +1441,7 @@ export default function SolicitudesPage() {
 
                                     return (
                                         <tr key={req.id_presupuesto} className="hover:bg-gray-50/60 transition-colors">
+                                            {colsSol.solicitud && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-bold text-sm text-gray-900">
                                                     REQ-{new Date(req.fecha).getFullYear()}-{req.id_presupuesto.toString().padStart(3, '0')}
@@ -1185,37 +1460,53 @@ export default function SolicitudesPage() {
                                                     )}
                                                 </div>
                                             </td>
+                                            )}
+                                            {colsSol.fecha && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-700">
                                                     {new Date(req.fecha).toLocaleDateString('es-CL')}
                                                 </div>
                                             </td>
+                                            )}
+                                            {colsSol.usuario && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-semibold text-gray-900">{req.user_nombre || 'N/A'}</div>
                                             </td>
+                                            )}
+                                            {colsSol.area && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-700">{req.area_nombre || 'N/A'}</div>
                                                 {req.subarea_nombre && (
                                                     <div className="text-xs text-primary font-medium">{req.subarea_nombre}</div>
                                                 )}
                                             </td>
+                                            )}
+                                            {colsSol.recursos && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                                     {req.detalles?.length || 0} items
                                                 </span>
                                             </td>
+                                            )}
+                                            {colsSol.monto_total && (
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                                                 {formatCLP(req.monto_total)}
                                             </td>
+                                            )}
+                                            {colsSol.monto_aprobado && (
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
                                                 {formatCLP(montoAprobado)}
                                             </td>
+                                            )}
+                                            {colsSol.estado && (
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${style.bgColor} ${style.txColor}`}>
                                                     <StatusIcon size={14} className={style.iconColor} />
                                                     {style.label || req.estado}
                                                 </span>
                                             </td>
+                                            )}
+                                            {colsSol.acciones && (
                                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                                 <div className="flex items-center justify-center gap-1.5">
                                                     <Link
@@ -1287,6 +1578,7 @@ export default function SolicitudesPage() {
                                                     )}
                                                 </div>
                                             </td>
+                                            )}
                                         </tr>
                                     );
                                 })}
@@ -1384,17 +1676,6 @@ export default function SolicitudesPage() {
                                     <option value="Rechazado">Rechazado ({conteosPorEstadoRecursos.Rechazado})</option>
                                 </select>
 
-                                {/* Filtro por Área Solicitante */}
-                                <select
-                                    value={filtroArea}
-                                    onChange={(e) => setFiltroArea(e.target.value)}
-                                    className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-2xs max-w-[200px] truncate cursor-pointer"
-                                >
-                                    <option value="todos">Todas las Áreas</option>
-                                    {opcionesAreas.map(area => (
-                                        <option key={area} value={area}>{area}</option>
-                                    ))}
-                                </select>
 
                                 {/* Filtro por Actividad PME */}
                                 {opcionesActividades.length > 0 && (
@@ -1436,17 +1717,47 @@ export default function SolicitudesPage() {
                                     ))}
                                 </select>
 
-                                {/* Filtro por Mes / Fecha */}
-                                <select
-                                    value={filtroMes}
-                                    onChange={(e) => setFiltroMes(e.target.value)}
-                                    className="px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-2xs cursor-pointer"
-                                >
-                                    <option value="todos">Todos los Meses / Fechas</option>
-                                    {opcionesMeses.map(mes => (
-                                        <option key={mes} value={mes}>{mes}</option>
-                                    ))}
-                                </select>
+
+                                {/* Filtros múltiples: Mes, Área y Línea (compartidos por ambas vistas) */}
+                                <FiltroMultiSelectGenerico
+                                    icono="📅"
+                                    tituloVacio="Todos los meses"
+                                    tituloPlural="meses"
+                                    seleccionados={filtroMeses}
+                                    onChange={setFiltroMeses}
+                                    opciones={(() => { const c = contarPor(d => labelFecha(d.fecha_ejecucion, d.tipo_fecha)); return opcionesMeses.map(m => ({ valor: m, label: m, count: c[m] || 0 })); })()}
+                                    placeholderBusqueda="Buscar mes..."
+                                    anchoMinimo="min-w-[220px]"
+                                />
+                                <FiltroMultiSelectGenerico
+                                    icono="🏢"
+                                    tituloVacio="Todas las áreas"
+                                    tituloPlural="áreas"
+                                    seleccionados={filtroAreas}
+                                    onChange={setFiltroAreas}
+                                    opciones={(() => { const c = contarPor(d => (d.area_nombre || '').trim()); return opcionesAreas.map(a => ({ valor: a, label: a, count: c[a] || 0 })); })()}
+                                    placeholderBusqueda="Buscar área..."
+                                    anchoMinimo="min-w-[240px]"
+                                />
+                                {opcionesLineas.length > 0 && (
+                                    <FiltroMultiSelectGenerico
+                                        icono="🏷️"
+                                        tituloVacio="Todas las líneas"
+                                        tituloPlural="líneas"
+                                        seleccionados={filtroLineas}
+                                        onChange={setFiltroLineas}
+                                        opciones={(() => { const c = contarPor(d => (d.grupo_nombre || '').trim()); return opcionesLineas.map(l => ({ valor: l, label: l, count: c[l] || 0 })); })()}
+                                        placeholderBusqueda="Buscar línea..."
+                                        anchoMinimo="min-w-[260px]"
+                                    />
+                                )}
+
+                                <ConfigColumnas
+                                    defs={COLS_RECURSOS}
+                                    visibles={colsRec}
+                                    onChange={setColsRec}
+                                    storageKey={COLS_STORAGE.recursos}
+                                />
                             </div>
                         </div>
 
@@ -1495,10 +1806,9 @@ export default function SolicitudesPage() {
                                             setFiltroTexto(''); 
                                             setFiltroEstadoRecursos('todos'); 
                                             setFiltroSubvencionRecursos('todos');
-                                            setFiltroArea('todos'); 
+                                            limpiarFiltrosMultiples();
                                             setFiltroCategoria('todos');
                                             setFiltroActividad('todos');
-                                            setFiltroMes('todos'); 
                                         }} 
                                         className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
                                     >
@@ -1543,11 +1853,12 @@ export default function SolicitudesPage() {
                                             <span>#</span>
                                         </div>
                                     </th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase min-w-[200px]">Producto</th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Área / Solicitante</th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Cant. / Valores</th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase min-w-[240px]">Mes y Justificación</th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                                    {colsRec.producto && <SortableTh label="Producto" sortKey="producto" sort={sortRec} onSort={ordenarRec} className="px-3.5 py-3.5 text-left text-xs text-gray-500 min-w-[200px]" />}
+                                    {colsRec.area && <SortableTh label="Área / Solicitante" sortKey="area" sort={sortRec} onSort={ordenarRec} className="px-3.5 py-3.5 text-left text-xs text-gray-500" />}
+                                    {colsRec.valores && <SortableTh label="Cant. / Valores" sortKey="valores" sort={sortRec} onSort={ordenarRec} numerico className="px-3.5 py-3.5 text-left text-xs text-gray-500" />}
+                                    {colsRec.mes && <SortableTh label="Mes y Justificación" sortKey="mes" sort={sortRec} onSort={ordenarRec} numerico className="px-3.5 py-3.5 text-left text-xs text-gray-500 min-w-[240px]" />}
+                                    {colsRec.linea && <SortableTh label="Línea" sortKey="linea" sort={sortRec} onSort={ordenarRec} className="px-3.5 py-3.5 text-left text-xs text-gray-500" />}
+                                    {colsRec.subvencion && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
                                         <div className="inline-flex items-center gap-1">
                                             <span>Subvención</span>
                                             <span
@@ -1558,15 +1869,15 @@ export default function SolicitudesPage() {
                                                 !
                                             </span>
                                         </div>
-                                    </th>
-                                    <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Estado</th>
-                                    {canApprove && <th className="px-3.5 py-3.5 text-center text-xs font-bold text-gray-500 uppercase">Acciones</th>}
+                                    </th>}
+                                    {colsRec.estado && <SortableTh label="Estado" sortKey="estado" sort={sortRec} onSort={ordenarRec} className="px-3.5 py-3.5 text-left text-xs text-gray-500" />}
+                                    {canApprove && colsRec.acciones && <th className="px-3.5 py-3.5 text-center text-xs font-bold text-gray-500 uppercase">Acciones</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-xs">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={canApprove ? 8 : 7} className="px-6 py-12 text-center text-gray-400">
+                                        <td colSpan={numColsRec} className="px-6 py-12 text-center text-gray-400">
                                             <div className="flex flex-col items-center gap-2">
                                                 <Loader2 className="animate-spin" size={24} />
                                                 <span>Cargando recursos...</span>
@@ -1575,7 +1886,7 @@ export default function SolicitudesPage() {
                                     </tr>
                                 ) : itemsPaginados.length === 0 ? (
                                     <tr>
-                                        <td colSpan={canApprove ? 8 : 7} className="px-6 py-12 text-center">
+                                        <td colSpan={numColsRec} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center gap-2 opacity-40">
                                                 <Search size={32} className="text-gray-400" />
                                                 <p className="text-sm font-bold text-gray-700">Sin resultados para la búsqueda</p>
@@ -1584,10 +1895,9 @@ export default function SolicitudesPage() {
                                                         onClick={() => { 
                                                             setFiltroTexto(''); 
                                                             setFiltroEstadoRecursos('todos'); 
-                                                            setFiltroArea('todos'); 
+                                                            limpiarFiltrosMultiples();
                                                             setFiltroCategoria('todos');
                                                             setFiltroActividad('todos');
-                                                            setFiltroMes('todos'); 
                                                         }} 
                                                         className="text-xs font-bold text-primary hover:underline"
                                                     >
@@ -1630,6 +1940,7 @@ export default function SolicitudesPage() {
                                             </td>
                                             
                                             {/* Producto: Nombre + Descripción Completa */}
+                                            {colsRec.producto && (
                                             <td className="px-3.5 py-3.5 max-w-[260px]">
                                                 <div className="text-xs font-bold text-gray-900 leading-snug">{item.nombre_producto}</div>
                                                 {item.descripcion && (
@@ -1643,8 +1954,10 @@ export default function SolicitudesPage() {
                                                     </div>
                                                 )}
                                             </td>
+                                            )}
 
                                             {/* Área y Solicitante */}
+                                            {colsRec.area && (
                                             <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                 <div className="font-semibold text-gray-900 text-xs">{item.area_nombre || 'N/A'}</div>
                                                 <div className="text-[11px] text-gray-500 mt-0.5">
@@ -1670,8 +1983,10 @@ export default function SolicitudesPage() {
                                                     return null;
                                                 })()}
                                             </td>
+                                            )}
 
                                             {/* Cantidad y Valores */}
+                                            {colsRec.valores && (
                                             <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-xs font-semibold text-gray-800">
@@ -1703,8 +2018,10 @@ export default function SolicitudesPage() {
                                                     Total: {formatCLP(item.total_iva)}
                                                 </div>
                                             </td>
+                                            )}
 
                                             {/* Mes, Motivo y Actividad PME */}
+                                            {colsRec.mes && (
                                             <td className="px-3.5 py-3.5 max-w-[280px]">
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md capitalize ${
@@ -1722,8 +2039,23 @@ export default function SolicitudesPage() {
                                                     </div>
                                                 )}
                                             </td>
+                                            )}
+
+                                            {/* Línea (grupo del recurso) */}
+                                            {colsRec.linea && (
+                                            <td className="px-3.5 py-3.5 text-xs whitespace-nowrap">
+                                                {item.grupo_nombre ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100">
+                                                        {item.grupo_nombre}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-400 italic">Sin línea</span>
+                                                )}
+                                            </td>
+                                            )}
 
                                             {/* Subvención */}
+                                            {colsRec.subvencion && (
                                             <td className="px-3.5 py-3.5 text-xs whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5">
                                                     {item.estado_aprobacion === 'Aprobado' ? (
@@ -1762,8 +2094,10 @@ export default function SolicitudesPage() {
                                                     )}
                                                 </div>
                                             </td>
+                                            )}
 
                                             {/* Estado (con selector integrado para gestión) */}
+                                            {colsRec.estado && (
                                             <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                 {canApprove ? (
                                                     <select
@@ -1807,9 +2141,10 @@ export default function SolicitudesPage() {
                                                     </p>
                                                 )}
                                             </td>
+                                            )}
 
                                             {/* Acciones Rápidas */}
-                                            {canApprove && (
+                                            {canApprove && colsRec.acciones && (
                                                 <td className="px-3.5 py-3.5 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-1.5">
                                                         <button
