@@ -2382,15 +2382,33 @@ export default function AgregarRecursosPage() {
         setShowActividadModal(false);
     };
 
+    // La copia se inserta justo debajo de la fila original (no al final). Varias
+    // marcas de la tabla identifican la fila por su posición, así que las que
+    // quedan debajo se corren una posición para no apuntar a la fila equivocada.
     const copiarRecurso = (index: number) => {
+        // Los guardados en curso actualizan "la fila en la posición X" al volver del
+        // servidor; insertar en medio los haría caer sobre otra fila.
+        if (savingItems.length > 0 || guardandoTodos) {
+            mostrarNotificacion('info', 'Guardado en curso', 'Espera a que termine de guardarse para copiar el insumo.');
+            return;
+        }
         const original = recursosActual[index];
+        if (!original) return;
         const copia: DetallePresupuestoForm = {
             ...original,
             id_pre_detalle: undefined,
             _tempId: crypto.randomUUID(),
             _isClassifying: false
         } as DetallePresupuestoForm;
-        setRecursosActual(prev => [...prev, copia]);
+        const posCopia = index + 1;
+        const correr = (i: number) => (i >= posCopia ? i + 1 : i);
+        const correrSet = (prev: Set<number>) => new Set(Array.from(prev, correr));
+
+        setRecursosActual(prev => [...prev.slice(0, posCopia), copia, ...prev.slice(posCopia)]);
+        setFilasModificadas(correrSet);
+        setFilasConfirmadasRecientes(correrSet);
+        setGuardados(prev => prev.map(correr));
+        setEditIndex(prev => (prev === null ? prev : correr(prev)));
     };
 
     const abrirEditar = (index: number) => {
