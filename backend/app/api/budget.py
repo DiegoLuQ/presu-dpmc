@@ -80,6 +80,28 @@ def _areas_de_usuario(db: Session, user: User) -> set:
     return areas
 
 
+def _cargos_de_areas(db: Session, areas: set) -> List[int]:
+    """Cargos que pertenecen a esas áreas (área principal o área adicional del cargo)."""
+    if not areas:
+        return []
+    return [c for (c,) in db.query(Cargo.id_cargo).filter(
+        or_(
+            Cargo.id_area.in_(areas),
+            Cargo.id_cargo.in_(db.query(AreaCargo.id_cargo).filter(AreaCargo.id_area.in_(areas))),
+        )
+    ).all()]
+
+
+def _es_solicitud_de_mi_area(db: Session, user: User, solicitud: SolicitudPresupuesto) -> bool:
+    """La solicitud es de un cargo de alguna de las áreas del usuario y de su colegio: mismo
+    criterio con que "Mis Solicitudes" (alcance 'area') la lista, p. ej. la del jefe de área."""
+    if not solicitud.id_cargo:
+        return False
+    if user.id_colegio and solicitud.id_colegio not in (None, user.id_colegio):
+        return False
+    return solicitud.id_cargo in _cargos_de_areas(db, _areas_de_usuario(db, user))
+
+
 def _permiso_compartido(db: Session, user: User, id_presupuesto: int) -> Optional[str]:
     """Permiso ('ver' | 'editar') que el usuario tiene sobre una solicitud compartida con alguna
     de sus áreas; None si no está compartida con él. Si hay varias, gana 'editar'."""
@@ -106,6 +128,7 @@ def _puede_editar_por_compartida(db: Session, user: User, id_presupuesto: int) -
 # cambie el id en la URL y vea o modifique solicitudes ajenas):
 #   - ADM, SOS, GERENTE, OPE: gestión central, todos los colegios.
 #   - Dueño de la solicitud.
+#   - Integrantes del área del cargo de la solicitud (ver y editar; enviar sigue siendo del dueño).
 #   - Área con la que un administrador la compartió (ver, o editar si el permiso es 'editar').
 #   - Revisores (FIN, DIR, Jefe de Compras, listas blancas de revisión): solo en SUS colegios.
 ROLES_MULTICOLEGIO = ["ADM", "SOS", "GERENTE", "OPE"]
@@ -154,6 +177,8 @@ def _puede_ver_solicitud(db: Session, user: User, solicitud: SolicitudPresupuest
         return True
     if _permiso_compartido(db, user, solicitud.id_presupuesto):
         return True
+    if _es_solicitud_de_mi_area(db, user, solicitud):
+        return True
     return _es_revisor(db, user) and _en_colegio_del_usuario(user, solicitud)
 
 
@@ -163,6 +188,8 @@ def _puede_modificar_solicitud(db: Session, user: User, solicitud: SolicitudPres
     if _es_multicolegio(user) or solicitud.id_user == user.id_user:
         return True
     if _puede_editar_por_compartida(db, user, solicitud.id_presupuesto):
+        return True
+    if _es_solicitud_de_mi_area(db, user, solicitud):
         return True
     return _es_revisor(db, user) and _en_colegio_del_usuario(user, solicitud)
 
@@ -895,34 +922,11 @@ def mis_solicitudes(
             if current_user.id_colegio and current_user.rol.codigo not in ["ADM", "GERENTE"]:
                 query = query.filter(SolicitudPresupuesto.id_colegio == current_user.id_colegio)
         else:
-            # Obtener todas las áreas a las que pertenece el usuario (por su cargo directo y cargos adicionales)
-            cargos_usuario = []
-            if current_user.id_cargo:
-                cargos_usuario.append(current_user.id_cargo)
-            for c in (current_user.cargos or []):
-                if c.id_cargo not in cargos_usuario:
-                    cargos_usuario.append(c.id_cargo)
-
-            areas_usuario = set()
-            if cargos_usuario:
-                cargos_db = db.query(Cargo).filter(Cargo.id_cargo.in_(cargos_usuario)).all()
-                for c in cargos_db:
-                    if c.id_area:
-                        areas_usuario.add(c.id_area)
-                    for a_adic in (c.areas_adicionales or []):
-                        areas_usuario.add(a_adic.id_area)
-
-            # Buscar cargos que pertenezcan a esas áreas para filtrar las solicitudes
+            # Áreas del usuario (cargo directo y cargos adicionales) y los cargos de esas áreas.
+            # Mismo criterio que _es_solicitud_de_mi_area, para que lo listado se pueda abrir.
+            areas_usuario = _areas_de_usuario(db, current_user)
             if areas_usuario:
-                cargos_misma_area = db.query(Cargo.id_cargo).filter(
-                    or_(
-                        Cargo.id_area.in_(areas_usuario),
-                        Cargo.id_cargo.in_(
-                            db.query(AreaCargo.id_cargo).filter(AreaCargo.id_area.in_(areas_usuario))
-                        )
-                    )
-                ).all()
-                cargos_ids = [c[0] for c in cargos_misma_area]
+                cargos_ids = _cargos_de_areas(db, areas_usuario)
                 filtros_or = [SolicitudPresupuesto.id_user == current_user.id_user]
                 if cargos_ids:
                     filtros_or.append(SolicitudPresupuesto.id_cargo.in_(cargos_ids))

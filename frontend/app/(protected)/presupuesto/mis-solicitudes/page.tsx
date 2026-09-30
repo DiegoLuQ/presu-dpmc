@@ -339,7 +339,8 @@ export default function MisSolicitudesPage() {
         const editable = req.estado === 'Pendiente' || req.estado === 'Revisar';
         return (
             <>
-                {editable && !soloCompartida && (
+                {/* Enviar es solo del dueño (el backend lo exige); integrantes del área y compartidas solo editan */}
+                {editable && req.id_user === user?.id_user && (
                     <button
                         onClick={() => setSolicitudAEnviar(req)}
                         disabled={enviando === req.id_presupuesto}

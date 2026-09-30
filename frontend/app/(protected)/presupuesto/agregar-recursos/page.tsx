@@ -900,6 +900,7 @@ export default function AgregarRecursosPage() {
     const [filtroMotivos, setFiltroMotivos] = useState<string[]>([]);
     const [filtroDimensiones, setFiltroDimensiones] = useState<string[]>([]);
     const [filtroActividades, setFiltroActividades] = useState<string[]>([]);
+    const [filtroCargos, setFiltroCargos] = useState<string[]>([]);
     // Vista de pantalla completa (URL ?view=completa) y selector de columnas
     const vistaCompleta = searchParams.get('view') === 'completa';
     const [showColumnasModal, setShowColumnasModal] = useState(false);
@@ -1219,14 +1220,6 @@ export default function AgregarRecursosPage() {
         }
         return list;
     }, [todasActividades, filtroDimensionPME, busquedaActividadPME]);
-
-    const [showSugerirModal, setShowSugerirModal] = useState(false);
-    const [sugerirForm, setSugerirForm] = useState({
-        nombre: '',
-        descripcion_solicitud: '',
-        tipo: 'BIEN',
-        id_cat_recurso: 1
-    });
 
     // Actividades PME ya asociadas al insumo elegido (historial de solicitudes del
     // colegio + `lista_recursos` del Plan PME). Alimenta la tarjeta de selección
@@ -3102,7 +3095,7 @@ export default function AgregarRecursosPage() {
     // y la tabla parecía no filtrarse o salía vacía.
     useEffect(() => {
         setPaginaPptoActual(1);
-    }, [filtroPresupuesto, filtroEstadoPpto, filtroMeses, filtroDestinos, filtroMotivos, filtroDimensiones, filtroActividades, itemsPorPaginaPpto]);
+    }, [filtroPresupuesto, filtroEstadoPpto, filtroMeses, filtroDestinos, filtroMotivos, filtroDimensiones, filtroActividades, filtroCargos, itemsPorPaginaPpto]);
 
     const exportarAExcel = () => {
         if (recursosActual.length === 0) return;
@@ -3204,6 +3197,26 @@ export default function AgregarRecursosPage() {
         return { opciones, sinMotivoCount };
     }, [recursosActual]);
 
+    // Cargo solicitante: se agrupa por el mismo nombre que muestra la columna
+    // "Cargo / Destinatario" (el detalle guarda el cargo, no el usuario).
+    const opcionesFiltroCargos = useMemo(() => {
+        const counts = new Map<string, number>();
+        let sinCargoCount = 0;
+        recursosActual.forEach(r => {
+            const c = nombreSubareaDeFila(r);
+            if (c) {
+                counts.set(c, (counts.get(c) || 0) + 1);
+            } else {
+                sinCargoCount++;
+            }
+        });
+        const opciones = Array.from(counts.entries())
+            .map(([cargo, count]) => ({ valor: cargo, label: cargo, count }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+        return { opciones, sinCargoCount };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [recursosActual, todasSubareas, solicitud?.subarea_nombre]);
+
     const opcionesFiltroDimensiones = useMemo(() => {
         const DIM_BASE = ['Gestión Pedagógica', 'Convivencia Escolar', 'Liderazgo', 'Gestión de Recursos'];
         const counts = new Map<string, number>();
@@ -3264,7 +3277,8 @@ export default function AgregarRecursosPage() {
         || filtroDestinos.length > 0
         || filtroMotivos.length > 0
         || filtroDimensiones.length > 0
-        || filtroActividades.length > 0;
+        || filtroActividades.length > 0
+        || filtroCargos.length > 0;
 
     const totalFiltrosActivos = (filtroPresupuesto.trim() !== '' ? 1 : 0)
         + (filtroEstadoPpto !== 'todos' ? 1 : 0)
@@ -3272,7 +3286,8 @@ export default function AgregarRecursosPage() {
         + filtroDestinos.length
         + filtroMotivos.length
         + filtroDimensiones.length
-        + filtroActividades.length;
+        + filtroActividades.length
+        + filtroCargos.length;
 
     const limpiarTodosFiltros = () => {
         setFiltroPresupuesto('');
@@ -3282,6 +3297,7 @@ export default function AgregarRecursosPage() {
         setFiltroMotivos([]);
         setFiltroDimensiones([]);
         setFiltroActividades([]);
+        setFiltroCargos([]);
     };
 
     const recursosFiltrados = recursosActual
@@ -3335,7 +3351,14 @@ export default function AgregarRecursosPage() {
                 return rec.id_actividad === parseInt(idStr);
             });
 
-            return matchTexto && matchEstado && matchMes && matchDestino && matchMotivos && matchDimension && matchActividad;
+            // 6. Filtro Cargo solicitante (Multiselección)
+            const cargoRec = nombreSubareaDeFila(rec) || '';
+            const matchCargo = filtroCargos.length === 0 || filtroCargos.some(c => {
+                if (c === '__SIN_CARGO__') return !cargoRec;
+                return cargoRec === c;
+            });
+
+            return matchTexto && matchEstado && matchMes && matchDestino && matchMotivos && matchDimension && matchActividad && matchCargo;
         });
 
     const totalPaginasPpto = Math.ceil(recursosFiltrados.length / itemsPorPaginaPpto) || 1;
@@ -3428,7 +3451,7 @@ export default function AgregarRecursosPage() {
     // ── Vista de PANTALLA COMPLETA (URL ?view=completa) ─────────────────────────
     // Reutiliza el mismo estado y handlers; "editar" vuelve a la página principal.
     // Se arma como variable y no como `return` temprano: los modales compartidos
-    // (Nuevo Insumo, Importar Excel, Sugerir recurso, ayuda de dimensiones) viven al
+    // (Nuevo Insumo, Importar Excel, ayuda de dimensiones) viven al
     // final del componente, así que con un return temprano no se montaban aquí — el
     // botón abría el modal pero no se veía nada hasta volver a la vista estándar.
     const col = columnasVisibles;
@@ -3644,8 +3667,8 @@ export default function AgregarRecursosPage() {
                         </div>
                     </div>
 
-                    {/* Fila de Filtros Avanzados con selección múltiple: Mes, Destino, Motivo, Dimensión PME, Actividad PME */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-gray-200/60">
+                    {/* Fila de Filtros Avanzados con selección múltiple: Mes, Destino, Motivo, Dimensión PME, Actividad PME, Cargo solicitante */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 pt-2 border-t border-gray-200/60">
                         {/* 1. Filtro Meses */}
                         <FiltroMultiSelectGenerico
                             icono="🗓️"
@@ -3724,6 +3747,22 @@ export default function AgregarRecursosPage() {
                                 count: opcionesFiltroActividades.sinActividadCount
                             } : undefined}
                             placeholderBusqueda="Buscar actividad PME..."
+                        />
+
+                        {/* 6. Filtro Cargo solicitante */}
+                        <FiltroMultiSelectGenerico
+                            icono="👤"
+                            tituloVacio="Todos los Cargos"
+                            tituloPlural="Cargos"
+                            seleccionados={filtroCargos}
+                            onChange={setFiltroCargos}
+                            opciones={opcionesFiltroCargos.opciones}
+                            opcionSinValor={opcionesFiltroCargos.sinCargoCount > 0 ? {
+                                valorEspecial: '__SIN_CARGO__',
+                                label: '— Sin cargo —',
+                                count: opcionesFiltroCargos.sinCargoCount
+                            } : undefined}
+                            placeholderBusqueda="Buscar cargo solicitante..."
                         />
                     </div>
                 </div>
@@ -4405,22 +4444,6 @@ export default function AgregarRecursosPage() {
                                                     ) : (
                                                         <div className="p-8 text-center text-gray-400 italic text-sm space-y-3">
                                                             <p>{searchRecurso.length < 2 && searchRecurso.length > 0 ? 'Escriba más de 2 letras para buscar' : 'No se encontraron resultados'}</p>
-                                                            {searchRecurso.length >= 2 && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSugerirForm({
-                                                                            nombre: searchRecurso,
-                                                                            descripcion_solicitud: '',
-                                                                            tipo: 'BIEN',
-                                                                            id_cat_recurso: categorias[0]?.id_cat_recurso || 1
-                                                                        });
-                                                                        setShowSugerirModal(true);
-                                                                    }}
-                                                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl transition-all active:scale-95 not-italic"
-                                                                >
-                                                                    <Plus size={14} /> Solicitar nuevo recurso
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -4842,6 +4865,22 @@ export default function AgregarRecursosPage() {
                                         </div>
 
                                         <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0 flex-wrap">
+                                            <div className="w-56">
+                                                <FiltroMultiSelectGenerico
+                                                    icono="👤"
+                                                    tituloVacio="Todos los Cargos"
+                                                    tituloPlural="Cargos"
+                                                    seleccionados={filtroCargos}
+                                                    onChange={setFiltroCargos}
+                                                    opciones={opcionesFiltroCargos.opciones}
+                                                    opcionSinValor={opcionesFiltroCargos.sinCargoCount > 0 ? {
+                                                        valorEspecial: '__SIN_CARGO__',
+                                                        label: '— Sin cargo —',
+                                                        count: opcionesFiltroCargos.sinCargoCount
+                                                    } : undefined}
+                                                    placeholderBusqueda="Buscar cargo solicitante..."
+                                                />
+                                            </div>
                                             <div className="inline-flex bg-gray-100/80 p-1 rounded-xl border border-gray-200/60 shadow-inner">
                                                 {[
                                                     { v: 'todos', l: 'Todos' },
@@ -4858,10 +4897,11 @@ export default function AgregarRecursosPage() {
                                                 ))}
                                             </div>
 
-                                            {(filtroPresupuesto || filtroEstadoPpto !== 'todos') && (
+                                            {/* Limpia todos: los filtros avanzados puestos en la vista ampliada también aplican aquí */}
+                                            {filtroActivo && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => { setFiltroPresupuesto(''); setFiltroEstadoPpto('todos'); }}
+                                                    onClick={limpiarTodosFiltros}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100/90 border border-rose-200 transition-all cursor-pointer shadow-xs active:scale-95 animate-in fade-in"
                                                     title="Limpiar filtros"
                                                 >
@@ -7317,106 +7357,6 @@ export default function AgregarRecursosPage() {
                                 className="w-full py-3 bg-primary text-white rounded-xl font-bold text-xs active:scale-95 transition-all shadow-lg shadow-primary/20 mt-1"
                             >
                                 Entendido
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal de Sugerencia de Nuevo Recurso */}
-            {showSugerirModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-6 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] max-w-md w-full overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95">
-                        <div className="p-6 pb-4 bg-gray-50/50 border-b border-gray-100">
-                            <div className="flex justify-between items-center mb-1">
-                                <h3 className="text-lg font-bold text-gray-900 tracking-tight">Solicitar Nuevo Recurso</h3>
-                                <button onClick={() => setShowSugerirModal(false)} className="p-2 hover:bg-white rounded-xl transition-all text-gray-400 border border-transparent hover:border-gray-200">
-                                    <X size={18} />
-                                </button>
-                            </div>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">El recurso se guardará temporalmente hasta ser clasificado</p>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nombre del Recurso</label>
-                                <input
-                                    type="text"
-                                    value={sugerirForm.nombre}
-                                    onChange={(e) => setSugerirForm({ ...sugerirForm, nombre: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-xs"
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">¿Para qué se usará?</label>
-                                <textarea
-                                    rows={3}
-                                    value={sugerirForm.descripcion_solicitud}
-                                    onChange={(e) => setSugerirForm({ ...sugerirForm, descripcion_solicitud: e.target.value })}
-                                    placeholder="Ej: Para el diseño de guías didácticas interactivas por parte de los profesores..."
-                                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-primary/10 transition-all font-medium text-xs"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Tipo</label>
-                                    <select
-                                        value={sugerirForm.tipo}
-                                        onChange={(e) => setSugerirForm({ ...sugerirForm, tipo: e.target.value })}
-                                        className="w-full px-3 py-2 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-primary/10 font-semibold text-[11px]"
-                                    >
-                                        <option value="BIEN">Bien (Físico)</option>
-                                        <option value="SERVICIO">Servicio / Licencia</option>
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Categoría General</label>
-                                    <select
-                                        value={sugerirForm.id_cat_recurso}
-                                        onChange={(e) => setSugerirForm({ ...sugerirForm, id_cat_recurso: parseInt(e.target.value) || 0 })}
-                                        className="w-full px-3 py-2 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-primary/10 font-semibold text-[11px]"
-                                    >
-                                        {categorias.map(c => (
-                                            <option key={c.id_cat_recurso} value={c.id_cat_recurso}>{c.nombre}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-6 pt-4 border-t border-gray-50 flex justify-end gap-3 bg-gray-50/20">
-                            <button onClick={() => setShowSugerirModal(false)} className="px-6 py-3 font-bold text-gray-400 hover:text-gray-900 transition-colors text-xs">
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        const res = await api.post('/presupuesto/recursos/sugerir', sugerirForm);
-                                        setShowSugerirModal(false);
-                                        // Auto-seleccionar el nuevo recurso recién sugerido
-                                        seleccionarRecurso({
-                                            id_recurso: res.data.id_recurso,
-                                            nombre: res.data.nombre,
-                                            id_cat_recurso: res.data.id_cat_recurso,
-                                            categoria_nombre: res.data.categoria_nombre
-                                        });
-                                    } catch (err: any) {
-                                        console.error(err);
-                                        const detail = err.response?.data?.detail;
-                                        const msg = typeof detail === 'string'
-                                            ? detail
-                                            : (detail && typeof detail === 'object'
-                                                ? (detail.message || JSON.stringify(detail))
-                                                : "Error al enviar sugerencia");
-                                        mostrarNotificacion('error', 'Error al sugerir insumo', msg);
-                                    }
-                                }}
-                                className="px-10 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 active:scale-95 transition-all text-xs"
-                            >
-                                Enviar Solicitud
                             </button>
                         </div>
                     </div>
