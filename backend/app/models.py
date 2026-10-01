@@ -263,6 +263,7 @@ class MapeoRecursoSubcategoria(Base):
     id_subcat_recurso = Column(Integer, ForeignKey("pre_subcategoria_recurso.id_subcat_recurso"), nullable=False)
     id_subvencion = Column(Integer, ForeignKey("pre_subvencion.id_subvencion"), nullable=True)
     destino_gasto = Column(String(50), nullable=False)
+    centro_costo = Column(String(100), nullable=True)
 
     recurso = relationship("Recurso", back_populates="mapeos_subcategorias")
     subcategoria = relationship("SubcategoriaRecurso", back_populates="mapeos")
@@ -485,7 +486,7 @@ class PresupuestoDetalle(Base):
 
 
 
-CATEGORIA_PILAR_VALUES = ['clases(alumno)', 'oficinas(administracion)', 'premio/beneficio', 'mantencion/servicio']
+CATEGORIA_PILAR_VALUES = ['clases(alumno)', 'oficinas(administracion)', 'premio/beneficio', 'mantencion/servicio', 'apoderados']
 
 class CuentaMatrizReglas(Base):
     __tablename__ = "pre_cuenta_matriz_reglas"

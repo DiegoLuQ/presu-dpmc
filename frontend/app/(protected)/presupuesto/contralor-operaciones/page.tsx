@@ -28,6 +28,28 @@ const GRUPOS_GASTO = [
     { codigo: '411600', nombre: 'Construcción y Mantención (411600)' },
 ];
 
+// Destinos de uso (botones del modal) → se guardan como destino_gasto del mapeo en el backend.
+const DESTINOS_USO = [
+    { value: 'ESTUDIANTE', label: 'Sala de Clases (Alumnos)' },
+    { value: 'FUNCIONARIO', label: 'Oficina / Admin. (Funcionarios)' },
+    { value: 'PREMIO', label: 'Premio / Beneficio' },
+    { value: 'MANTENCION', label: 'Mantención / Servicio' },
+    { value: 'APODERADO', label: 'Apoderados' },
+];
+const destinoUsoLabel = (v: string) => DESTINOS_USO.find(d => d.value === v)?.label || v;
+
+// Subvención financiadora: una por código contable.
+const SUBVENCIONES_FINANCIADORAS = [
+    { value: 'GENERAL', label: 'Subv. General' },
+    { value: 'SEP', label: 'SEP' },
+    { value: 'PIE', label: 'PIE' },
+    { value: 'PRO_RETENCION', label: 'Pro Retención' },
+    { value: 'MANTENIMIENTO', label: 'Mantención' },
+];
+
+// Sugerencias para el centro de costo de cada código (texto libre).
+const CENTROS_COSTO_SUGERIDOS = ['GENERAL', 'SEP', 'PIE', 'PRO_RETENCION', 'MANTENIMIENTO', 'INTERNADO'];
+
 const SUBVENCIONES = [
     { codigo: 'SUBV_GENERAL', nombre: 'Subvención General' },
     { codigo: 'ADM_CENTRAL_SUBV_GRAL', nombre: 'Adm. Central Subv. General' },
@@ -88,7 +110,7 @@ export default function ContabilidadPage() {
     const [grupoSugerido, setGrupoSugerido] = useState<{ id_grupo_recurso: number; razon: string } | null>(null);
     const [asesoriaReview, setAsesoriaReview] = useState<{sugerencias: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; razon: string; subvenciones_habilitadas?: {codigo: string; critico: boolean}[]}[]; proveedor: string; modelo: string} | null>(null);
     const [mostrarAsesoria, setMostrarAsesoria] = useState(false);
-    const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}[]>([]);
+    const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string; centro_costo: string}[]>([]);
     
     // States for PME and Activity Selection in Review Modal
     const [pmeActividades, setPmeActividades] = useState<any[]>([]);
@@ -1052,6 +1074,7 @@ export default function ContabilidadPage() {
                                                                 'oficinas(administracion)': 'FUNCIONARIO',
                                                                 'premio/beneficio': 'PREMIO',
                                                                 'mantencion/servicio': 'MANTENCION',
+                                                                'apoderados': 'APODERADO',
                                                             };
                                                             const destinoUso = destinoMap[r.destino_gasto as string] || 'ESTUDIANTE';
                                                             
@@ -1898,9 +1921,9 @@ export default function ContabilidadPage() {
                                 <h5 className="text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-100 pb-2">2. Clasificación Contable</h5>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Destino de Uso</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Destino de Uso <span className="normal-case text-gray-300">(por defecto para los códigos que agregues)</span></label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {[{value:'ESTUDIANTE',label:'Sala de Clases (Alumnos)'},{value:'FUNCIONARIO',label:'Oficina / Admin. (Funcionarios)'},{value:'PREMIO',label:'Premio / Beneficio'},{value:'MANTENCION',label:'Mantención / Servicio'}].map(d => (
+                                        {DESTINOS_USO.map(d => (
                                             <button key={d.value} type="button"
                                                 onClick={() => setReviewForm(p => ({ ...p, destino_uso: d.value }))}
                                                 className={`py-2 px-2 rounded-xl border text-[10px] font-extrabold transition-all text-center ${reviewForm.destino_uso === d.value ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'}`}
@@ -1922,20 +1945,13 @@ export default function ContabilidadPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
-                                        <span>Subvención Financiadora <span className="normal-case text-gray-300">(hasta 5)</span></span>
-                                        <span className="normal-case text-gray-300">{reviewForm.subvenciones.length}/5</span>
-                                    </label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Subvención Financiadora <span className="normal-case text-gray-300">(por defecto para los códigos que agregues)</span></label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {[{value:'GENERAL',label:'Subv. General'},{value:'SEP',label:'SEP'},{value:'PIE',label:'PIE'},{value:'PRO_RETENCION',label:'Pro Retención'},{value:'MANTENIMIENTO',label:'Mantención'}].map(s => {
+                                        {SUBVENCIONES_FINANCIADORAS.map(s => {
                                             const activa = reviewForm.subvenciones.includes(s.value);
                                             return (
                                             <button key={s.value} type="button"
-                                                onClick={() => setReviewForm(p => {
-                                                    if (p.subvenciones.includes(s.value)) return { ...p, subvenciones: p.subvenciones.filter(v => v !== s.value) };
-                                                    if (p.subvenciones.length >= 5) return p;
-                                                    return { ...p, subvenciones: [...p.subvenciones, s.value] };
-                                                })}
+                                                onClick={() => setReviewForm(p => ({ ...p, subvenciones: [s.value] }))}
                                                 className={`py-2 rounded-xl border text-[10px] font-extrabold transition-all text-center ${activa ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'}`}
                                             >{s.label}</button>
                                         );})}
@@ -1943,7 +1959,7 @@ export default function ContabilidadPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cuenta Contable *</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cuentas Contables * <span className="normal-case text-gray-300">(haz clic para agregar; cada código tiene su destino y centro de costo)</span></label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <Search className="h-3.5 w-3.5 text-gray-400" />
@@ -1969,14 +1985,25 @@ export default function ContabilidadPage() {
                                                 ejemplos.toLowerCase().includes(q)
                                             );
                                         }).map(acc => {
-                                            const isSelected = reviewForm.codigo_cuenta === acc.codigo;
+                                            const isSelected = codigosSeleccionados.some(c => c.codigo_cuenta === acc.codigo);
                                             const isExpanded = expandedAccountCodigo === acc.codigo;
                                             const isAISuggested = aiSuggestedCode === acc.codigo;
                                             return (
                                                 <div key={acc.codigo} className={`border-b border-gray-50 last:border-none ${isSelected ? 'bg-blue-50' : ''}`}>
                                                     <div className="flex items-center pr-1">
                                                         <button type="button"
-                                                            onClick={() => { setReviewForm(p => ({ ...p, codigo_cuenta: acc.codigo })); }}
+                                                            onClick={() => setCodigosSeleccionados(prev =>
+                                                                prev.some(c => c.codigo_cuenta === acc.codigo && c.destino === reviewForm.destino_uso && c.subvencion === (reviewForm.subvenciones[0] || 'GENERAL'))
+                                                                    ? prev
+                                                                    : [...prev, {
+                                                                        destino: reviewForm.destino_uso,
+                                                                        destino_label: destinoUsoLabel(reviewForm.destino_uso),
+                                                                        codigo_cuenta: acc.codigo,
+                                                                        nombre_cuenta: acc.nombre,
+                                                                        subvencion: reviewForm.subvenciones[0] || 'GENERAL',
+                                                                        centro_costo: '',
+                                                                    }]
+                                                            )}
                                                             className={`flex-1 text-left px-3 py-2 flex items-center gap-2 transition-colors ${isSelected ? 'text-blue-900' : 'hover:bg-gray-50 text-gray-700'}`}
                                                         >
                                                             <div className="flex flex-col">
@@ -2033,32 +2060,68 @@ export default function ContabilidadPage() {
                                             );
                                         })}
                                     </div>
-                                    {reviewForm.codigo_cuenta && (
-                                        <div className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl">
-                                            <p className="text-[9px] font-bold text-blue-400 uppercase">Cuenta seleccionada</p>
-                                            <p className="text-[11px] font-extrabold text-blue-900">{reviewForm.codigo_cuenta} – {accounts.find(a => a.codigo === reviewForm.codigo_cuenta)?.nombre}</p>
-                                        </div>
-                                    )}
-                                    {/* Tabla de códigos agregados desde IA */}
-                                    {codigosSeleccionados.length > 0 && (
+                                    {/* Códigos contables agregados (manual o IA): cada uno con su destino y centro de costo */}
+                                    {codigosSeleccionados.length > 0 ? (
                                         <div className="mt-3 space-y-1.5">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cuentas agregadas por destino</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Códigos agregados ({codigosSeleccionados.length})</p>
+                                            <datalist id="centros-costo-sugeridos">
+                                                {CENTROS_COSTO_SUGERIDOS.map(cc => <option key={cc} value={cc} />)}
+                                            </datalist>
                                             <div className="rounded-xl border border-gray-100 overflow-hidden">
                                                 <table className="w-full text-[11px]">
                                                     <thead className="bg-gray-50">
                                                         <tr>
-                                                            <th className="text-left px-3 py-2 font-bold text-gray-500">Destino</th>
                                                             <th className="text-left px-3 py-2 font-bold text-gray-500">Código</th>
-                                                            <th className="text-left px-3 py-2 font-bold text-gray-500">Cuenta</th>
+                                                            <th className="text-left px-2 py-2 font-bold text-gray-500">Destino</th>
+                                                            <th className="text-left px-2 py-2 font-bold text-gray-500">Subvención</th>
+                                                            <th className="text-left px-2 py-2 font-bold text-gray-500">Centro de costo</th>
                                                             <th className="px-2 py-2"></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {codigosSeleccionados.map((c, i) => (
-                                                            <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                                                                <td className="px-3 py-2 font-semibold text-violet-700">{c.destino_label}</td>
-                                                                <td className="px-3 py-2 font-extrabold text-primary">{c.codigo_cuenta}</td>
-                                                                <td className="px-3 py-2 text-gray-700 truncate max-w-[140px]">{c.nombre_cuenta}</td>
+                                                            <tr key={i} className="border-t border-gray-100 hover:bg-gray-50 align-top">
+                                                                <td className="px-3 py-2">
+                                                                    <span className="font-extrabold text-primary font-mono">{c.codigo_cuenta}</span>
+                                                                    <span className="block text-[10px] text-gray-600 truncate max-w-[130px]" title={c.nombre_cuenta}>{c.nombre_cuenta}</span>
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <select
+                                                                        value={c.destino}
+                                                                        onChange={e => {
+                                                                            const v = e.target.value;
+                                                                            setCodigosSeleccionados(prev => prev.map((x, j) => j === i ? { ...x, destino: v, destino_label: destinoUsoLabel(v) } : x));
+                                                                        }}
+                                                                        className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-violet-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                                    >
+                                                                        {DESTINOS_USO.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <select
+                                                                        value={c.subvencion}
+                                                                        onChange={e => {
+                                                                            const v = e.target.value;
+                                                                            setCodigosSeleccionados(prev => prev.map((x, j) => j === i ? { ...x, subvencion: v } : x));
+                                                                        }}
+                                                                        className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                                    >
+                                                                        {SUBVENCIONES_FINANCIADORAS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        list="centros-costo-sugeridos"
+                                                                        value={c.centro_costo}
+                                                                        placeholder="Ej: SEP, GENERAL..."
+                                                                        onChange={e => {
+                                                                            const v = e.target.value;
+                                                                            setCodigosSeleccionados(prev => prev.map((x, j) => j === i ? { ...x, centro_costo: v } : x));
+                                                                        }}
+                                                                        className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                                    />
+                                                                </td>
                                                                 <td className="px-2 py-2">
                                                                     <button type="button" onClick={() => setCodigosSeleccionados(prev => prev.filter((_, j) => j !== i))}
                                                                         className="text-red-400 hover:text-red-600 transition-colors">
@@ -2071,6 +2134,8 @@ export default function ContabilidadPage() {
                                                 </table>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <p className="text-[11px] text-gray-400 italic">Aún no hay códigos agregados.</p>
                                     )}
                                 </div>
                             </div>
@@ -2122,26 +2187,16 @@ export default function ContabilidadPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            const yaExiste = codigosSeleccionados.some(c => c.destino === sug.destino && c.codigo_cuenta === sug.codigo_cuenta);
+                                                            const yaExiste = codigosSeleccionados.some(c => c.destino === sug.destino && c.codigo_cuenta === sug.codigo_cuenta && c.subvencion === (reviewForm.subvenciones[0] || 'GENERAL'));
                                                             if (!yaExiste) {
                                                                 setCodigosSeleccionados(prev => [...prev, {
                                                                     destino: sug.destino,
                                                                     destino_label: sug.destino_label,
                                                                     codigo_cuenta: sug.codigo_cuenta,
                                                                     nombre_cuenta: sug.nombre_cuenta,
-                                                                    subvencion: sug.subvenciones_habilitadas?.[0]?.codigo || reviewForm.subvenciones[0] || 'GENERAL',
+                                                                    subvencion: reviewForm.subvenciones[0] || 'GENERAL',
+                                                                    centro_costo: '',
                                                                 }]);
-                                                            }
-                                                            // Alojar las subvenciones habilitadas de la sugerencia en "Subvención Financiadora" (máx 5)
-                                                            const nuevas = (sug.subvenciones_habilitadas || []).map(sv => sv.codigo);
-                                                            if (nuevas.length > 0) {
-                                                                setReviewForm(p => {
-                                                                    const merged = [...p.subvenciones];
-                                                                    for (const v of nuevas) {
-                                                                        if (!merged.includes(v) && merged.length < 5) merged.push(v);
-                                                                    }
-                                                                    return { ...p, subvenciones: merged };
-                                                                });
                                                             }
                                                         }}
                                                         className="shrink-0 w-8 h-8 rounded-xl bg-violet-600 text-white text-base font-black hover:bg-violet-700 transition-all active:scale-95 self-center flex items-center justify-center"
@@ -2248,7 +2303,7 @@ export default function ContabilidadPage() {
                                 </button>
                             )}
                             <button type="button"
-                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || (!reviewForm.codigo_cuenta && codigosSeleccionados.length === 0)}
+                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || codigosSeleccionados.length === 0}
                                 onClick={async () => {
                                     setIsSaving(true);
                                     try {
@@ -2262,38 +2317,27 @@ export default function ContabilidadPage() {
                                             motivo: reviewForm.motivo,
                                             id_actividad: reviewForm.id_actividad
                                         });
-                                        // 2. Aprobar y clasificar: se registra una fila por cada
-                                        // (código × subvención). Opción B: el set completo de
-                                        // "Subvención Financiadora" se aplica a cada código.
-                                        const subs = reviewForm.subvenciones.length > 0 ? reviewForm.subvenciones : ['GENERAL'];
-
-                                        // Pares (código, destino) a registrar: principal + los de la IA
-                                        const pares: { codigo_cuenta: string; destino_uso: string }[] = [];
-                                        if (reviewForm.codigo_cuenta) {
-                                            pares.push({ codigo_cuenta: reviewForm.codigo_cuenta, destino_uso: reviewForm.destino_uso });
-                                        }
-                                        for (const c of codigosSeleccionados) {
-                                            if (!pares.some(p => p.codigo_cuenta === c.codigo_cuenta && p.destino_uso === c.destino)) {
-                                                pares.push({ codigo_cuenta: c.codigo_cuenta, destino_uso: c.destino });
-                                            }
-                                        }
+                                        // 2. Aprobar y clasificar: una fila por código, cada uno con su
+                                        // destino, subvención y centro de costo.
+                                        const pares = codigosSeleccionados.filter((c, i, arr) =>
+                                            arr.findIndex(x => x.codigo_cuenta === c.codigo_cuenta && x.destino === c.destino && x.subvencion === c.subvencion) === i
+                                        );
 
                                         let res: any = { data: { detalles_actualizados: 0 } };
                                         let primera = true;
                                         for (const par of pares) {
-                                            for (const sub of subs) {
-                                                const payload = {
-                                                    codigo_cuenta: par.codigo_cuenta,
-                                                    destino_uso: par.destino_uso,
-                                                    tipo_transaccion: reviewForm.tipo_transaccion,
-                                                    subvencion: sub,
-                                                };
-                                                if (primera) {
-                                                    res = await api.post(`/presupuesto/recursos/aprobar-clasificar/${selectedPendingResource.id_recurso}`, payload);
-                                                    primera = false;
-                                                } else {
-                                                    await api.post(`/presupuesto/recursos/aprobar-clasificar/${selectedPendingResource.id_recurso}`, payload).catch(() => {});
-                                                }
+                                            const payload = {
+                                                codigo_cuenta: par.codigo_cuenta,
+                                                destino_uso: par.destino,
+                                                tipo_transaccion: reviewForm.tipo_transaccion,
+                                                subvencion: par.subvencion || 'GENERAL',
+                                                centro_costo: par.centro_costo.trim() || null,
+                                            };
+                                            if (primera) {
+                                                res = await api.post(`/presupuesto/recursos/aprobar-clasificar/${selectedPendingResource.id_recurso}`, payload);
+                                                primera = false;
+                                            } else {
+                                                await api.post(`/presupuesto/recursos/aprobar-clasificar/${selectedPendingResource.id_recurso}`, payload).catch(() => {});
                                             }
                                         }
                                         setIsReviewModalOpen(false);
@@ -2360,12 +2404,7 @@ export default function ContabilidadPage() {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Destino de Uso Principal</label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {[
-                                            { value: 'ESTUDIANTE', label: 'Sala de Clases (Alumnos)' },
-                                            { value: 'FUNCIONARIO', label: 'Oficina / Admin. (Funcionarios)' },
-                                            { value: 'PREMIO', label: 'Premio / Beneficio' },
-                                            { value: 'MANTENCION', label: 'Mantención / Servicio' }
-                                        ].map(d => (
+                                        {DESTINOS_USO.map(d => (
                                             <button
                                                 key={d.value}
                                                 type="button"

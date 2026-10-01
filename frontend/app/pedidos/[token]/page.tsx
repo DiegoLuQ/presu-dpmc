@@ -95,6 +95,7 @@ const DESTINOS: { value: string; label: string; desc: string }[] = [
     { value: 'oficinas(administracion)', label: 'Funcionarios (Oficina, actividades de func., etc)', desc: 'Recursos de uso exclusivo de funcionarios y trabajadores del colegio: oficinas, gestión y labores administrativas.' },
     { value: 'premio/beneficio', label: 'Actividad (Premio Beneficio)', desc: 'Reconocimientos, premios o beneficios entregados como incentivo, ya sea a alumnos o funcionarios.' },
     { value: 'mantencion/servicio', label: 'Mantención / Servicio', desc: 'Mantención, reparación o servicios para la infraestructura y el funcionamiento del establecimiento.' },
+    { value: 'apoderados', label: 'Apoderados', desc: 'Recursos destinados a apoderados: reuniones, talleres para padres y actividades con las familias.' },
 ];
 const destinoDesc = (v?: string) => DESTINOS.find(d => d.value === normalizeDestino(v))?.desc || '';
 const DESTINO_DEFAULT = 'clases(alumno)';

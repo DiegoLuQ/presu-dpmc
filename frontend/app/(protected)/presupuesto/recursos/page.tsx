@@ -13,8 +13,14 @@ const PILARES_OFICIALES = [
     { id: 'clases(alumno)', label: 'Estudiantes (Actividades, sala de clases, eventos etc)', icon: '🏫' },
     { id: 'oficinas(administracion)', label: 'Funcionarios (Oficina, actividades de func., etc)', icon: '🏢' },
     { id: 'premio/beneficio', label: 'Actividad (Premio Beneficio)', icon: '🏆' },
-    { id: 'mantencion/servicio', label: 'Mantención / Servicio', icon: '🔧' }
+    { id: 'mantencion/servicio', label: 'Mantención / Servicio', icon: '🔧' },
+    { id: 'apoderados', label: 'Apoderados', icon: '👪' }
 ];
+
+// Sugerencias para el centro de costo de cada código (texto libre).
+const CENTROS_COSTO_SUGERIDOS = ['GENERAL', 'SEP', 'PIE', 'PRO_RETENCION', 'MANTENIMIENTO', 'INTERNADO'];
+
+type CodigoFormData = { idSubcat: number; idSubvencion?: number; centroCosto: string; destino: string };
 
 import * as XLSX from 'xlsx';
 
@@ -27,6 +33,7 @@ interface CodigoContable {
     id_subvencion: number | null;
     nombre_subvencion: string | null;
     destino_gasto: string;
+    centro_costo?: string | null;
     critico_fiscalizacion?: boolean;
 }
 
@@ -40,10 +47,11 @@ type PendingCodigo = {
     nombre_subcategoria: string;
     nombre_subvencion?: string;
     destino_gasto: string;
+    centro_costo?: string | null;
 };
 
 export default function RecursosPage() {
-    const { user } = useAuth();
+    const { user, tienePermiso, isLoading: authLoading } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategoria, setFilterCategoria] = useState<string>('ALL');
     const [currentPage, setCurrentPage] = useState(1);
@@ -73,6 +81,7 @@ export default function RecursosPage() {
     const [expandedPropositos, setExpandedPropositos] = useState<Record<string, boolean>>({});
     const [formCodigo, setFormCodigo] = useState<{ propositoId: string; codigo_cuenta: string; subvencion: string; search: string } | null>(null);
     const [viewingCodigoDetalle, setViewingCodigoDetalle] = useState<any | null>(null);
+    const [editingCodigoId, setEditingCodigoId] = useState<number | string | null>(null);
     const [subcategorias, setSubcategorias] = useState<any[]>([]);
 
     useEffect(() => {
@@ -107,7 +116,16 @@ export default function RecursosPage() {
     const [activeTagToken, setActiveTagToken] = useState<string | null>(null);
     const [tagSearchTerm, setTagSearchTerm] = useState('');
 
-    const canEdit = ['ADM', 'DIR', 'GERENTE', 'FIN'].includes(user?.rol?.codigo || '');
+    // Permisos configurables desde el editor de roles (módulo GO-Contralor = `contabilidad`).
+    // Se acepta también el permiso equivalente de `presupuesto`, igual que el backend.
+    const esSuperRol = ['ADM', 'SOS'].includes(user?.rol?.codigo || '');
+    const puede = (accion: string) =>
+        esSuperRol || tienePermiso('contabilidad', accion) || tienePermiso('presupuesto', accion);
+    const canView = puede('ver') || tienePermiso('contabilidad', 'recursos');
+    const canCreate = puede('crear');
+    const canEdit = puede('editar');
+    const canDelete = puede('eliminar');
+    const hasRowActions = canCreate || canEdit || canDelete;
 
     // ---- Excel: Exportar ----
     const exportToExcel = async () => {
@@ -503,6 +521,7 @@ export default function RecursosPage() {
         setPendingCodigos([]);
         setCodigosExistentes([]);
         setFormCodigo(null);
+        setEditingCodigoId(null);
         setExpandedPropositos({});
         setAsesoriaRecurso(null);
         setMostrarAsesoriaRecurso(false);
@@ -559,7 +578,8 @@ export default function RecursosPage() {
                     await api.post(`/presupuesto/recursos/${recursoId}/mapeos`, {
                         id_subcat_recurso: pc.id_subcat_recurso,
                         id_subvencion: pc.id_subvencion || null,
-                        destino_gasto: pc.destino_gasto
+                        destino_gasto: pc.destino_gasto,
+                        centro_costo: pc.centro_costo || null
                     });
                 }
             }
@@ -617,18 +637,34 @@ export default function RecursosPage() {
 
     // ── Codes for resource (edit mode – live API) ─────────────────────────────
     // ── Codes for resource (edit mode – live API) ─────────────────────────────
-    const agregarCodigoExistente = async (idSubcat: number, idSubvencion: number | undefined) => {
-        if (!editingRecurso || !formCodigo?.propositoId) return;
+    const agregarCodigoExistente = async (data: CodigoFormData) => {
+        if (!editingRecurso) return;
         try {
             await api.post(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`, {
-                id_subcat_recurso: idSubcat,
-                id_subvencion: idSubvencion || null,
-                destino_gasto: formCodigo.propositoId
+                id_subcat_recurso: data.idSubcat,
+                id_subvencion: data.idSubvencion || null,
+                destino_gasto: data.destino,
+                centro_costo: data.centroCosto.trim() || null
             });
             const res = await api.get(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`);
             setCodigosExistentes(res.data || []);
         } catch (e: any) { alert(e.response?.data?.detail || 'Error'); }
         setFormCodigo(null);
+    };
+
+    const editarCodigoExistente = async (idMapeo: number, data: CodigoFormData) => {
+        if (!editingRecurso) return;
+        try {
+            await api.put(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos/${idMapeo}`, {
+                id_subcat_recurso: data.idSubcat,
+                id_subvencion: data.idSubvencion || null,
+                destino_gasto: data.destino,
+                centro_costo: data.centroCosto.trim() || null
+            });
+            const res = await api.get(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`);
+            setCodigosExistentes(res.data || []);
+            setEditingCodigoId(null);
+        } catch (e: any) { alert(e.response?.data?.detail || 'Error al editar el código'); }
     };
 
     const eliminarCodigoExistente = async (idMapeo: number) => {
@@ -640,20 +676,29 @@ export default function RecursosPage() {
     };
 
     // ── Codes for resource (new mode – pending state) ─────────────────────────
-    const agregarCodigoPendiente = (idSubcat: number, idSubvencion: number | undefined) => {
-        if (!formCodigo?.propositoId) return;
-        const sub = subcategorias.find(s => s.id_subcat_recurso === idSubcat);
-        const subvObj = subvencionesActivas.find(sv => sv.id_subvencion === idSubvencion);
-        setPendingCodigos(prev => [...prev, {
-            key: `${formCodigo.propositoId}-${idSubcat}-${Date.now()}`,
-            id_subcat_recurso: idSubcat,
-            id_subvencion: idSubvencion,
+    const pendienteDesdeForm = (data: CodigoFormData, key: string): PendingCodigo => {
+        const sub = subcategorias.find(s => s.id_subcat_recurso === data.idSubcat);
+        const subvObj = subvencionesActivas.find(sv => sv.id_subvencion === data.idSubvencion);
+        return {
+            key,
+            id_subcat_recurso: data.idSubcat,
+            id_subvencion: data.idSubvencion,
             codigo_cuenta: sub?.codigo_cuenta || '',
             nombre_subcategoria: sub?.nombre || '',
             nombre_subvencion: subvObj?.nombre_corto || 'GENERAL',
-            destino_gasto: formCodigo.propositoId
-        }]);
+            destino_gasto: data.destino,
+            centro_costo: data.centroCosto.trim() || null
+        };
+    };
+
+    const agregarCodigoPendiente = (data: CodigoFormData) => {
+        setPendingCodigos(prev => [...prev, pendienteDesdeForm(data, `${data.destino}-${data.idSubcat}-${Date.now()}`)]);
         setFormCodigo(null);
+    };
+
+    const editarCodigoPendiente = (key: string, data: CodigoFormData) => {
+        setPendingCodigos(prev => prev.map(p => p.key === key ? pendienteDesdeForm(data, key) : p));
+        setEditingCodigoId(null);
     };
 
     const eliminarCodigoPendiente = (key: string) => setPendingCodigos(prev => prev.filter(p => p.key !== key));
@@ -680,13 +725,23 @@ export default function RecursosPage() {
 
     // ── Shared: Inline form for adding a code ─────────────────────────────────
     const InlineCodigoForm = ({
-        onSave, onCancel,
-    }: { onSave: (idSubcat: number, idSubvencion: number | undefined) => void; onCancel: () => void; }) => {
-        const [search, setSearch] = useState('');
-        const [selectedSubcatId, setSelectedSubcatId] = useState<number | null>(null);
+        onSave, onCancel, destinoInicial, inicial,
+    }: {
+        onSave: (data: CodigoFormData) => void;
+        onCancel: () => void;
+        destinoInicial: string;
+        // Presente al editar un código ya asignado
+        inicial?: CodigoContable | PendingCodigo;
+    }) => {
+        const [search, setSearch] = useState(inicial ? `${inicial.codigo_cuenta} — ${inicial.nombre_subcategoria}` : '');
+        const [selectedSubcatId, setSelectedSubcatId] = useState<number | null>(inicial?.id_subcat_recurso ?? null);
         const [selectedSubvencionId, setSelectedSubvencionId] = useState<number | undefined>(
-            subvencionesActivas.find(s => s.nombre_corto === 'GENERAL')?.id_subvencion || subvencionesActivas[0]?.id_subvencion
+            inicial
+                ? (inicial.id_subvencion ?? undefined)
+                : (subvencionesActivas.find(s => s.nombre_corto === 'GENERAL')?.id_subvencion || subvencionesActivas[0]?.id_subvencion)
         );
+        const [destino, setDestino] = useState(inicial?.destino_gasto || destinoInicial);
+        const [centroCosto, setCentroCosto] = useState(inicial?.centro_costo || '');
         const resultados = subcategorias.filter(s =>
             s.codigo_cuenta.includes(search) || s.nombre.toLowerCase().includes(search.toLowerCase())
         ).slice(0, 6);
@@ -720,11 +775,29 @@ export default function RecursosPage() {
                     )}
                     {selectedSubcatId && <p className="text-[10px] font-bold text-primary px-1">✓ Seleccionado</p>}
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Destino</label>
+                        <select value={destino} onChange={e => setDestino(e.target.value)}
+                            className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            {PILARES_OFICIALES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Centro de costo</label>
+                        <input type="text" list="recursos-centros-costo" value={centroCosto} placeholder="Ej: SEP, GENERAL..."
+                            onChange={e => setCentroCosto(e.target.value)}
+                            className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                        <datalist id="recursos-centros-costo">
+                            {CENTROS_COSTO_SUGERIDOS.map(cc => <option key={cc} value={cc} />)}
+                        </datalist>
+                    </div>
+                </div>
                 <div className="flex justify-end gap-2">
                     <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:text-gray-800">Cancelar</button>
-                    <button type="button" disabled={!selectedSubcatId} onClick={() => onSave(selectedSubcatId!, selectedSubvencionId)}
+                    <button type="button" disabled={!selectedSubcatId} onClick={() => onSave({ idSubcat: selectedSubcatId!, idSubvencion: selectedSubvencionId, centroCosto, destino })}
                         className="px-4 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold disabled:opacity-40">
-                        Agregar
+                        {inicial ? 'Guardar cambios' : 'Agregar'}
                     </button>
                 </div>
             </div>
@@ -733,10 +806,11 @@ export default function RecursosPage() {
 
     // ── Shared: per-propósito codes section ───────────────────────────────────
     const SeccionCodigos = ({
-        codigos, onAdd, onDelete, activeForm, setActiveForm, isNew,
+        codigos, onAdd, onEdit, onDelete, activeForm, setActiveForm, isNew,
     }: {
         codigos: (CodigoContable | PendingCodigo)[];
-        onAdd: (idSubcat: number, idSubvencion: number | undefined) => void;
+        onAdd: (data: CodigoFormData) => void;
+        onEdit: (id: number | string, data: CodigoFormData) => void;
         onDelete: (id: number | string) => void;
         activeForm: string | null;
         setActiveForm: (v: string | null) => void;
@@ -786,6 +860,14 @@ export default function RecursosPage() {
                                                                     className={`inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded text-[10px] font-bold border ${critico ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white text-blue-700 border-blue-200'}`}>
                                                                     {critico && <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />}
                                                                     {subvName || 'GENERAL'}
+                                                                    {c.centro_costo && <span className="font-medium text-gray-500">· CC: {c.centro_costo}</span>}
+                                                                    {(isNew || canEdit) && (
+                                                                        <button type="button" onClick={() => { setActiveForm(null); setEditingCodigoId(id!); }}
+                                                                            className="ml-0.5 text-gray-400 hover:text-primary transition-colors rounded"
+                                                                            title="Editar código, destino y centro de costo">
+                                                                            <Edit size={10} />
+                                                                        </button>
+                                                                    )}
                                                                     <button type="button" onClick={() => onDelete(id!)}
                                                                         className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors rounded"
                                                                         title="Quitar esta subvención">
@@ -806,10 +888,22 @@ export default function RecursosPage() {
                                 ) : (
                                     <p className="text-xs text-gray-400 italic">No se han asignado códigos contables para este propósito.</p>
                                 )}
+                                {(() => {
+                                    const enEdicion = misCodigos.find(c => ('id_mapeo' in c ? c.id_mapeo : (c as PendingCodigo).key) === editingCodigoId);
+                                    return enEdicion ? (
+                                        <InlineCodigoForm
+                                            key={`edit-${editingCodigoId}`}
+                                            inicial={enEdicion}
+                                            destinoInicial={p.id}
+                                            onSave={data => onEdit(editingCodigoId!, data)}
+                                            onCancel={() => setEditingCodigoId(null)}
+                                        />
+                                    ) : null;
+                                })()}
                                 {activeForm === p.id ? (
-                                    <InlineCodigoForm onSave={(idSubcat, idSubvencion) => onAdd(idSubcat, idSubvencion)} onCancel={() => setActiveForm(null)} />
+                                    <InlineCodigoForm destinoInicial={p.id} onSave={onAdd} onCancel={() => setActiveForm(null)} />
                                 ) : (
-                                    <button type="button" onClick={() => setActiveForm(p.id)}
+                                    <button type="button" onClick={() => { setEditingCodigoId(null); setActiveForm(p.id); }}
                                         className="flex items-center gap-1.5 text-xs text-primary font-bold hover:text-blue-700 transition-colors mt-2">
                                         <Plus size={14} /> Asignar código contable
                                     </button>
@@ -821,6 +915,15 @@ export default function RecursosPage() {
             })}
         </div>
     );
+
+    if (!authLoading && !canView) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24 text-center text-gray-500">
+                <p className="text-lg font-semibold text-gray-700">No tienes acceso a esta sección</p>
+                <p className="text-sm mt-1">Solicita al administrador el permiso de Recursos (GO-Contralor) en tu rol.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -857,7 +960,7 @@ export default function RecursosPage() {
                     </div>
 
 
-                    <button
+                    {canEdit && canDelete && <button
                         onClick={() => {
                             // Algoritmo de detección de duplicados por palabras clave (tokens comunes >= 3 letras)
                             const stopWords = new Set(['de', 'del', 'la', 'los', 'las', 'un', 'una', 'para', 'con', 'sin', 'por', 'en', 'y', 'e', 'o']);
@@ -908,7 +1011,7 @@ export default function RecursosPage() {
                     >
                         <Search size={18} />
                         <span className="hidden lg:inline">Detectar Similares ({resources.length})</span>
-                    </button>
+                    </button>}
 
                     <button
                         onClick={downloadTemplate}
@@ -928,7 +1031,7 @@ export default function RecursosPage() {
                         <span className="hidden lg:inline">Exportar</span>
                     </button>
 
-                    {canEdit && (
+                    {canCreate && (
                         <>
                             <button
                                 onClick={handleImportClick}
@@ -955,7 +1058,7 @@ export default function RecursosPage() {
                                 <span className="hidden md:inline">Nuevo Recurso</span>
                             </button>
 
-                            {resources.length > 0 && (
+                            {canDelete && resources.length > 0 && (
                                 <button
                                     onClick={() => setShowDeleteAll(true)}
                                     title="Eliminar todos los recursos del catálogo"
@@ -975,14 +1078,14 @@ export default function RecursosPage() {
                 <div className="flex items-center gap-3 px-5 py-3 mb-3 bg-red-50 border border-red-200 rounded-2xl">
                     <span className="text-sm font-bold text-red-700">{selectedRec.size} seleccionado{selectedRec.size > 1 ? 's' : ''}</span>
                     <div className="flex gap-2 ml-auto">
-                        <button onClick={() => setBulkConfirmRec('copy')}
+                        {canCreate && <button onClick={() => setBulkConfirmRec('copy')}
                             className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all">
                             <Copy size={14} /> Duplicar ({selectedRec.size})
-                        </button>
-                        <button onClick={() => setBulkConfirmRec('delete')}
+                        </button>}
+                        {canDelete && <button onClick={() => setBulkConfirmRec('delete')}
                             className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all">
                             <Trash2 size={14} /> Eliminar ({selectedRec.size})
-                        </button>
+                        </button>}
                         <button onClick={() => setSelectedRec(new Set())}
                             className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition-all">
                             <X size={13} /> Cancelar
@@ -1057,13 +1160,13 @@ export default function RecursosPage() {
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoría</th>
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Descripción</th>
-                                {canEdit && <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>}
+                                {hasRowActions && <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={canEdit ? 5 : 4} className="px-6 py-12 text-center text-gray-400">
+                                    <td colSpan={hasRowActions ? 5 : 4} className="px-6 py-12 text-center text-gray-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="animate-spin" size={24} />
                                             <span>Cargando recursos...</span>
@@ -1072,7 +1175,7 @@ export default function RecursosPage() {
                                 </tr>
                             ) : filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canEdit ? 5 : 4} className="px-6 py-12 text-center text-gray-400">No se encontraron recursos.</td>
+                                    <td colSpan={hasRowActions ? 5 : 4} className="px-6 py-12 text-center text-gray-400">No se encontraron recursos.</td>
                                 </tr>
                             ) : (
                                 paginated.map((r) => {
@@ -1119,12 +1222,12 @@ export default function RecursosPage() {
                                                 <p className="text-sm text-gray-500 line-clamp-2">{r.descripcion || '—'}</p>
                                                 {r.formato && <span className="text-[10px] text-gray-400 font-mono">Formato: {r.formato}</span>}
                                             </td>
-                                            {canEdit && (
+                                            {hasRowActions && (
                                                 <td className="px-6 py-4 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-1.5">
-                                                        <button onClick={() => handleEdit(r)} className="text-gray-400 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50" title="Editar recurso y códigos"><Edit size={16} /></button>
-                                                        <button onClick={() => handleCopy(r)} className="text-gray-400 hover:text-green-600 transition-colors p-2 rounded-lg hover:bg-green-50" title="Duplicar recurso"><Copy size={16} /></button>
-                                                        <button onClick={() => setDeletingRecurso(r)} className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50" title="Eliminar recurso"><Trash2 size={16} /></button>
+                                                        {canEdit && <button onClick={() => handleEdit(r)} className="text-gray-400 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50" title="Editar recurso y códigos"><Edit size={16} /></button>}
+                                                        {canCreate && <button onClick={() => handleCopy(r)} className="text-gray-400 hover:text-green-600 transition-colors p-2 rounded-lg hover:bg-green-50" title="Duplicar recurso"><Copy size={16} /></button>}
+                                                        {canDelete && <button onClick={() => setDeletingRecurso(r)} className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50" title="Eliminar recurso"><Trash2 size={16} /></button>}
                                                     </div>
                                                 </td>
                                             )}
@@ -1380,6 +1483,7 @@ export default function RecursosPage() {
                             <SeccionCodigos
                                 codigos={codigosExistentes}
                                 onAdd={agregarCodigoExistente}
+                                onEdit={(id, data) => editarCodigoExistente(id as number, data)}
                                 onDelete={id => eliminarCodigoExistente(id as number)}
                                 activeForm={formCodigo?.propositoId || null}
                                 setActiveForm={v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null)}
@@ -1389,6 +1493,7 @@ export default function RecursosPage() {
                             <SeccionCodigos
                                 codigos={pendingCodigos}
                                 onAdd={agregarCodigoPendiente}
+                                onEdit={(id, data) => editarCodigoPendiente(id as string, data)}
                                 onDelete={id => eliminarCodigoPendiente(id as string)}
                                 activeForm={formCodigo?.propositoId || null}
                                 setActiveForm={v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null)}
@@ -1518,6 +1623,10 @@ export default function RecursosPage() {
                                             {viewingCodigoDetalle.nombre_subvencion || 'GENERAL'}
                                         </span>
                                     </p>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-gray-400">Centro de Costo</span>
+                                    <p className="text-sm font-semibold text-gray-800">{viewingCodigoDetalle.centro_costo || '—'}</p>
                                 </div>
                             </div>
                             <div className="flex justify-end pt-2">

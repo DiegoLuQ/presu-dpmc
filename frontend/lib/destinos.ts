@@ -22,6 +22,7 @@ export const DESTINOS: DestinoGasto[] = [
     { valor: 'oficinas(administracion)', label: 'Funcionarios (Oficina, actividades de func., etc)' },
     { valor: 'premio/beneficio', label: 'Actividad (Premio Beneficio)' },
     { valor: 'mantencion/servicio', label: 'Mantención / Servicio' },
+    { valor: 'apoderados', label: 'Apoderados' },
 ];
 
 /** Mapa valor canónico → etiqueta, para los `<select>` y las tablas. */
@@ -48,6 +49,8 @@ const ALIAS: Record<string, string> = {
     'mantencion': 'mantencion/servicio',
     'servicio': 'mantencion/servicio',
     'mantencion / servicio': 'mantencion/servicio',
+    'apoderados': 'apoderados',
+    'apoderado': 'apoderados',
 };
 
 function normalizar(valor: string): string {

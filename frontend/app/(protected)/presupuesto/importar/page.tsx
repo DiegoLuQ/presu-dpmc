@@ -239,6 +239,8 @@ const DESTINOS_ALIAS: Record<string, string> = {
     'mantencion': 'mantencion/servicio',
     'mantención': 'mantencion/servicio',
     'servicio': 'mantencion/servicio',
+    'apoderados': 'apoderados',
+    'apoderado': 'apoderados',
 };
 
 function parseDestino(valor: any): string | undefined {

@@ -131,6 +131,12 @@ def apply_migrations():
             except Exception as e:
                 print(f"Advertencia al agregar FK fk_pedido_grupo: {e}")
 
+        # --- pre_mapeo_recurso_subcategoria: centro de costo por código contable ---
+        res = conn.execute(text("SHOW COLUMNS FROM pre_mapeo_recurso_subcategoria LIKE 'centro_costo';")).fetchone()
+        if not res:
+            print("Agregando columna 'centro_costo' a 'pre_mapeo_recurso_subcategoria'...")
+            conn.execute(text("ALTER TABLE pre_mapeo_recurso_subcategoria ADD COLUMN centro_costo VARCHAR(100) NULL;"))
+
         # --- org_area cleanup ---
         res = conn.execute(text("SHOW COLUMNS FROM org_area LIKE 'id_jefe';")).fetchone()
         if res:

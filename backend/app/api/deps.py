@@ -58,6 +58,26 @@ def verificar_permisos(modulo: str, accion: str = "ver"):
     return _check
 
 
+def verificar_permisos_recursos(accion: str = "ver"):
+    """Catálogo de Recursos (sección de GO-Contralor): acepta el permiso del
+    módulo `contabilidad` configurado en el editor de roles o, por compatibilidad,
+    el permiso equivalente de `presupuesto`."""
+    check_presupuesto = verificar_permisos("presupuesto", accion)
+
+    def _check(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ):
+        user_permisos = get_user_permisos(current_user.rol)
+        if current_user.rol and (
+            tiene_permiso(user_permisos, "contabilidad", accion)
+            or (accion == "ver" and tiene_permiso(user_permisos, "contabilidad", "recursos"))
+        ):
+            return current_user
+        return check_presupuesto(current_user=current_user, db=db)
+    return _check
+
+
 def verificar_seccion(seccion_key: str):
     """Exige que el usuario esté en la lista blanca de una sección restringida
     (o que aplique el respaldo por rol / bypass ADM)."""

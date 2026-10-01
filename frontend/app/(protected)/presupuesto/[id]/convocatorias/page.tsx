@@ -23,6 +23,7 @@ const DESTINOS: { value: string; label: string }[] = [
     { value: 'oficinas(administracion)', label: 'Funcionario' },
     { value: 'premio/beneficio', label: 'Beneficio' },
     { value: 'mantencion/servicio', label: 'Mantención' },
+    { value: 'apoderados', label: 'Apoderados' },
 ];
 
 const LEGACY_DESTINO: Record<string, string> = {

@@ -5,7 +5,7 @@ from datetime import datetime, date
 import re
 import unicodedata
 from app.db.session import get_db
-from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle, SolicitudCompartida, SeccionAcceso
+from app.models import User, SolicitudPresupuesto, PresupuestoDetalle, Subarea, Cargo, Area, AreaCargo, Contabilidad, Recurso, CategoriaRecurso, PME, Accion, Actividad, CuentaDescripcion, CuentaMatrizReglas, RolContextoDefault, CategoriaCodigoContable, SubcategoriaRecurso, MapeoRecursoSubcategoria, Subvencion, GrupoRecurso, MotivoRecurso, ActividadCodigoContable, PreConvocatoria, PresupuestoAnual, AreaColegioJefe, Colegio, UserColegio, SolicitudModificacionDetalle, ActaEntrega, ActaEntregaDetalle, SolicitudCompartida, SeccionAcceso, CATEGORIA_PILAR_VALUES
 from app.schemas.budget import (
     BudgetRequestCreate, BudgetRequestResponse,
     ContabilidadCreate, ContabilidadResponse,
@@ -17,7 +17,7 @@ from app.schemas.budget import (
     ResolverCodigoRequest, ResolverCodigoResponse,
     SugerirRecursoRequest, AprobarRecursoRequest, SugerirCuentaRequest,
     CatCodigoCreate, CatCodigoResponse, ResolucionSubcategoriaResponse, SubvencionResponse, SubvencionCreate,
-    MapeoRecursoSubcategoriaCreate, MapeoRecursoSubcategoriaResponse,
+    MapeoRecursoSubcategoriaCreate, MapeoRecursoSubcategoriaUpdate, MapeoRecursoSubcategoriaResponse,
     GrupoRecursoCreate, GrupoRecursoResponse,
     MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
@@ -29,7 +29,7 @@ from app.schemas.budget import (
     AnalizarPlanillaRequest, AnalizarPlanillaResponse, AnalisisFilaResultado, RecursoSugerido,
     ActaEntregaCreate, ActaEntregaUpdate, ActaEntregaResponse, ActaEntregaDetalleResponse
 )
-from app.api.deps import verificar_permisos, verificar_seccion
+from app.api.deps import verificar_permisos, verificar_permisos_recursos, verificar_seccion
 from app.core.secciones import usuario_puede_seccion
 from sqlalchemy import func, or_, and_, case
 from pydantic import BaseModel
@@ -233,6 +233,22 @@ _DESTINO_CANONICO = {
     "mantencion/servicio": "mantencion/servicio",
     "mantencion": "mantencion/servicio",
     "servicio": "mantencion/servicio",
+    "apoderados": "apoderados",
+    "apoderado": "apoderados",
+}
+
+
+# destino_uso (botones del Contralor / IA) → destino_gasto con que se guarda el mapeo.
+_DESTINO_USO_A_GASTO = {
+    'ESTUDIANTE': 'clases(alumno)',
+    'DOCENTE': 'clases(alumno)',
+    'ADMINISTRATIVO': 'oficinas(administracion)',
+    'FUNCIONARIO': 'oficinas(administracion)',
+    'COMUNIDAD': 'oficinas(administracion)',
+    'GENERAL': 'oficinas(administracion)',
+    'PREMIO': 'premio/beneficio',
+    'MANTENCION': 'mantencion/servicio',
+    'APODERADO': 'apoderados',
 }
 
 
@@ -3265,7 +3281,7 @@ def buscar_recursos(
 @router.get("/subvenciones/activas", response_model=List[SubvencionResponse])
 def list_subvenciones_activas(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     return db.query(Subvencion).filter(Subvencion.estado == "ACTIVO").all()
 
@@ -3522,7 +3538,7 @@ def resolver_subcategoria(
 @router.get("/grupos-recurso", response_model=List[GrupoRecursoResponse])
 def list_grupos_recurso(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     return db.query(GrupoRecurso).all()
 
@@ -3531,7 +3547,7 @@ def list_grupos_recurso(
 def create_grupo_recurso(
     obj: GrupoRecursoCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+    current_user: User = Depends(verificar_permisos_recursos("crear"))
 ):
     ex = db.query(GrupoRecurso).filter(
         func.lower(GrupoRecurso.nombre) == obj.nombre.lower()
@@ -3745,7 +3761,7 @@ def list_recursos(
     page: Optional[int] = Query(None, ge=1),
     limit: Optional[int] = Query(None, ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     query = db.query(Recurso).filter(Recurso.estado == "ACTIVO").join(Recurso.categoria, isouter=True).options(
         selectinload(Recurso.grupo),
@@ -3795,7 +3811,7 @@ def list_recursos(
 def create_recurso(
     obj: RecursoCreateFull,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+    current_user: User = Depends(verificar_permisos_recursos("crear"))
 ):
     recurso_existente = db.query(Recurso).filter(
         func.lower(Recurso.nombre) == obj.nombre.lower()
@@ -3830,7 +3846,7 @@ def update_recurso(
     id_recurso: int,
     obj: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "editar"))
+    current_user: User = Depends(verificar_permisos_recursos("editar"))
 ):
     recurso = db.query(Recurso).filter(Recurso.id_recurso == id_recurso).first()
     if not recurso:
@@ -3877,7 +3893,7 @@ def update_recurso(
 @router.delete("/recursos/eliminar-todos")
 def delete_all_recursos(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "eliminar"))
+    current_user: User = Depends(verificar_permisos_recursos("eliminar"))
 ):
     # Solo eliminar recursos que no estén asociados a detalles de presupuesto
     from sqlalchemy import not_
@@ -3927,7 +3943,7 @@ def delete_recurso_sugerido(
 def delete_recurso(
     id_recurso: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "eliminar"))
+    current_user: User = Depends(verificar_permisos_recursos("eliminar"))
 ):
     recurso = db.query(Recurso).filter(Recurso.id_recurso == id_recurso).first()
     if not recurso:
@@ -3951,7 +3967,7 @@ def delete_recurso(
 @router.get("/categoria-recurso", response_model=List[CategoriaRecursoResponse])
 def list_categorias(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     return db.query(CategoriaRecurso).filter(CategoriaRecurso.estado == "Activo").all()
 
@@ -4531,20 +4547,10 @@ def aprobar_y_clasificar_recurso(
         if subv:
             id_subvencion = subv.id_subvencion
 
-    # Map destino_uso to destino_gasto (para compatibilidad)
-    destino_map = {
-        'ESTUDIANTE': 'clases(alumno)',
-        'DOCENTE': 'clases(alumno)',
-        'ADMINISTRATIVO': 'oficinas(administracion)',
-        'FUNCIONARIO': 'oficinas(administracion)',
-        'COMUNIDAD': 'oficinas(administracion)',
-        'GENERAL': 'oficinas(administracion)',
-        'PREMIO': 'premio/beneficio',
-        'MANTENCION': 'mantencion/servicio',
-    }
-    destino_gasto = destino_map.get(req.destino_uso, 'clases(alumno)')
-    if req.destino_uso in ['clases(alumno)', 'oficinas(administracion)', 'premio/beneficio', 'mantencion/servicio']:
+    destino_gasto = _DESTINO_USO_A_GASTO.get(req.destino_uso, 'clases(alumno)')
+    if req.destino_uso in CATEGORIA_PILAR_VALUES:
         destino_gasto = req.destino_uso
+    centro_costo = (req.centro_costo or '').strip() or None
 
     existe = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_recurso == recurso.id_recurso,
@@ -4558,9 +4564,12 @@ def aprobar_y_clasificar_recurso(
             id_recurso=recurso.id_recurso,
             id_subcat_recurso=subcat.id_subcat_recurso,
             destino_gasto=destino_gasto,
-            id_subvencion=id_subvencion
+            id_subvencion=id_subvencion,
+            centro_costo=centro_costo
         )
         db.add(nuevo_mapeo)
+    elif centro_costo:
+        existe.centro_costo = centro_costo
     
     # 3. Bulk update en pre_detalle para solicitudes pendientes
     detalles_pendientes = db.query(PresupuestoDetalle).filter(
@@ -4582,10 +4591,11 @@ def aprobar_y_clasificar_recurso(
 
 
 class CodigoDestinoLote(BaseModel):
-    destino: str  # ESTUDIANTE, FUNCIONARIO, PREMIO, MANTENCION
+    destino: str  # ESTUDIANTE, FUNCIONARIO, PREMIO, MANTENCION, APODERADO
     codigo_cuenta: str
     nombre_cuenta: Optional[str] = None
     subvencion: Optional[str] = 'GENERAL'
+    centro_costo: Optional[str] = None
 
 
 class ItemAprobarLote(BaseModel):
@@ -4627,16 +4637,7 @@ def aprobar_clasificar_recursos_lote(
     total_detalles = 0
     total_mapeos = 0
 
-    destino_map = {
-        'ESTUDIANTE': 'clases(alumno)',
-        'DOCENTE': 'clases(alumno)',
-        'ADMINISTRATIVO': 'oficinas(administracion)',
-        'FUNCIONARIO': 'oficinas(administracion)',
-        'COMUNIDAD': 'oficinas(administracion)',
-        'GENERAL': 'oficinas(administracion)',
-        'PREMIO': 'premio/beneficio',
-        'MANTENCION': 'mantencion/servicio',
-    }
+    destino_map = _DESTINO_USO_A_GASTO
 
     for item in obj.items:
         recurso = db.query(Recurso).filter(Recurso.id_recurso == item.id_recurso).first()
@@ -4663,14 +4664,14 @@ def aprobar_clasificar_recursos_lote(
             # Modo nuevo: múltiples destinos
             for cd in item.codigos_destino:
                 if cd.codigo_cuenta:
-                    pares_destino.append((cd.destino, cd.codigo_cuenta, cd.subvencion or 'GENERAL'))
+                    pares_destino.append((cd.destino, cd.codigo_cuenta, cd.subvencion or 'GENERAL', (cd.centro_costo or '').strip() or None))
         elif item.codigo_cuenta:
             # Modo legado: un solo código
-            pares_destino.append((item.destino_uso or 'ESTUDIANTE', item.codigo_cuenta, item.subvencion or 'GENERAL'))
+            pares_destino.append((item.destino_uso or 'ESTUDIANTE', item.codigo_cuenta, item.subvencion or 'GENERAL', None))
 
         # Crear mapeos en pre_recurso_cuenta por cada par destino/código
         primer_codigo = None
-        for (destino, codigo_cuenta, subvencion) in pares_destino:
+        for (destino, codigo_cuenta, subvencion, centro_costo) in pares_destino:
             if primer_codigo is None:
                 primer_codigo = codigo_cuenta
 
@@ -4698,9 +4699,12 @@ def aprobar_clasificar_recursos_lote(
                     id_recurso=recurso.id_recurso,
                     id_subcat_recurso=subcat.id_subcat_recurso,
                     destino_gasto=destino_gasto,
-                    id_subvencion=id_subvencion
+                    id_subvencion=id_subvencion,
+                    centro_costo=centro_costo
                 ))
                 total_mapeos += 1
+            elif centro_costo:
+                existe.centro_costo = centro_costo
 
         # Actualizar detalles de presupuesto pendientes con el primer código
         if primer_codigo:
@@ -4720,7 +4724,7 @@ def aprobar_clasificar_recursos_lote(
 @router.get("/recursos/todos-mapeos")
 def get_todos_mapeos_recursos(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     from sqlalchemy.orm import joinedload
     mapeos = db.query(MapeoRecursoSubcategoria).options(
@@ -4743,7 +4747,8 @@ def get_todos_mapeos_recursos(
             "nombre_subcategoria": nombre_subcat,
             "id_subvencion": m.id_subvencion,
             "nombre_subvencion": nombre_subv,
-            "destino_gasto": m.destino_gasto
+            "destino_gasto": m.destino_gasto,
+            "centro_costo": m.centro_costo
         })
     return resultado
 
@@ -4752,7 +4757,7 @@ def get_todos_mapeos_recursos(
 def get_mapeos_recurso(
     id_recurso: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     mapeos = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_recurso == id_recurso
@@ -4802,6 +4807,7 @@ def get_mapeos_recurso(
             id_subvencion=m.id_subvencion,
             nombre_subvencion=nombre_subvencion,
             destino_gasto=m.destino_gasto,
+            centro_costo=m.centro_costo,
             critico_fiscalizacion=_es_critico(codigo_cuenta, nombre_subvencion)
         ))
     return res
@@ -4812,7 +4818,7 @@ def add_mapeo_recurso(
     id_recurso: int,
     payload: MapeoRecursoSubcategoriaCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+    current_user: User = Depends(verificar_permisos_recursos("crear"))
 ):
     recurso = db.query(Recurso).filter(Recurso.id_recurso == id_recurso).first()
     if not recurso:
@@ -4861,7 +4867,8 @@ def add_mapeo_recurso(
         id_recurso=id_recurso,
         id_subcat_recurso=payload_subcat_id,
         id_subvencion=payload.id_subvencion,
-        destino_gasto=payload.destino_gasto
+        destino_gasto=payload.destino_gasto,
+        centro_costo=(payload.centro_costo or '').strip() or None
     )
     db.add(db_obj)
     db.commit()
@@ -4875,7 +4882,69 @@ def add_mapeo_recurso(
         nombre_subcategoria=db_obj.subcategoria.nombre if db_obj.subcategoria else "",
         id_subvencion=db_obj.id_subvencion,
         nombre_subvencion=db_obj.subvencion.nombre_corto if db_obj.subvencion else None,
-        destino_gasto=db_obj.destino_gasto
+        destino_gasto=db_obj.destino_gasto,
+        centro_costo=db_obj.centro_costo
+    )
+
+
+@router.put("/recursos/{id_recurso}/mapeos/{id_mapeo}", response_model=MapeoRecursoSubcategoriaResponse)
+def update_mapeo_recurso(
+    id_recurso: int,
+    id_mapeo: int,
+    payload: MapeoRecursoSubcategoriaUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos_recursos("editar"))
+):
+    """Edita un código contable del recurso: código, destino, subvención y centro de costo."""
+    mapeo = db.query(MapeoRecursoSubcategoria).filter(
+        MapeoRecursoSubcategoria.id_mapeo == id_mapeo,
+        MapeoRecursoSubcategoria.id_recurso == id_recurso
+    ).first()
+    if not mapeo:
+        raise HTTPException(status_code=404, detail="Mapeo no encontrado")
+
+    campos = payload.model_dump(exclude_unset=True)
+
+    if payload.id_subcat_recurso or payload.codigo_cuenta:
+        q = db.query(SubcategoriaRecurso)
+        subcat = (q.filter(SubcategoriaRecurso.id_subcat_recurso == payload.id_subcat_recurso).first()
+                  if payload.id_subcat_recurso else
+                  q.filter(SubcategoriaRecurso.codigo_cuenta == payload.codigo_cuenta).first())
+        if not subcat:
+            raise HTTPException(status_code=404, detail="Código contable no encontrado")
+        mapeo.id_subcat_recurso = subcat.id_subcat_recurso
+    if 'id_subvencion' in campos:
+        if payload.id_subvencion and not db.query(Subvencion).filter(Subvencion.id_subvencion == payload.id_subvencion).first():
+            raise HTTPException(status_code=404, detail="Subvención no encontrada")
+        mapeo.id_subvencion = payload.id_subvencion
+    if payload.destino_gasto:
+        mapeo.destino_gasto = payload.destino_gasto
+    if 'centro_costo' in campos:
+        mapeo.centro_costo = (payload.centro_costo or '').strip() or None
+
+    duplicado = db.query(MapeoRecursoSubcategoria).filter(
+        MapeoRecursoSubcategoria.id_mapeo != mapeo.id_mapeo,
+        MapeoRecursoSubcategoria.id_recurso == id_recurso,
+        MapeoRecursoSubcategoria.id_subcat_recurso == mapeo.id_subcat_recurso,
+        MapeoRecursoSubcategoria.id_subvencion == mapeo.id_subvencion,
+        MapeoRecursoSubcategoria.destino_gasto == mapeo.destino_gasto
+    ).first()
+    if duplicado:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Ya existe ese código con el mismo destino y subvención")
+
+    db.commit()
+    db.refresh(mapeo)
+    return MapeoRecursoSubcategoriaResponse(
+        id_mapeo=mapeo.id_mapeo,
+        id_recurso=mapeo.id_recurso,
+        id_subcat_recurso=mapeo.id_subcat_recurso,
+        codigo_cuenta=mapeo.subcategoria.codigo_cuenta if mapeo.subcategoria else "",
+        nombre_subcategoria=mapeo.subcategoria.nombre if mapeo.subcategoria else "",
+        id_subvencion=mapeo.id_subvencion,
+        nombre_subvencion=mapeo.subvencion.nombre_corto if mapeo.subvencion else None,
+        destino_gasto=mapeo.destino_gasto,
+        centro_costo=mapeo.centro_costo
     )
 
 
@@ -4884,7 +4953,7 @@ def delete_mapeo_recurso(
     id_recurso: int,
     id_mapeo: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+    current_user: User = Depends(verificar_permisos_recursos("crear"))
 ):
     mapeo = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_mapeo == id_mapeo,
@@ -4932,7 +5001,7 @@ def resolver_mapeo_recurso(
 def list_subcategorias(
     id_cat_recurso: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+    current_user: User = Depends(verificar_permisos_recursos("ver"))
 ):
     query = db.query(SubcategoriaRecurso)
     if id_cat_recurso is not None:

@@ -1509,7 +1509,7 @@ export default function AgregarRecursosPage() {
             if (sepSubv) return sepSubv.id_subvencion;
         }
 
-        if (destino === 'oficinas(administracion)') {
+        if (destino === 'oficinas(administracion)' || destino === 'apoderados') {
             const genSubv = subvencionesActivas.find(s => s.nombre_corto === 'GENERAL');
             if (genSubv) return genSubv.id_subvencion;
         }
@@ -2825,7 +2825,7 @@ export default function AgregarRecursosPage() {
 
         if (destinoCanon === 'clases(alumno)' || destinoCanon === 'premio/beneficio') {
             if (subSEP) nuevaSubvId = subSEP.id_subvencion;
-        } else if (destinoCanon === 'oficinas(administracion)') {
+        } else if (destinoCanon === 'oficinas(administracion)' || destinoCanon === 'apoderados') {
             if (subGEN) nuevaSubvId = subGEN.id_subvencion;
         } else if (destinoCanon === 'mantencion/servicio') {
             if (subMAN) nuevaSubvId = subMAN.id_subvencion;
@@ -7359,6 +7359,7 @@ export default function AgregarRecursosPage() {
                                     { icon: '🏢', label: 'Oficina / Administración', desc: 'Insumos para el personal y material administrativo de la institución.' },
                                     { icon: '🏆', label: 'Premio / Beneficio', desc: 'Incentivos, diplomas, beneficios directos y apoyo social a estudiantes.' },
                                     { icon: '🔧', label: 'Mantención / Servicio', desc: 'Reparaciones, infraestructura, licencias de software y soporte técnico.' },
+                                    { icon: '👪', label: 'Apoderados', desc: 'Recursos destinados a apoderados: reuniones, talleres para padres y actividades con las familias.' },
                                     { icon: '📦', label: 'Otros', desc: 'Gastos que no encajan en las categorías anteriores. Requiere indicar la categoría del recurso.' },
                                 ].map(d => (
                                     <div key={d.label} className="flex items-start gap-2.5 bg-gray-50 rounded-xl p-3 border border-gray-100">
