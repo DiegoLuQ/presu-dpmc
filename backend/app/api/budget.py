@@ -4550,7 +4550,6 @@ def aprobar_y_clasificar_recurso(
     destino_gasto = _DESTINO_USO_A_GASTO.get(req.destino_uso, 'clases(alumno)')
     if req.destino_uso in CATEGORIA_PILAR_VALUES:
         destino_gasto = req.destino_uso
-    centro_costo = (req.centro_costo or '').strip() or None
 
     existe = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_recurso == recurso.id_recurso,
@@ -4564,12 +4563,9 @@ def aprobar_y_clasificar_recurso(
             id_recurso=recurso.id_recurso,
             id_subcat_recurso=subcat.id_subcat_recurso,
             destino_gasto=destino_gasto,
-            id_subvencion=id_subvencion,
-            centro_costo=centro_costo
+            id_subvencion=id_subvencion
         )
         db.add(nuevo_mapeo)
-    elif centro_costo:
-        existe.centro_costo = centro_costo
     
     # 3. Bulk update en pre_detalle para solicitudes pendientes
     detalles_pendientes = db.query(PresupuestoDetalle).filter(
@@ -4595,7 +4591,6 @@ class CodigoDestinoLote(BaseModel):
     codigo_cuenta: str
     nombre_cuenta: Optional[str] = None
     subvencion: Optional[str] = 'GENERAL'
-    centro_costo: Optional[str] = None
 
 
 class ItemAprobarLote(BaseModel):
@@ -4664,14 +4659,14 @@ def aprobar_clasificar_recursos_lote(
             # Modo nuevo: múltiples destinos
             for cd in item.codigos_destino:
                 if cd.codigo_cuenta:
-                    pares_destino.append((cd.destino, cd.codigo_cuenta, cd.subvencion or 'GENERAL', (cd.centro_costo or '').strip() or None))
+                    pares_destino.append((cd.destino, cd.codigo_cuenta, cd.subvencion or 'GENERAL'))
         elif item.codigo_cuenta:
             # Modo legado: un solo código
-            pares_destino.append((item.destino_uso or 'ESTUDIANTE', item.codigo_cuenta, item.subvencion or 'GENERAL', None))
+            pares_destino.append((item.destino_uso or 'ESTUDIANTE', item.codigo_cuenta, item.subvencion or 'GENERAL'))
 
         # Crear mapeos en pre_recurso_cuenta por cada par destino/código
         primer_codigo = None
-        for (destino, codigo_cuenta, subvencion, centro_costo) in pares_destino:
+        for (destino, codigo_cuenta, subvencion) in pares_destino:
             if primer_codigo is None:
                 primer_codigo = codigo_cuenta
 
@@ -4699,12 +4694,9 @@ def aprobar_clasificar_recursos_lote(
                     id_recurso=recurso.id_recurso,
                     id_subcat_recurso=subcat.id_subcat_recurso,
                     destino_gasto=destino_gasto,
-                    id_subvencion=id_subvencion,
-                    centro_costo=centro_costo
+                    id_subvencion=id_subvencion
                 ))
                 total_mapeos += 1
-            elif centro_costo:
-                existe.centro_costo = centro_costo
 
         # Actualizar detalles de presupuesto pendientes con el primer código
         if primer_codigo:
@@ -4747,8 +4739,7 @@ def get_todos_mapeos_recursos(
             "nombre_subcategoria": nombre_subcat,
             "id_subvencion": m.id_subvencion,
             "nombre_subvencion": nombre_subv,
-            "destino_gasto": m.destino_gasto,
-            "centro_costo": m.centro_costo
+            "destino_gasto": m.destino_gasto
         })
     return resultado
 
@@ -4807,10 +4798,29 @@ def get_mapeos_recurso(
             id_subvencion=m.id_subvencion,
             nombre_subvencion=nombre_subvencion,
             destino_gasto=m.destino_gasto,
-            centro_costo=m.centro_costo,
             critico_fiscalizacion=_es_critico(codigo_cuenta, nombre_subvencion)
         ))
     return res
+
+
+def _subcategoria_para_codigo(db: Session, codigo_cuenta: str, recurso: Recurso, destino_gasto: str):
+    """Subcategoría asociada a un código contable del catálogo. Si el código existe en
+    el catálogo de cuentas pero aún no tiene subcategoría, se crea (como hace el alta)."""
+    subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.codigo_cuenta == codigo_cuenta).first()
+    if subcat:
+        return subcat
+    matriz = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == codigo_cuenta).first()
+    if not matriz:
+        return None
+    subcat = SubcategoriaRecurso(
+        id_cat_recurso=recurso.id_cat_recurso or 1,
+        nombre=matriz.nombre,
+        codigo_cuenta=matriz.codigo,
+        destino_gasto=destino_gasto
+    )
+    db.add(subcat)
+    db.flush()
+    return subcat
 
 
 @router.post("/recursos/{id_recurso}/mapeos", response_model=MapeoRecursoSubcategoriaResponse, status_code=201)
@@ -4824,13 +4834,15 @@ def add_mapeo_recurso(
     if not recurso:
         raise HTTPException(status_code=404, detail="Recurso no encontrado")
         
-    subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.id_subcat_recurso == payload.id_subcat_recurso).first()
-    if not subcat and getattr(payload, 'codigo_cuenta', None):
-        subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.codigo_cuenta == payload.codigo_cuenta).first()
+    subcat = None
+    if payload.id_subcat_recurso:
+        subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.id_subcat_recurso == payload.id_subcat_recurso).first()
+    if not subcat and payload.codigo_cuenta:
+        subcat = _subcategoria_para_codigo(db, payload.codigo_cuenta, recurso, payload.destino_gasto)
     
     if not subcat:
         # Intentar buscar en CuentaMatrizReglas por código de cuenta contable
-        matriz = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == str(payload.id_subcat_recurso)).first()
+        matriz = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == str(payload.id_subcat_recurso)).first() if payload.id_subcat_recurso else None
         if matriz:
             subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.codigo_cuenta == matriz.codigo).first()
             if not subcat:
@@ -4867,8 +4879,7 @@ def add_mapeo_recurso(
         id_recurso=id_recurso,
         id_subcat_recurso=payload_subcat_id,
         id_subvencion=payload.id_subvencion,
-        destino_gasto=payload.destino_gasto,
-        centro_costo=(payload.centro_costo or '').strip() or None
+        destino_gasto=payload.destino_gasto
     )
     db.add(db_obj)
     db.commit()
@@ -4882,8 +4893,7 @@ def add_mapeo_recurso(
         nombre_subcategoria=db_obj.subcategoria.nombre if db_obj.subcategoria else "",
         id_subvencion=db_obj.id_subvencion,
         nombre_subvencion=db_obj.subvencion.nombre_corto if db_obj.subvencion else None,
-        destino_gasto=db_obj.destino_gasto,
-        centro_costo=db_obj.centro_costo
+        destino_gasto=db_obj.destino_gasto
     )
 
 
@@ -4895,7 +4905,7 @@ def update_mapeo_recurso(
     db: Session = Depends(get_db),
     current_user: User = Depends(verificar_permisos_recursos("editar"))
 ):
-    """Edita un código contable del recurso: código, destino, subvención y centro de costo."""
+    """Edita un código contable del recurso: código, destino y subvención."""
     mapeo = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_mapeo == id_mapeo,
         MapeoRecursoSubcategoria.id_recurso == id_recurso
@@ -4906,10 +4916,9 @@ def update_mapeo_recurso(
     campos = payload.model_dump(exclude_unset=True)
 
     if payload.id_subcat_recurso or payload.codigo_cuenta:
-        q = db.query(SubcategoriaRecurso)
-        subcat = (q.filter(SubcategoriaRecurso.id_subcat_recurso == payload.id_subcat_recurso).first()
+        subcat = (db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.id_subcat_recurso == payload.id_subcat_recurso).first()
                   if payload.id_subcat_recurso else
-                  q.filter(SubcategoriaRecurso.codigo_cuenta == payload.codigo_cuenta).first())
+                  _subcategoria_para_codigo(db, payload.codigo_cuenta, mapeo.recurso, payload.destino_gasto or mapeo.destino_gasto))
         if not subcat:
             raise HTTPException(status_code=404, detail="Código contable no encontrado")
         mapeo.id_subcat_recurso = subcat.id_subcat_recurso
@@ -4919,8 +4928,6 @@ def update_mapeo_recurso(
         mapeo.id_subvencion = payload.id_subvencion
     if payload.destino_gasto:
         mapeo.destino_gasto = payload.destino_gasto
-    if 'centro_costo' in campos:
-        mapeo.centro_costo = (payload.centro_costo or '').strip() or None
 
     duplicado = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_mapeo != mapeo.id_mapeo,
@@ -4943,8 +4950,7 @@ def update_mapeo_recurso(
         nombre_subcategoria=mapeo.subcategoria.nombre if mapeo.subcategoria else "",
         id_subvencion=mapeo.id_subvencion,
         nombre_subvencion=mapeo.subvencion.nombre_corto if mapeo.subvencion else None,
-        destino_gasto=mapeo.destino_gasto,
-        centro_costo=mapeo.centro_costo
+        destino_gasto=mapeo.destino_gasto
     )
 
 

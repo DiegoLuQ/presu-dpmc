@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api/client';
 import {
@@ -17,10 +17,113 @@ const PILARES_OFICIALES = [
     { id: 'apoderados', label: 'Apoderados', icon: '👪' }
 ];
 
-// Sugerencias para el centro de costo de cada código (texto libre).
-const CENTROS_COSTO_SUGERIDOS = ['GENERAL', 'SEP', 'PIE', 'PRO_RETENCION', 'MANTENIMIENTO', 'INTERNADO'];
+type CodigoFormData = { codigoCuenta: string; nombreCuenta: string; idSubvencion?: number; destino: string };
 
-type CodigoFormData = { idSubcat: number; idSubvencion?: number; centroCosto: string; destino: string };
+interface CuentaCatalogo { codigo: string; nombre: string; oculta?: boolean; }
+type SubvencionActiva = { id_subvencion: number; nombre_corto: string; nombre_completo: string };
+type IndiceCuenta = { cuenta: CuentaCatalogo; codigo: string; texto: string };
+
+const MAX_RESULTADOS_CUENTA = 8;
+
+// Busca en el índice ya normalizado y corta al llegar al máximo: primero los códigos
+// que empiezan con lo escrito, luego los que lo contienen en código o nombre.
+function buscarCuentas(indice: IndiceCuenta[], query: string): CuentaCatalogo[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const prefijo: CuentaCatalogo[] = [];
+    const contiene: CuentaCatalogo[] = [];
+    for (const it of indice) {
+        if (it.codigo.startsWith(q)) {
+            prefijo.push(it.cuenta);
+            if (prefijo.length >= MAX_RESULTADOS_CUENTA) break;
+        } else if (contiene.length < MAX_RESULTADOS_CUENTA && it.texto.includes(q)) {
+            contiene.push(it.cuenta);
+        }
+    }
+    return [...prefijo, ...contiene].slice(0, MAX_RESULTADOS_CUENTA);
+}
+
+// Formulario para agregar / editar un código: un código, un destino y una subvención.
+// Vive fuera de la página para no remontarse (y perder lo escrito) en cada render.
+function InlineCodigoForm({
+    indiceCuentas, subvenciones, onSave, onCancel, destinoInicial, inicial,
+}: {
+    indiceCuentas: IndiceCuenta[];
+    subvenciones: SubvencionActiva[];
+    onSave: (data: CodigoFormData) => void;
+    onCancel: () => void;
+    destinoInicial: string;
+    // Presente al editar un código ya asignado
+    inicial?: { codigo_cuenta: string; nombre_subcategoria: string; id_subvencion?: number | null; destino_gasto: string };
+}) {
+    const [search, setSearch] = useState(inicial ? `${inicial.codigo_cuenta} — ${inicial.nombre_subcategoria}` : '');
+    const [seleccion, setSeleccion] = useState<{ codigo: string; nombre: string } | null>(
+        inicial ? { codigo: inicial.codigo_cuenta, nombre: inicial.nombre_subcategoria } : null
+    );
+    const [selectedSubvencionId, setSelectedSubvencionId] = useState<number | undefined>(
+        inicial
+            ? (inicial.id_subvencion ?? undefined)
+            : (subvenciones.find(s => s.nombre_corto === 'GENERAL')?.id_subvencion || subvenciones[0]?.id_subvencion)
+    );
+    const [destino, setDestino] = useState(inicial?.destino_gasto || destinoInicial);
+    const busqueda = useDeferredValue(search);
+    const resultados = useMemo(
+        () => (seleccion ? [] : buscarCuentas(indiceCuentas, busqueda)),
+        [indiceCuentas, busqueda, seleccion]
+    );
+
+    return (
+        <div className="mt-2 border-2 border-primary/20 bg-primary/5 rounded-xl p-3 space-y-3">
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Subvención</label>
+                <div className="flex flex-wrap gap-1.5">
+                    {subvenciones.map(sv => (
+                        <button key={sv.id_subvencion} type="button" onClick={() => setSelectedSubvencionId(sv.id_subvencion)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border transition-all ${selectedSubvencionId === sv.id_subvencion ? 'border-primary bg-primary text-white' : 'border-gray-200 bg-white text-gray-500 hover:border-primary/40'}`}>
+                            {sv.nombre_corto === 'PRO_RETENCION' ? 'Pro Ret.' : sv.nombre_corto}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Código contable</label>
+                <input type="text" placeholder="Escribe el código o el nombre de la cuenta..." value={search}
+                    onChange={e => { setSearch(e.target.value); setSeleccion(null); }}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {!seleccion && search.trim().length > 0 && (
+                    <div className="border border-gray-100 rounded-xl overflow-y-auto max-h-40 bg-white shadow-md">
+                        {indiceCuentas.length === 0 && <p className="px-3 py-2 text-[11px] text-gray-400 italic">Cargando catálogo de cuentas...</p>}
+                        {resultados.map(c => (
+                            <button key={c.codigo} type="button"
+                                onClick={() => { setSeleccion({ codigo: c.codigo, nombre: c.nombre }); setSearch(`${c.codigo} — ${c.nombre}`); }}
+                                className="w-full text-left px-3 py-2 border-b border-gray-50 last:border-none text-[11px] transition-colors hover:bg-gray-50 text-gray-700">
+                                <span className="font-extrabold font-mono">{c.codigo}</span>
+                                <span className="text-gray-500 ml-2">{c.nombre}</span>
+                            </button>
+                        ))}
+                        {indiceCuentas.length > 0 && resultados.length === 0 && <p className="px-3 py-2 text-[11px] text-gray-400 italic">Sin resultados</p>}
+                    </div>
+                )}
+                {seleccion && <p className="text-[10px] font-bold text-primary px-1">✓ Seleccionado</p>}
+            </div>
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Destino</label>
+                <select value={destino} onChange={e => setDestino(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    {PILARES_OFICIALES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
+                </select>
+            </div>
+            <div className="flex justify-end gap-2">
+                <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:text-gray-800">Cancelar</button>
+                <button type="button" disabled={!seleccion}
+                    onClick={() => seleccion && onSave({ codigoCuenta: seleccion.codigo, nombreCuenta: seleccion.nombre, idSubvencion: selectedSubvencionId, destino })}
+                    className="px-4 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold disabled:opacity-40">
+                    {inicial ? 'Guardar cambios' : 'Agregar'}
+                </button>
+            </div>
+        </div>
+    );
+}
 
 import * as XLSX from 'xlsx';
 
@@ -33,21 +136,17 @@ interface CodigoContable {
     id_subvencion: number | null;
     nombre_subvencion: string | null;
     destino_gasto: string;
-    centro_costo?: string | null;
     critico_fiscalizacion?: boolean;
 }
 
-interface CuentaCatalogo { codigo: string; nombre: string; }
 
 type PendingCodigo = {
     key: string;
-    id_subcat_recurso: number;
     id_subvencion?: number;
     codigo_cuenta: string;
     nombre_subcategoria: string;
     nombre_subvencion?: string;
     destino_gasto: string;
-    centro_costo?: string | null;
 };
 
 export default function RecursosPage() {
@@ -75,7 +174,7 @@ export default function RecursosPage() {
 
     // Codes management
     const [cuentasCatalogo, setCuentasCatalogo] = useState<CuentaCatalogo[]>([]);
-    const [subvencionesActivas, setSubvencionesActivas] = useState<{ id_subvencion: number; nombre_corto: string; nombre_completo: string }[]>([]);
+    const [subvencionesActivas, setSubvencionesActivas] = useState<SubvencionActiva[]>([]);
     const [codigosExistentes, setCodigosExistentes] = useState<CodigoContable[]>([]); // for edit mode
     const [pendingCodigos, setPendingCodigos] = useState<PendingCodigo[]>([]); // for new resource
     const [expandedPropositos, setExpandedPropositos] = useState<Record<string, boolean>>({});
@@ -513,6 +612,16 @@ export default function RecursosPage() {
         } catch { /* ignore */ }
     }, [cuentasCatalogo.length]);
 
+    // Índice normalizado una sola vez por catálogo: la búsqueda no recalcula minúsculas por tecla.
+    const indiceCuentas = useMemo<IndiceCuenta[]>(
+        () => cuentasCatalogo
+            .filter(c => !c.oculta)
+            .map(c => ({ cuenta: c, codigo: c.codigo.toLowerCase(), texto: `${c.codigo} ${c.nombre}`.toLowerCase() })),
+        [cuentasCatalogo]
+    );
+
+    useEffect(() => { if (isModalOpen) cargarCuentasCatalogo(); }, [isModalOpen, cargarCuentasCatalogo]);
+
     // ── Resource CRUD ─────────────────────────────────────────────────────────
     const resetForm = () => {
         setFormData({ nombre: '', descripcion: '', formato: '', id_cat_recurso: '', id_grupo_recurso: '' });
@@ -576,10 +685,9 @@ export default function RecursosPage() {
                 recursoId = res.data.id_recurso;
                 for (const pc of pendingCodigos) {
                     await api.post(`/presupuesto/recursos/${recursoId}/mapeos`, {
-                        id_subcat_recurso: pc.id_subcat_recurso,
+                        codigo_cuenta: pc.codigo_cuenta,
                         id_subvencion: pc.id_subvencion || null,
-                        destino_gasto: pc.destino_gasto,
-                        centro_costo: pc.centro_costo || null
+                        destino_gasto: pc.destino_gasto
                     });
                 }
             }
@@ -641,10 +749,9 @@ export default function RecursosPage() {
         if (!editingRecurso) return;
         try {
             await api.post(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`, {
-                id_subcat_recurso: data.idSubcat,
+                codigo_cuenta: data.codigoCuenta,
                 id_subvencion: data.idSubvencion || null,
-                destino_gasto: data.destino,
-                centro_costo: data.centroCosto.trim() || null
+                destino_gasto: data.destino
             });
             const res = await api.get(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`);
             setCodigosExistentes(res.data || []);
@@ -656,10 +763,9 @@ export default function RecursosPage() {
         if (!editingRecurso) return;
         try {
             await api.put(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos/${idMapeo}`, {
-                id_subcat_recurso: data.idSubcat,
+                codigo_cuenta: data.codigoCuenta,
                 id_subvencion: data.idSubvencion || null,
-                destino_gasto: data.destino,
-                centro_costo: data.centroCosto.trim() || null
+                destino_gasto: data.destino
             });
             const res = await api.get(`/presupuesto/recursos/${editingRecurso.id_recurso}/mapeos`);
             setCodigosExistentes(res.data || []);
@@ -677,22 +783,19 @@ export default function RecursosPage() {
 
     // ── Codes for resource (new mode – pending state) ─────────────────────────
     const pendienteDesdeForm = (data: CodigoFormData, key: string): PendingCodigo => {
-        const sub = subcategorias.find(s => s.id_subcat_recurso === data.idSubcat);
         const subvObj = subvencionesActivas.find(sv => sv.id_subvencion === data.idSubvencion);
         return {
             key,
-            id_subcat_recurso: data.idSubcat,
             id_subvencion: data.idSubvencion,
-            codigo_cuenta: sub?.codigo_cuenta || '',
-            nombre_subcategoria: sub?.nombre || '',
+            codigo_cuenta: data.codigoCuenta,
+            nombre_subcategoria: data.nombreCuenta,
             nombre_subvencion: subvObj?.nombre_corto || 'GENERAL',
-            destino_gasto: data.destino,
-            centro_costo: data.centroCosto.trim() || null
+            destino_gasto: data.destino
         };
     };
 
     const agregarCodigoPendiente = (data: CodigoFormData) => {
-        setPendingCodigos(prev => [...prev, pendienteDesdeForm(data, `${data.destino}-${data.idSubcat}-${Date.now()}`)]);
+        setPendingCodigos(prev => [...prev, pendienteDesdeForm(data, `${data.destino}-${data.codigoCuenta}-${Date.now()}`)]);
         setFormCodigo(null);
     };
 
@@ -723,89 +826,10 @@ export default function RecursosPage() {
     const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
 
-    // ── Shared: Inline form for adding a code ─────────────────────────────────
-    const InlineCodigoForm = ({
-        onSave, onCancel, destinoInicial, inicial,
-    }: {
-        onSave: (data: CodigoFormData) => void;
-        onCancel: () => void;
-        destinoInicial: string;
-        // Presente al editar un código ya asignado
-        inicial?: CodigoContable | PendingCodigo;
-    }) => {
-        const [search, setSearch] = useState(inicial ? `${inicial.codigo_cuenta} — ${inicial.nombre_subcategoria}` : '');
-        const [selectedSubcatId, setSelectedSubcatId] = useState<number | null>(inicial?.id_subcat_recurso ?? null);
-        const [selectedSubvencionId, setSelectedSubvencionId] = useState<number | undefined>(
-            inicial
-                ? (inicial.id_subvencion ?? undefined)
-                : (subvencionesActivas.find(s => s.nombre_corto === 'GENERAL')?.id_subvencion || subvencionesActivas[0]?.id_subvencion)
-        );
-        const [destino, setDestino] = useState(inicial?.destino_gasto || destinoInicial);
-        const [centroCosto, setCentroCosto] = useState(inicial?.centro_costo || '');
-        const resultados = subcategorias.filter(s =>
-            s.codigo_cuenta.includes(search) || s.nombre.toLowerCase().includes(search.toLowerCase())
-        ).slice(0, 6);
-
-        return (
-            <div className="mt-2 border-2 border-primary/20 bg-primary/5 rounded-xl p-3 space-y-3">
-                <div className="flex flex-wrap gap-1.5">
-                    {subvencionesActivas.map(sv => (
-                        <button key={sv.id_subvencion} type="button" onClick={() => setSelectedSubvencionId(sv.id_subvencion)}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border transition-all ${selectedSubvencionId === sv.id_subvencion ? 'border-primary bg-primary text-white' : 'border-gray-200 bg-white text-gray-500 hover:border-primary/40'}`}>
-                            {sv.nombre_corto === 'PRO_RETENCION' ? 'Pro Ret.' : sv.nombre_corto}
-                        </button>
-                    ))}
-                </div>
-                <div className="space-y-1">
-                    <input type="text" placeholder="Buscar subcategoría/código..." value={search}
-                        onChange={e => { setSearch(e.target.value); setSelectedSubcatId(null); }}
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                    {search.length >= 2 && (
-                        <div className="border border-gray-100 rounded-xl overflow-y-auto max-h-32 bg-white shadow-md">
-                            {resultados.map(s => (
-                                <button key={s.id_subcat_recurso} type="button"
-                                    onClick={() => { setSelectedSubcatId(s.id_subcat_recurso); setSearch(`${s.codigo_cuenta} — ${s.nombre}`); }}
-                                    className={`w-full text-left px-3 py-2 border-b border-gray-50 last:border-none text-[11px] transition-colors ${selectedSubcatId === s.id_subcat_recurso ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                                    <span className="font-extrabold">{s.codigo_cuenta}</span>
-                                    <span className="text-gray-500 ml-2">{s.nombre}</span>
-                                </button>
-                            ))}
-                            {resultados.length === 0 && <p className="px-3 py-2 text-[11px] text-gray-400 italic">Sin resultados</p>}
-                        </div>
-                    )}
-                    {selectedSubcatId && <p className="text-[10px] font-bold text-primary px-1">✓ Seleccionado</p>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Destino</label>
-                        <select value={destino} onChange={e => setDestino(e.target.value)}
-                            className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            {PILARES_OFICIALES.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
-                        </select>
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Centro de costo</label>
-                        <input type="text" list="recursos-centros-costo" value={centroCosto} placeholder="Ej: SEP, GENERAL..."
-                            onChange={e => setCentroCosto(e.target.value)}
-                            className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                        <datalist id="recursos-centros-costo">
-                            {CENTROS_COSTO_SUGERIDOS.map(cc => <option key={cc} value={cc} />)}
-                        </datalist>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                    <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[10px] font-bold text-gray-500 hover:text-gray-800">Cancelar</button>
-                    <button type="button" disabled={!selectedSubcatId} onClick={() => onSave({ idSubcat: selectedSubcatId!, idSubvencion: selectedSubvencionId, centroCosto, destino })}
-                        className="px-4 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold disabled:opacity-40">
-                        {inicial ? 'Guardar cambios' : 'Agregar'}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     // ── Shared: per-propósito codes section ───────────────────────────────────
-    const SeccionCodigos = ({
+    // Se invoca como función (no <SeccionCodigos/>): al estar definida dentro de la página,
+    // usarla como componente remontaría el formulario en cada render.
+    const seccionCodigos = ({
         codigos, onAdd, onEdit, onDelete, activeForm, setActiveForm, isNew,
     }: {
         codigos: (CodigoContable | PendingCodigo)[];
@@ -860,7 +884,6 @@ export default function RecursosPage() {
                                                                     className={`inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded text-[10px] font-bold border ${critico ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white text-blue-700 border-blue-200'}`}>
                                                                     {critico && <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />}
                                                                     {subvName || 'GENERAL'}
-                                                                    {c.centro_costo && <span className="font-medium text-gray-500">· CC: {c.centro_costo}</span>}
                                                                     {(isNew || canEdit) && (
                                                                         <button type="button" onClick={() => { setActiveForm(null); setEditingCodigoId(id!); }}
                                                                             className="ml-0.5 text-gray-400 hover:text-primary transition-colors rounded"
@@ -893,6 +916,8 @@ export default function RecursosPage() {
                                     return enEdicion ? (
                                         <InlineCodigoForm
                                             key={`edit-${editingCodigoId}`}
+                                            indiceCuentas={indiceCuentas}
+                                            subvenciones={subvencionesActivas}
                                             inicial={enEdicion}
                                             destinoInicial={p.id}
                                             onSave={data => onEdit(editingCodigoId!, data)}
@@ -901,7 +926,7 @@ export default function RecursosPage() {
                                     ) : null;
                                 })()}
                                 {activeForm === p.id ? (
-                                    <InlineCodigoForm destinoInicial={p.id} onSave={onAdd} onCancel={() => setActiveForm(null)} />
+                                    <InlineCodigoForm indiceCuentas={indiceCuentas} subvenciones={subvencionesActivas} destinoInicial={p.id} onSave={onAdd} onCancel={() => setActiveForm(null)} />
                                 ) : (
                                     <button type="button" onClick={() => { setEditingCodigoId(null); setActiveForm(p.id); }}
                                         className="flex items-center gap-1.5 text-xs text-primary font-bold hover:text-blue-700 transition-colors mt-2">
@@ -1480,25 +1505,25 @@ export default function RecursosPage() {
                         <p className="text-[11px] text-gray-400">Asigna uno o más códigos contables según cómo se usará este recurso. El sistema sugerirá el correcto según el rol del solicitante.</p>
 
                         {editingRecurso ? (
-                            <SeccionCodigos
-                                codigos={codigosExistentes}
-                                onAdd={agregarCodigoExistente}
-                                onEdit={(id, data) => editarCodigoExistente(id as number, data)}
-                                onDelete={id => eliminarCodigoExistente(id as number)}
-                                activeForm={formCodigo?.propositoId || null}
-                                setActiveForm={v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null)}
-                                isNew={false}
-                            />
+                            seccionCodigos({
+                                codigos: codigosExistentes,
+                                onAdd: agregarCodigoExistente,
+                                onEdit: (id, data) => editarCodigoExistente(id as number, data),
+                                onDelete: id => eliminarCodigoExistente(id as number),
+                                activeForm: formCodigo?.propositoId || null,
+                                setActiveForm: v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null),
+                                isNew: false,
+                            })
                         ) : (
-                            <SeccionCodigos
-                                codigos={pendingCodigos}
-                                onAdd={agregarCodigoPendiente}
-                                onEdit={(id, data) => editarCodigoPendiente(id as string, data)}
-                                onDelete={id => eliminarCodigoPendiente(id as string)}
-                                activeForm={formCodigo?.propositoId || null}
-                                setActiveForm={v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null)}
-                                isNew={true}
-                            />
+                            seccionCodigos({
+                                codigos: pendingCodigos,
+                                onAdd: agregarCodigoPendiente,
+                                onEdit: (id, data) => editarCodigoPendiente(id as string, data),
+                                onDelete: id => eliminarCodigoPendiente(id as string),
+                                activeForm: formCodigo?.propositoId || null,
+                                setActiveForm: v => setFormCodigo(v ? { propositoId: v, codigo_cuenta: '', subvencion: 'GENERAL', search: '' } : null),
+                                isNew: true,
+                            })
                         )}
                     </div>
 
@@ -1623,10 +1648,6 @@ export default function RecursosPage() {
                                             {viewingCodigoDetalle.nombre_subvencion || 'GENERAL'}
                                         </span>
                                     </p>
-                                </div>
-                                <div>
-                                    <span className="text-[10px] uppercase font-bold text-gray-400">Centro de Costo</span>
-                                    <p className="text-sm font-semibold text-gray-800">{viewingCodigoDetalle.centro_costo || '—'}</p>
                                 </div>
                             </div>
                             <div className="flex justify-end pt-2">

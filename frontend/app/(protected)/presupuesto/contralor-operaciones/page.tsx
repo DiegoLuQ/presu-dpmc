@@ -47,9 +47,6 @@ const SUBVENCIONES_FINANCIADORAS = [
     { value: 'MANTENIMIENTO', label: 'Mantención' },
 ];
 
-// Sugerencias para el centro de costo de cada código (texto libre).
-const CENTROS_COSTO_SUGERIDOS = ['GENERAL', 'SEP', 'PIE', 'PRO_RETENCION', 'MANTENIMIENTO', 'INTERNADO'];
-
 const SUBVENCIONES = [
     { codigo: 'SUBV_GENERAL', nombre: 'Subvención General' },
     { codigo: 'ADM_CENTRAL_SUBV_GRAL', nombre: 'Adm. Central Subv. General' },
@@ -110,7 +107,7 @@ export default function ContabilidadPage() {
     const [grupoSugerido, setGrupoSugerido] = useState<{ id_grupo_recurso: number; razon: string } | null>(null);
     const [asesoriaReview, setAsesoriaReview] = useState<{sugerencias: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; razon: string; subvenciones_habilitadas?: {codigo: string; critico: boolean}[]}[]; proveedor: string; modelo: string} | null>(null);
     const [mostrarAsesoria, setMostrarAsesoria] = useState(false);
-    const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string; centro_costo: string}[]>([]);
+    const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}[]>([]);
     
     // States for PME and Activity Selection in Review Modal
     const [pmeActividades, setPmeActividades] = useState<any[]>([]);
@@ -1959,7 +1956,7 @@ export default function ContabilidadPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cuentas Contables * <span className="normal-case text-gray-300">(haz clic para agregar; cada código tiene su destino y centro de costo)</span></label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cuentas Contables * <span className="normal-case text-gray-300">(haz clic para agregar; cada código tiene su destino y subvención)</span></label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <Search className="h-3.5 w-3.5 text-gray-400" />
@@ -2001,7 +1998,6 @@ export default function ContabilidadPage() {
                                                                         codigo_cuenta: acc.codigo,
                                                                         nombre_cuenta: acc.nombre,
                                                                         subvencion: reviewForm.subvenciones[0] || 'GENERAL',
-                                                                        centro_costo: '',
                                                                     }]
                                                             )}
                                                             className={`flex-1 text-left px-3 py-2 flex items-center gap-2 transition-colors ${isSelected ? 'text-blue-900' : 'hover:bg-gray-50 text-gray-700'}`}
@@ -2060,13 +2056,10 @@ export default function ContabilidadPage() {
                                             );
                                         })}
                                     </div>
-                                    {/* Códigos contables agregados (manual o IA): cada uno con su destino y centro de costo */}
+                                    {/* Códigos contables agregados (manual o IA): cada uno con su destino y subvención */}
                                     {codigosSeleccionados.length > 0 ? (
                                         <div className="mt-3 space-y-1.5">
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Códigos agregados ({codigosSeleccionados.length})</p>
-                                            <datalist id="centros-costo-sugeridos">
-                                                {CENTROS_COSTO_SUGERIDOS.map(cc => <option key={cc} value={cc} />)}
-                                            </datalist>
                                             <div className="rounded-xl border border-gray-100 overflow-hidden">
                                                 <table className="w-full text-[11px]">
                                                     <thead className="bg-gray-50">
@@ -2074,7 +2067,6 @@ export default function ContabilidadPage() {
                                                             <th className="text-left px-3 py-2 font-bold text-gray-500">Código</th>
                                                             <th className="text-left px-2 py-2 font-bold text-gray-500">Destino</th>
                                                             <th className="text-left px-2 py-2 font-bold text-gray-500">Subvención</th>
-                                                            <th className="text-left px-2 py-2 font-bold text-gray-500">Centro de costo</th>
                                                             <th className="px-2 py-2"></th>
                                                         </tr>
                                                     </thead>
@@ -2108,19 +2100,6 @@ export default function ContabilidadPage() {
                                                                     >
                                                                         {SUBVENCIONES_FINANCIADORAS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                                                                     </select>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        list="centros-costo-sugeridos"
-                                                                        value={c.centro_costo}
-                                                                        placeholder="Ej: SEP, GENERAL..."
-                                                                        onChange={e => {
-                                                                            const v = e.target.value;
-                                                                            setCodigosSeleccionados(prev => prev.map((x, j) => j === i ? { ...x, centro_costo: v } : x));
-                                                                        }}
-                                                                        className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                    />
                                                                 </td>
                                                                 <td className="px-2 py-2">
                                                                     <button type="button" onClick={() => setCodigosSeleccionados(prev => prev.filter((_, j) => j !== i))}
@@ -2195,7 +2174,6 @@ export default function ContabilidadPage() {
                                                                     codigo_cuenta: sug.codigo_cuenta,
                                                                     nombre_cuenta: sug.nombre_cuenta,
                                                                     subvencion: reviewForm.subvenciones[0] || 'GENERAL',
-                                                                    centro_costo: '',
                                                                 }]);
                                                             }
                                                         }}
@@ -2318,7 +2296,7 @@ export default function ContabilidadPage() {
                                             id_actividad: reviewForm.id_actividad
                                         });
                                         // 2. Aprobar y clasificar: una fila por código, cada uno con su
-                                        // destino, subvención y centro de costo.
+                                        // destino y subvención.
                                         const pares = codigosSeleccionados.filter((c, i, arr) =>
                                             arr.findIndex(x => x.codigo_cuenta === c.codigo_cuenta && x.destino === c.destino && x.subvencion === c.subvencion) === i
                                         );
@@ -2331,7 +2309,6 @@ export default function ContabilidadPage() {
                                                 destino_uso: par.destino,
                                                 tipo_transaccion: reviewForm.tipo_transaccion,
                                                 subvencion: par.subvencion || 'GENERAL',
-                                                centro_costo: par.centro_costo.trim() || null,
                                             };
                                             if (primera) {
                                                 res = await api.post(`/presupuesto/recursos/aprobar-clasificar/${selectedPendingResource.id_recurso}`, payload);

@@ -373,7 +373,6 @@ class AprobarRecursoRequest(BaseModel):
     destino_uso: str
     tipo_transaccion: str
     subvencion: Optional[str] = None
-    centro_costo: Optional[str] = None
 
 
 class SugerirCuentaRequest(BaseModel):
@@ -579,10 +578,11 @@ class ImportarRecursosResponse(BaseModel):
 
 
 class MapeoRecursoSubcategoriaCreate(BaseModel):
-    id_subcat_recurso: int
+    # Se indica la subcategoría o directamente el código contable del catálogo.
+    id_subcat_recurso: Optional[int] = None
+    codigo_cuenta: Optional[str] = None
     id_subvencion: Optional[int] = None
     destino_gasto: Literal['clases(alumno)', 'oficinas(administracion)', 'premio/beneficio', 'mantencion/servicio', 'apoderados']
-    centro_costo: Optional[str] = None
 
 
 class MapeoRecursoSubcategoriaUpdate(BaseModel):
@@ -590,7 +590,6 @@ class MapeoRecursoSubcategoriaUpdate(BaseModel):
     codigo_cuenta: Optional[str] = None  # alternativa a id_subcat_recurso
     id_subvencion: Optional[int] = None
     destino_gasto: Optional[Literal['clases(alumno)', 'oficinas(administracion)', 'premio/beneficio', 'mantencion/servicio', 'apoderados']] = None
-    centro_costo: Optional[str] = None
 
 
 class MapeoRecursoSubcategoriaResponse(BaseModel):
@@ -602,7 +601,6 @@ class MapeoRecursoSubcategoriaResponse(BaseModel):
     id_subvencion: Optional[int] = None
     nombre_subvencion: Optional[str] = None
     destino_gasto: str
-    centro_costo: Optional[str] = None
     critico_fiscalizacion: Optional[bool] = None
 
     class Config:
