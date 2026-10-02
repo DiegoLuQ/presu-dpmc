@@ -30,6 +30,7 @@ from app.schemas.budget import (
     ActaEntregaCreate, ActaEntregaUpdate, ActaEntregaResponse, ActaEntregaDetalleResponse
 )
 from app.api.deps import verificar_permisos, verificar_permisos_recursos, verificar_seccion
+from app.services.clasificacion_catalogo import aplicar_catalogo, codigo_catalogo
 from app.core.secciones import usuario_puede_seccion
 from sqlalchemy import func, or_, and_, case
 from pydantic import BaseModel
@@ -1853,6 +1854,7 @@ def create_solicitud(
     db.add(db_obj)
     db.flush()
     
+    cache_catalogo: dict = {}
     for det in obj.detalles:
         db_det = PresupuestoDetalle(
             id_presupuesto=db_obj.id_presupuesto,
@@ -1876,6 +1878,8 @@ def create_solicitud(
             id_subarea=det.id_subarea,
             id_grupo_recurso=det.id_grupo_recurso
         )
+        # Código contable desde el catálogo (insumo + destino); vacío si no tiene.
+        aplicar_catalogo(db, db_det, cache_catalogo)
         db.add(db_det)
         if det.id_actividad:
             sync_recurso_actividad(db, det.id_actividad, det.nombre_producto)
@@ -2312,7 +2316,10 @@ def importar_recursos_solicitud(
                 id_cat_recurso=categoria.id_cat_recurso,
             ))
 
+        cache_catalogo: dict = {}
         for det in detalles_a_crear:
+            # El código de la planilla manda; si no trae, se toma del catálogo.
+            aplicar_catalogo(db, det, cache_catalogo, estricto=False)
             db.add(PresupuestoDetalle(
                 id_presupuesto=solicitud.id_presupuesto,
                 estado_aprobacion="Pendiente",
@@ -2359,6 +2366,8 @@ def agregar_recursos_solicitud(
     _exigir_modificar(db, current_user, db_obj)
     
     # Agregar recursos
+    cache_catalogo: dict = {}
+    creados: list = []
     for det in obj.detalles:
         db_det = PresupuestoDetalle(
             id_presupuesto=db_obj.id_presupuesto,
@@ -2382,14 +2391,21 @@ def agregar_recursos_solicitud(
             id_subarea=det.id_subarea,
             id_grupo_recurso=det.id_grupo_recurso
         )
+        # Código contable desde el catálogo (insumo + destino); vacío si no tiene.
+        aplicar_catalogo(db, db_det, cache_catalogo)
         db.add(db_det)
+        creados.append(db_det)
         if det.id_actividad:
             sync_recurso_actividad(db, det.id_actividad, det.nombre_producto)
     
     db.commit()
     db.refresh(db_obj)
     
-    return build_solicitud_response(db_obj, db)
+    # `detalles` trae TODOS los ítems de la solicitud: el cliente identifica los
+    # recién creados por `ids_nuevos` (mismo orden que el envío), no por posición.
+    respuesta = build_solicitud_response(db_obj, db)
+    respuesta["ids_nuevos"] = [d.id_pre_detalle for d in creados]
+    return respuesta
 
 
 @router.patch("/solicitudes/{id_presupuesto}/estado", response_model=BudgetRequestResponse)
@@ -2523,6 +2539,26 @@ def delete_solicitud(
     }
 
 
+@router.get("/detalles/{id_detalle}")
+def get_detalle(
+    id_detalle: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+):
+    """Ítem tal como quedó guardado (código contable incluido), para "Ver detalle del insumo"."""
+    det = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not det:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_ver(db, current_user, det.solicitud)
+
+    data = build_detalle_response(det, db=db)
+    cuenta = None
+    if data.get("codigo_cuenta"):
+        cuenta = db.query(CuentaMatrizReglas.nombre).filter(CuentaMatrizReglas.codigo == data["codigo_cuenta"]).scalar()
+    data["codigo_cuenta_nombre"] = cuenta
+    return data
+
+
 @router.put("/detalles/{id_detalle}", response_model=BudgetDetailResponse)
 def update_detalle(
     id_detalle: int,
@@ -2556,6 +2592,11 @@ def update_detalle(
         )
     for field, value in update_data.items():
         setattr(db_obj, field, value)
+
+    # Si cambió el insumo o el destino, el código se vuelve a tomar del catálogo.
+    # Otras ediciones (p.ej. compras) no tocan el código ya asignado.
+    if {"id_recurso", "nombre_producto", "destino_gasto"} & update_data.keys():
+        aplicar_catalogo(db, db_obj)
 
     # Sincronizar con PME si se actualizó id_actividad
     if obj.id_actividad:
@@ -3235,6 +3276,23 @@ def analizar_lote_insumos(
         "actividades_pme_vigente": len(ids_pme_actual),
         "grupos": salida,
     }
+
+
+@router.get("/recursos/codigo-catalogo")
+def get_codigo_catalogo(
+    destino_gasto: str = Query(...),
+    id_recurso: Optional[int] = Query(None),
+    nombre: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
+):
+    """Código contable que se asignará al guardar un ítem (insumo + destino), para
+    mostrarlo en un borrador. Es la misma regla que aplica el guardado."""
+    _, codigo = codigo_catalogo(db, id_recurso, nombre, destino_gasto)
+    nombre_cuenta = None
+    if codigo:
+        nombre_cuenta = db.query(CuentaMatrizReglas.nombre).filter(CuentaMatrizReglas.codigo == codigo).scalar()
+    return {"codigo_cuenta": codigo, "codigo_cuenta_nombre": nombre_cuenta}
 
 
 @router.get("/recursos/buscar", response_model=List[dict])

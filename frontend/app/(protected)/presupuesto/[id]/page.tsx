@@ -12,7 +12,7 @@ import {
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
-import { DESTINOS, destinoCanonico, etiquetaDestino } from '@/lib/destinos';
+import { DESTINOS, destinoCanonico, etiquetaDestino, etiquetaDestinoCorta } from '@/lib/destinos';
 
 const MESES = [
     { value: '01', label: 'Enero' },
@@ -1291,6 +1291,14 @@ export default function DetalleSolicitudPage() {
                                                                 }`}>
                                                                     {labelFecha(detalle)}
                                                                 </span>
+                                                                {etiquetaDestinoCorta(detalle.destino_gasto) && (
+                                                                    <span
+                                                                        className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200"
+                                                                        title={`Destino: ${etiquetaDestino(detalle.destino_gasto)}`}
+                                                                    >
+                                                                        {etiquetaDestinoCorta(detalle.destino_gasto)}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="text-xs text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
                                                                 {detalle.motivo || '-'}

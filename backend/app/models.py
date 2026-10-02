@@ -448,7 +448,7 @@ class PresupuestoDetalle(Base):
     fecha_ejecucion = Column(Date, nullable=False)
     fecha_termino = Column(Date, nullable=True)
     tipo_fecha = Column(String(20), nullable=False)
-    motivo = Column(String(255), nullable=False)
+    motivo = Column(String(500), nullable=False)
     estado_aprobacion = Column(String(50), default="Sin Revisar")
     estado_compra = Column(String(50), default="Pendiente")
     comentario_revision = Column(Text, nullable=True)  # motivo de rechazo escrito por el revisor

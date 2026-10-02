@@ -18,6 +18,14 @@ interface DetalleInsumoModalProps {
     labelFecha?: string;
     nombreCategoria?: string;
     nombreGrupo?: string;
+    // Nombre de la cuenta contable (viene del ítem guardado)
+    nombreCuenta?: string | null;
+    // Mientras se trae el ítem guardado desde el servidor
+    cargando?: boolean;
+    // Borrador: el código mostrado es el que el catálogo asignará al confirmar
+    codigoPorConfirmar?: boolean;
+    // Ítem de otro presupuesto (pestaña "Anteriores"): solo lectura, con esta etiqueta
+    etiquetaOrigen?: string;
 }
 
 const formatCLP = (val: number) => {
@@ -40,7 +48,11 @@ export function DetalleInsumoModal({
     subvencionNombre,
     labelFecha,
     nombreCategoria,
-    nombreGrupo
+    nombreGrupo,
+    nombreCuenta,
+    cargando,
+    codigoPorConfirmar,
+    etiquetaOrigen
 }: DetalleInsumoModalProps) {
     if (!isOpen || (!item && !catalogoItem)) return null;
 
@@ -72,7 +84,12 @@ export function DetalleInsumoModal({
                                 <h3 className="text-base font-extrabold text-gray-900 truncate">
                                     {item ? item.nombre_producto : catalogoItem?.nombre}
                                 </h3>
-                                {item && (
+                                {item && etiquetaOrigen && (
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold">
+                                        {etiquetaOrigen}
+                                    </span>
+                                )}
+                                {item && !etiquetaOrigen && (
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                         item.id_pre_detalle
                                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -100,7 +117,10 @@ export function DetalleInsumoModal({
                                 )}
                             </div>
                             <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                {item ? 'Ficha de información y desglose del insumo' : 'Detalles del recurso en catálogo'}
+                                {item
+                                    ? (etiquetaOrigen ? 'Datos tal como se pidieron en ese presupuesto' : item.id_pre_detalle ? 'Datos guardados del insumo' : 'Ficha de información y desglose del insumo')
+                                    : 'Detalles del recurso en catálogo'}
+                                {cargando && <span className="ml-1.5 text-primary">· actualizando…</span>}
                             </p>
                         </div>
                     </div>
@@ -216,12 +236,28 @@ export function DetalleInsumoModal({
                                     </span>
                                 </div>
 
-                                {item.codigo_cuenta && (
+                                {(item.codigo_cuenta || item.id_pre_detalle || codigoPorConfirmar) && (
                                     <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-1 sm:col-span-2">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Cuenta Contable</span>
-                                        <span className="font-mono text-xs font-bold text-slate-700 bg-white px-2 py-1 rounded-lg border border-slate-200 inline-block">
-                                            {item.codigo_cuenta}
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                                            Cuenta Contable{codigoPorConfirmar && <span className="normal-case font-semibold text-amber-600"> · se asigna al confirmar el insumo</span>}
+                                            {etiquetaOrigen && <span className="normal-case font-semibold text-slate-500"> · la usada en ese presupuesto</span>}
                                         </span>
+                                        {item.codigo_cuenta ? (
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-mono text-xs font-bold text-slate-700 bg-white px-2 py-1 rounded-lg border border-slate-200 inline-block">
+                                                    {item.codigo_cuenta}
+                                                </span>
+                                                {nombreCuenta && <span className="text-xs font-semibold text-gray-700">{nombreCuenta}</span>}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-semibold text-amber-700">
+                                                {cargando
+                                                    ? 'Cargando…'
+                                                    : codigoPorConfirmar
+                                                        ? 'El catálogo no tiene código para este insumo y destino: lo completa el Contralor al revisarlo.'
+                                                        : 'Sin código asignado: lo completa el Contralor al revisar el insumo.'}
+                                            </span>
+                                        )}
                                     </div>
                                 )}
                             </div>

@@ -32,6 +32,7 @@ from app.models import (
     Actividad, Accion, PME, CategoriaCodigoContable, Subvencion, OrgConfig
 )
 from app.api.auth import get_current_user
+from app.services.clasificacion_catalogo import aplicar_catalogo
 
 router = APIRouter(prefix="/convocatorias", tags=["Convocatorias"])
 
@@ -477,6 +478,7 @@ def importar_pedidos_aceptados(
         raise HTTPException(status_code=422, detail="No hay pedidos aceptados para importar")
 
     importados = 0
+    cache_catalogo: dict = {}
     for p in aceptados:
         # Sin IA en la importación (era muy lenta: una llamada por pedido). La categoría
         # se toma del recurso del catálogo (por id o por nombre); si no, queda sin categoría.
@@ -619,6 +621,7 @@ def importar_pedidos_aceptados(
             id_cat_recurso=p.id_cat_recurso,
             id_grupo_recurso=id_grupo_final,
         )
+        aplicar_catalogo(db, detalle, cache_catalogo, estricto=False)
         db.add(detalle)
         p.estado_jefe = "importado"
         importados += 1

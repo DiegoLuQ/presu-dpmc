@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.startup_tasks import run_startup_tasks
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 setup_logging()
 setup_sentry()
@@ -20,6 +21,16 @@ def startup_event():
     # Con varios workers (Docker) las tareas corren una sola vez en prestart.py
     if settings.RUN_STARTUP_TASKS:
         run_startup_tasks()
+
+def _pista_error(exc: Exception) -> str:
+    """Resumen corto de la excepción (tipo + primera línea), sin traza ni SQL."""
+    orig = getattr(exc, "orig", None)  # errores de base de datos (SQLAlchemy)
+    base = orig if orig is not None else exc
+    args = getattr(base, "args", ()) or ()
+    texto = str(args[-1]) if args else str(base)
+    texto = texto.splitlines()[0] if texto else ""
+    return f"{type(base).__name__}: {texto}"[:180]
+
 
 @app.middleware("http")
 async def log_requests(request, call_next):
@@ -39,10 +50,16 @@ async def log_requests(request, call_next):
                 request.method, request.url.path, response.status_code, ms, " (LENTA)" if lenta else "",
             )
         return response
-    except Exception:
+    except Exception as exc:
         ms = (time.perf_counter() - inicio) * 1000
         logger.exception("Excepción no controlada en %s %s (%.0f ms)", request.method, request.url.path, ms)
-        raise
+        # Se responde aquí (y no relanzando) para que la respuesta pase por CORS y el
+        # frontend pueda leerla: mensaje breve + pista para el programador.
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Error interno del servidor.", "pista": _pista_error(exc), "request_id": rid},
+            headers={"X-Request-ID": rid},
+        )
     finally:
         request_id_ctx.reset(token)
 
@@ -55,6 +72,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Para que el frontend pueda mostrar la referencia del log en los avisos de error
+    expose_headers=["X-Request-ID"],
     max_age=600,
 )
 

@@ -131,6 +131,12 @@ def apply_migrations():
             except Exception as e:
                 print(f"Advertencia al agregar FK fk_pedido_grupo: {e}")
 
+        # --- pre_detalle.motivo: 255 → 500 (el formulario permite hasta 300) ---
+        res = conn.execute(text("SHOW COLUMNS FROM pre_detalle LIKE 'motivo';")).fetchone()
+        if res and str(res[1]).lower() != 'varchar(500)':
+            print("Ampliando 'pre_detalle.motivo' a VARCHAR(500)...")
+            conn.execute(text("ALTER TABLE pre_detalle MODIFY motivo VARCHAR(500) NOT NULL;"))
+
         # --- org_area cleanup ---
         res = conn.execute(text("SHOW COLUMNS FROM org_area LIKE 'id_jefe';")).fetchone()
         if res:

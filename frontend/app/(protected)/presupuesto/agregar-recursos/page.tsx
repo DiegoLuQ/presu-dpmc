@@ -37,6 +37,61 @@ interface SolicitudInfo {
     colegio_nombre?: string | null;
 }
 
+// Error de una llamada al backend → mensaje breve para el usuario + pista para el programador
+// (código HTTP, método y ruta, detalle técnico y request_id para buscarlo en el log del backend).
+function describirErrorApi(err: any, mensajePorDefecto: string): { mensaje: string; pista: string } {
+    const res = err?.response;
+    const cfg = err?.config || {};
+    const ruta = `${(cfg.method || '').toUpperCase()} ${cfg.url || ''}`.trim();
+
+    if (!res) {
+        return {
+            mensaje: 'No hubo respuesta del servidor. Revisa tu conexión e inténtalo nuevamente.',
+            pista: `Sin respuesta · ${ruta || 'petición'} · ${err?.message || 'error de red'}`,
+        };
+    }
+
+    const data = res.data || {};
+    const detail = data.detail;
+    let mensaje = mensajePorDefecto;
+    let tecnico = '';
+    if (res.status === 422 && Array.isArray(detail)) {
+        // Validación de FastAPI: campo + motivo del primer error
+        mensaje = 'Uno de los datos no tiene un formato válido. Revísalo e inténtalo nuevamente.';
+        tecnico = detail.slice(0, 2).map((d: any) => `${(d.loc || []).filter((x: any) => x !== 'body').join('.')}: ${d.msg}`).join(' | ');
+    } else if (typeof detail === 'string' && res.status < 500) {
+        mensaje = detail;
+    } else if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+        mensaje = detail.message || mensajePorDefecto;
+    }
+    if (data.pista) tecnico = data.pista;
+
+    const rid = data.request_id || res.headers?.['x-request-id'];
+    const pista = [`HTTP ${res.status}`, ruta, tecnico, rid ? `ref ${rid}` : ''].filter(Boolean).join(' · ');
+    return { mensaje, pista };
+}
+
+// Límites de texto del Panel de Insumo PPTO
+const MAX_DETALLE_INSUMO = 250;
+const MAX_MOTIVO_INSUMO = 300;
+
+// Badge "usados / máximo" para los campos de texto con límite
+function LimiteCaracteres({ actual, max }: { actual: number; max: number }) {
+    const excedido = actual > max;
+    const cerca = !excedido && actual >= max * 0.9;
+    return (
+        <span
+            title={`Máximo ${max} caracteres`}
+            className={`px-2 py-0.5 rounded-full text-[9px] font-bold tabular-nums border shrink-0 ${
+                excedido ? 'bg-red-50 text-red-600 border-red-200'
+                    : cerca ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+        >
+            {actual}/{max}
+        </span>
+    );
+}
+
 interface RecursoHistorial {
     id_pre_detalle: number;
     id_presupuesto: number;
@@ -794,8 +849,6 @@ export default function AgregarRecursosPage() {
     const [savingItems, setSavingItems] = useState<number[]>([]);
     const [filasModificadas, setFilasModificadas] = useState<Set<number>>(new Set());
     const [filasConfirmadasRecientes, setFilasConfirmadasRecientes] = useState<Set<number>>(new Set());
-    const [subcatResuelta, setSubcatResuelta] = useState<{ codigo_cuenta: string; nombre: string } | null>(null);
-    const [loadingSubcat, setLoadingSubcat] = useState(false);
     const [asesorandoCategoria, setAsesorandoCategoria] = useState(false);
     const [camposFaltantes, setCamposFaltantes] = useState<string[] | null>(null);
     const [asesoriaCategoria, setAsesoriaCategoria] = useState<{ recomendaciones: { id_cat_recurso: number; nombre: string; razon: string }[]; grupo: { id_grupo_recurso: number; nombre: string; razon: string } | null; proveedor: string; modelo: string } | null>(null);
@@ -819,6 +872,11 @@ export default function AgregarRecursosPage() {
     const [faseActual, setFaseActual] = useState(0);
     const [showClasificacionInfo, setShowClasificacionInfo] = useState(false);
     const [detalleInsumoModal, setDetalleInsumoModal] = useState<{ item: DetallePresupuestoForm; index: number } | null>(null);
+    // Detalle de un ítem de la pestaña "Anteriores": usa los datos ya cargados, sin consultas
+    const [detalleAnterior, setDetalleAnterior] = useState<RecursoHistorial | null>(null);
+    // Al abrir el detalle: ítem guardado → lo que hay en la BD; borrador → solo el código
+    // que el catálogo asignará al confirmar. `clave` evita mezclar respuestas de otra fila.
+    const [detalleGuardado, setDetalleGuardado] = useState<{ clave: string; data: any | null; cargando: boolean; borrador: boolean } | null>(null);
     const [catalogoDetalleModal, setCatalogoDetalleModal] = useState<RecursoOption | null>(null);
     const [motivosOficiales, setMotivosOficiales] = useState<{
         id_motivo: number;
@@ -922,10 +980,12 @@ export default function AgregarRecursosPage() {
         tipo: 'error' | 'warning' | 'success' | 'info';
         titulo: string;
         mensaje: string;
+        // Detalle técnico breve para el programador (solo en errores del backend)
+        pista?: string;
     } | null>(null);
-    const mostrarNotificacion = (tipo: 'error' | 'warning' | 'success' | 'info', titulo: string, mensaje: string | object) => {
+    const mostrarNotificacion = (tipo: 'error' | 'warning' | 'success' | 'info', titulo: string, mensaje: string | object, pista?: string) => {
         const msg = typeof mensaje === 'string' ? mensaje : (mensaje && typeof mensaje === 'object' ? JSON.stringify(mensaje) : String(mensaje));
-        setModalNotificacion({ tipo, titulo, mensaje: msg });
+        setModalNotificacion({ tipo, titulo, mensaje: msg, pista });
     };
 
     // Métricas y diagnóstico continuo de insumos (confirmados vs pendientes, sin cantidad, sin mes)
@@ -1330,11 +1390,7 @@ export default function AgregarRecursosPage() {
             if (!formularioRecurso.destino_gasto) {
                 const matchedMapping = mapeosRecurso.find(m => m.codigo_cuenta === formularioRecurso.codigo_cuenta);
                 if (matchedMapping) {
-                    setFormularioRecurso(prev => ({
-                        ...prev,
-                        destino_gasto: matchedMapping.destino_gasto,
-                        id_subvencion: matchedMapping.id_subvencion
-                    }));
+                    setFormularioRecurso(prev => ({ ...prev, destino_gasto: matchedMapping.destino_gasto }));
                 } else if (dests.length > 0) {
                     setFormularioRecurso(prev => ({ ...prev, destino_gasto: dests[0] }));
                 }
@@ -1342,20 +1398,53 @@ export default function AgregarRecursosPage() {
         }
     }, [mapeosRecurso]);
 
-    // RESOLUCIÓN AUTOMÁTICA DE SUBVENCIÓN POR JERARQUÍA DE REGLAS (ÁREA + DESTINO)
-    useEffect(() => {
-        const subareaObj = todasSubareas.find(s => s.id_subarea === formularioRecurso.id_subarea);
+    // ¿El ítem se pide desde un contexto PIE? (rol, cargo o área/subárea PIE)
+    const esContextoPIEDe = (idSubarea: number | null | undefined): boolean => {
+        const subareaObj = todasSubareas.find(s => s.id_subarea === idSubarea);
         const subareaNom = subareaObj ? subareaObj.nombre : solicitud?.subarea_nombre;
         const areaNom = solicitud?.area_nombre || subareaObj?.area?.nombre || (user as any)?.cargo?.area?.nombre || (user as any)?.area?.nombre;
-
         const rolCodigo = (user as any)?.rol?.codigo || codigoRol || '';
-        const esContextoPIE = Boolean(
+        return Boolean(
             rolCodigo === 'PIE' ||
             (areaNom && areaNom.toUpperCase().includes('PIE')) ||
             (subareaNom && subareaNom.toUpperCase().includes('PIE')) ||
             (user as any)?.cargo?.nombre?.toUpperCase().includes('PIE') ||
             (user as any)?.cargos?.some((c: any) => c.nombre?.toUpperCase().includes('PIE'))
         );
+    };
+
+    // "Ver detalle del insumo": para un ítem confirmado se trae lo guardado en el servidor
+    // (código contable, descripción, motivo…). Una sola consulta al abrir; nada en segundo plano.
+    const claveDetalle = (item?: DetallePresupuestoForm | null, index?: number) =>
+        item ? (item.id_pre_detalle ? `id:${item.id_pre_detalle}` : `fila:${index}:${item.id_recurso || item.nombre_producto}:${item.destino_gasto || ''}`) : '';
+
+    useEffect(() => {
+        const item = detalleInsumoModal?.item;
+        if (!item) { setDetalleGuardado(null); return; }
+        const clave = claveDetalle(item, detalleInsumoModal?.index);
+        const borrador = !item.id_pre_detalle;
+        if (borrador && !(item.destino_gasto && (item.id_recurso || item.nombre_producto))) { setDetalleGuardado(null); return; }
+
+        let vigente = true;
+        setDetalleGuardado({ clave, data: null, cargando: true, borrador });
+        const peticion = borrador
+            ? api.get('/presupuesto/recursos/codigo-catalogo', {
+                params: { destino_gasto: item.destino_gasto, id_recurso: item.id_recurso || undefined, nombre: item.nombre_producto || undefined },
+            })
+            : api.get(`/presupuesto/detalles/${item.id_pre_detalle}`);
+        peticion
+            .then(res => { if (vigente) setDetalleGuardado({ clave, data: res.data, cargando: false, borrador }); })
+            .catch(() => { if (vigente) setDetalleGuardado({ clave, data: null, cargando: false, borrador }); });
+        return () => { vigente = false; };
+    }, [detalleInsumoModal]);
+
+    // RESOLUCIÓN AUTOMÁTICA DE SUBVENCIÓN POR JERARQUÍA DE REGLAS (ÁREA + DESTINO)
+    useEffect(() => {
+        const subareaObj = todasSubareas.find(s => s.id_subarea === formularioRecurso.id_subarea);
+        const subareaNom = subareaObj ? subareaObj.nombre : solicitud?.subarea_nombre;
+        const areaNom = solicitud?.area_nombre || subareaObj?.area?.nombre || (user as any)?.cargo?.area?.nombre || (user as any)?.area?.nombre;
+
+        const esContextoPIE = esContextoPIEDe(formularioRecurso.id_subarea);
 
         const resSub = calcularSubvencion(
             areaNom,
@@ -1363,7 +1452,8 @@ export default function AgregarRecursosPage() {
             formularioRecurso.destino_gasto,
             `${formularioRecurso.nombre_producto} ${formularioRecurso.motivo}`,
             null,
-            esContextoPIE ? financiarConPIE : true
+            esContextoPIE ? financiarConPIE : true,
+            esContextoPIE
         );
 
         if (resSub.subvencion_codigo && subvencionesActivas.length > 0) {
@@ -1376,81 +1466,12 @@ export default function AgregarRecursosPage() {
         }
     }, [formularioRecurso.destino_gasto, formularioRecurso.id_subarea, formularioRecurso.nombre_producto, formularioRecurso.motivo, solicitud, todasSubareas, subvencionesActivas, financiarConPIE, codigoRol, user]);
 
-    useEffect(() => {
-        const resolverCodigo = async () => {
-            // En el flujo "Nuevo Insumo" el código lo resuelve su propio efecto
-            // (categoría + destino); este no debe interferir limpiándolo.
-            if (esNuevoProducto) {
-                return;
-            }
-            if (!formularioRecurso.id_recurso || !formularioRecurso.destino_gasto) {
-                setFormularioRecurso(prev => ({ ...prev, codigo_cuenta: null }));
-                setSubcatResuelta(null);
-                return;
-            }
-            // Para destinos sin mapeo configurado (incluido "otros") el código se
-            // asigna por categoría manual; no hay nada que resolver en el backend.
-            if (!destinoEsOficial(formularioRecurso.destino_gasto)) {
-                return;
-            }
-            setLoadingSubcat(true);
-            try {
-                const res = await api.get(`/presupuesto/recursos/${formularioRecurso.id_recurso}/resolver`, {
-                    params: {
-                        destino_gasto: formularioRecurso.destino_gasto,
-                        id_subvencion: formularioRecurso.id_subvencion || undefined
-                    }
-                });
-                setFormularioRecurso(prev => ({
-                    ...prev,
-                    codigo_cuenta: res.data.codigo_cuenta
-                }));
-                setSubcatResuelta({
-                    codigo_cuenta: res.data.codigo_cuenta,
-                    nombre: res.data.nombre_cuenta
-                });
-            } catch (err: any) {
-                // Un 404 significa "sin mapeo para esta combinación": estado esperado,
-                // no un error real. Se deja el código vacío sin ensuciar la consola.
-                if (err?.response?.status !== 404) {
-                    console.error("Error resolviendo código contable:", err);
-                }
-                setFormularioRecurso(prev => ({ ...prev, codigo_cuenta: null }));
-                setSubcatResuelta(null);
-            } finally {
-                setLoadingSubcat(false);
-            }
-        };
-        resolverCodigo();
-    }, [formularioRecurso.id_recurso, formularioRecurso.destino_gasto, formularioRecurso.id_subvencion, mapeosRecurso, esNuevoProducto]);
+    // El código contable no se resuelve en el formulario: lo asigna el backend al
+    // guardar, buscando el insumo (id + nombre) y su destino en el catálogo. Un insumo
+    // nuevo queda sin código hasta que el Contralor lo revise.
 
 
 
-    // Flujo "Nuevo Insumo": resolver el código contable a partir de la categoría
-    // elegida en la fase 0 + el destino, igual que en "Otros" pero sin id_recurso.
-    useEffect(() => {
-        if (!esNuevoProducto || !categoriaSeleccionadaNuevo || !formularioRecurso.destino_gasto) {
-            return;
-        }
-        api.get('/presupuesto/subcategorias', { params: { id_cat_recurso: categoriaSeleccionadaNuevo } })
-            .then(res => {
-                const subs: { id_subcat_recurso: number; nombre: string; codigo_cuenta: string; destino_gasto?: string }[] = res.data || [];
-                // Preferir una subcategoría cuyo destino coincida; si no, la primera disponible.
-                const porDestino = subs.filter(s => !s.destino_gasto || s.destino_gasto === formularioRecurso.destino_gasto);
-                const elegido = porDestino[0] || subs[0];
-                if (elegido) {
-                    setFormularioRecurso(prev => ({ ...prev, codigo_cuenta: elegido.codigo_cuenta }));
-                    setSubcatResuelta({ codigo_cuenta: elegido.codigo_cuenta, nombre: elegido.nombre });
-                } else {
-                    setFormularioRecurso(prev => ({ ...prev, codigo_cuenta: null }));
-                    setSubcatResuelta(null);
-                }
-            })
-            .catch(() => {
-                setFormularioRecurso(prev => ({ ...prev, codigo_cuenta: null }));
-                setSubcatResuelta(null);
-            });
-    }, [esNuevoProducto, categoriaSeleccionadaNuevo, formularioRecurso.destino_gasto]);
 
     // Detección de recursos similares por nombre (LIKE) para autocompletado
     useEffect(() => {
@@ -1469,18 +1490,8 @@ export default function AgregarRecursosPage() {
 
 
     const detectarSubvencion = (nombre: string, motivo: string, destino: string): number | null => {
-        const subareaObj = todasSubareas.find(s => s.id_subarea === formularioRecurso.id_subarea);
-        const subareaNom = subareaObj ? subareaObj.nombre : solicitud?.subarea_nombre;
-        const areaNom = solicitud?.area_nombre || subareaObj?.area?.nombre || (user as any)?.cargo?.area?.nombre || (user as any)?.area?.nombre;
-        const rolCodigo = (user as any)?.rol?.codigo || codigoRol || '';
-
-        const esContextoPIE = Boolean(
-            rolCodigo === 'PIE' ||
-            (areaNom && areaNom.toUpperCase().includes('PIE')) ||
-            (subareaNom && subareaNom.toUpperCase().includes('PIE')) ||
-            (user as any)?.cargo?.nombre?.toUpperCase().includes('PIE') ||
-            (user as any)?.cargos?.some((c: any) => c.nombre?.toUpperCase().includes('PIE'))
-        );
+        // PIE solo aplica al destino Estudiantes; Funcionarios sigue siendo GENERAL.
+        const esContextoPIE = esContextoPIEDe(formularioRecurso.id_subarea) && destino === 'clases(alumno)';
 
         if (esContextoPIE && financiarConPIE) {
             const pieSubv = subvencionesActivas.find(s => s.nombre_corto === 'PIE');
@@ -1919,8 +1930,8 @@ export default function AgregarRecursosPage() {
                 fecha_termino: '',
                 motivo: h.motivo || '',
                 destino_gasto: h.destino_gasto || undefined,
-                id_subvencion: h.id_subvencion || undefined,
-                codigo_cuenta: h.codigo_cuenta || undefined,
+                id_subvencion: subvencionPorDestino(h.destino_gasto, h.id_subvencion || null, h.id_subarea) || undefined,
+                codigo_cuenta: undefined,
                 id_subarea: h.id_subarea || undefined,
                 id_grupo_recurso: h.id_grupo_recurso || undefined,
                 grupo_nombre: h.grupo_nombre || undefined,
@@ -1961,8 +1972,8 @@ export default function AgregarRecursosPage() {
                 fecha_termino: '',
                 motivo: h.motivo || '',
                 destino_gasto: h.destino_gasto || undefined,
-                id_subvencion: h.id_subvencion || undefined,
-                codigo_cuenta: h.codigo_cuenta || undefined,
+                id_subvencion: subvencionPorDestino(h.destino_gasto, h.id_subvencion || null, h.id_subarea) || undefined,
+                codigo_cuenta: undefined,
                 id_subarea: h.id_subarea || undefined,
                 id_grupo_recurso: h.id_grupo_recurso || undefined,
                 grupo_nombre: h.grupo_nombre || undefined,
@@ -2305,7 +2316,6 @@ export default function AgregarRecursosPage() {
             id_grupo_recurso: null
         });
         setSearchPMEModal('');
-        setSubcatResuelta(null);
         setIsEditando(false);
         setEditIndex(null);
         setFormatoEsOtros(false);
@@ -2467,6 +2477,8 @@ export default function AgregarRecursosPage() {
         if (!formularioRecurso.destino_gasto) faltan.push('¿Para quién o para qué se destina este gasto?');
         if (!formularioRecurso.descripcion.trim()) faltan.push('Detalle del Insumo');
         if (!formularioRecurso.motivo.trim()) faltan.push('Justificación / Motivo de Necesidad');
+        if (formularioRecurso.descripcion.length > MAX_DETALLE_INSUMO) faltan.push(`Detalle del Insumo (máximo ${MAX_DETALLE_INSUMO} caracteres)`);
+        if (formularioRecurso.motivo.length > MAX_MOTIVO_INSUMO) faltan.push(`Justificación / Motivo de Necesidad (máximo ${MAX_MOTIVO_INSUMO} caracteres)`);
         return faltan;
     };
     const agregarRecurso = () => {
@@ -2745,7 +2757,9 @@ export default function AgregarRecursosPage() {
             } else {
                 // CREATE
                 const res = await api.post(`/presupuesto/solicitudes/${solicitudId}/recursos`, { detalles: [payload] });
-                const nuevoConId = res.data.detalles?.[0];
+                // `detalles` trae todos los ítems de la solicitud: el creado se ubica por su id.
+                const idNuevo: number | undefined = res.data.ids_nuevos?.[0];
+                const nuevoConId = idNuevo ? (res.data.detalles || []).find((d: any) => d.id_pre_detalle === idNuevo) : undefined;
                 if (nuevoConId) {
                     // Actualización FUNCIONAL, obligatoria aquí: "Guardar todos
                     // pendientes" llama a esta función en un bucle con await, y con
@@ -2759,7 +2773,8 @@ export default function AgregarRecursosPage() {
                         ? {
                             ...data,
                             id_pre_detalle: nuevoConId.id_pre_detalle,
-                            id_recurso: idRecursoFinal,
+                            id_recurso: nuevoConId.id_recurso ?? idRecursoFinal,
+                            codigo_cuenta: nuevoConId.codigo_cuenta ?? null,
                             id_grupo_recurso: nuevoConId.id_grupo_recurso ?? data.id_grupo_recurso ?? null,
                             grupo_nombre: nuevoConId.grupo_nombre ?? grpMatch?.nombre ?? data.grupo_nombre ?? null,
                             _esNuevo: false,
@@ -2771,13 +2786,8 @@ export default function AgregarRecursosPage() {
             }
         } catch (error: any) {
             console.error('Error al persistir recurso:', error);
-            const detalle = error?.response?.data?.detail;
-            const mensajeFinal = typeof detalle === 'string'
-                ? detalle
-                : (detalle && typeof detalle === 'object'
-                    ? (detalle.message || JSON.stringify(detalle))
-                    : 'No se pudo guardar el recurso individual. Por favor verifica los datos ingresados.');
-            mostrarNotificacion('error', 'Error al guardar insumo', mensajeFinal);
+            const { mensaje, pista } = describirErrorApi(error, 'No se pudo guardar el insumo. Por favor verifica los datos ingresados.');
+            mostrarNotificacion('error', 'Error al guardar insumo', mensaje, pista);
             setRecursosActual(prev => prev.map((item, i) => i === index ? { ...item, _isClassifying: false } : item));
         } finally {
             setSavingItems(prev => prev.filter(i => i !== index));
@@ -2804,26 +2814,24 @@ export default function AgregarRecursosPage() {
         setFilasModificadas(prev => new Set(prev).add(index));
     };
 
-    const cambiarDestinoGasto = async (index: number, nuevoDestino: string) => {
-        const itemOriginal = recursosActual[index];
-        if (!itemOriginal) return;
-
-        // Auto-calcular Subvención según la regla:
-        // Alumnos / Estudiantes -> SEP
-        // Funcionarios -> GENERAL
-        // Premio / Beneficio -> SEP
-        // Mantención / Servicio -> MANTENCION (o GENERAL si no existe código MANTENCION)
-        let nuevaSubvId: number | null = (itemOriginal as any).id_subvencion || null;
-
+    // Subvención según el destino:
+    // Alumnos / Estudiantes -> SEP
+    // Funcionarios / Apoderados -> GENERAL
+    // Premio / Beneficio -> SEP
+    // Mantención / Servicio -> MANTENCION (o GENERAL si no existe código MANTENCION)
+    const subvencionPorDestino = (destino: string | undefined | null, actual: number | null = null, idSubarea?: number | null): number | null => {
+        let nuevaSubvId = actual;
+        const subPIE = subvencionesActivas.find(s => s.nombre_corto.toUpperCase() === 'PIE');
         const subSEP = subvencionesActivas.find(s => s.nombre_corto.toUpperCase() === 'SEP' || (s as any).codigo?.toUpperCase() === 'SEP');
         const subGEN = subvencionesActivas.find(s => s.nombre_corto.toUpperCase() === 'GENERAL' || (s as any).codigo?.toUpperCase() === 'GENERAL');
         const subMAN = subvencionesActivas.find(s => s.nombre_corto.toUpperCase().includes('MANT') || (s as any).codigo?.toUpperCase().includes('MANT'));
 
-        // El selector emite el valor canónico; se normaliza igual por si llega una
-        // etiqueta antigua desde otro punto del código.
-        const destinoCanon = destinoCanonico(nuevoDestino);
+        const destinoCanon = destinoCanonico(destino);
 
-        if (destinoCanon === 'clases(alumno)' || destinoCanon === 'premio/beneficio') {
+        if (destinoCanon === 'clases(alumno)' && subPIE && financiarConPIE && esContextoPIEDe(idSubarea)) {
+            // Cargo o área PIE + Estudiantes → PIE
+            nuevaSubvId = subPIE.id_subvencion;
+        } else if (destinoCanon === 'clases(alumno)' || destinoCanon === 'premio/beneficio') {
             if (subSEP) nuevaSubvId = subSEP.id_subvencion;
         } else if (destinoCanon === 'oficinas(administracion)' || destinoCanon === 'apoderados') {
             if (subGEN) nuevaSubvId = subGEN.id_subvencion;
@@ -2831,11 +2839,22 @@ export default function AgregarRecursosPage() {
             if (subMAN) nuevaSubvId = subMAN.id_subvencion;
             else if (subGEN) nuevaSubvId = subGEN.id_subvencion;
         }
+        return nuevaSubvId;
+    };
 
+    const cambiarDestinoGasto = async (index: number, nuevoDestino: string) => {
+        const itemOriginal = recursosActual[index];
+        if (!itemOriginal) return;
+
+        // El selector emite el valor canónico; se normaliza igual por si llega una
+        // etiqueta antigua desde otro punto del código.
+        const destinoCanon = destinoCanonico(nuevoDestino);
         const itemActualizado = {
             ...itemOriginal,
             destino_gasto: destinoCanon,
-            id_subvencion: nuevaSubvId
+            id_subvencion: subvencionPorDestino(destinoCanon, (itemOriginal as any).id_subvencion || null, itemOriginal.id_subarea),
+            // El código se vuelve a tomar del catálogo al guardar
+            codigo_cuenta: undefined,
         };
 
         setRecursosActual(prev => prev.map((item, i) => i === index ? itemActualizado : item));
@@ -3051,7 +3070,10 @@ export default function AgregarRecursosPage() {
 
             // UNA SOLA PETICION HTTP MASIVA
             const res = await api.post(`/presupuesto/solicitudes/${solicitudId}/recursos`, { detalles: detallesPayload });
-            const nuevosDetalles: any[] = res.data.detalles || [];
+            // `detalles` trae todos los ítems de la solicitud: los creados se ubican por
+            // `ids_nuevos`, que viene en el mismo orden en que se enviaron.
+            const porId = new Map<number, any>((res.data.detalles || []).map((d: any) => [d.id_pre_detalle, d]));
+            const nuevosDetalles: any[] = (res.data.ids_nuevos || []).map((id: number) => porId.get(id)).filter(Boolean);
 
             // Actualizar el estado local con los IDs reales devueltos por la BD
             const indicesProcesados = new Set(itemsAProcesar.map(it => it.index));
@@ -3066,6 +3088,7 @@ export default function AgregarRecursosPage() {
                                 ...item,
                                 id_pre_detalle: devuelto.id_pre_detalle,
                                 id_recurso: devuelto.id_recurso || item.id_recurso,
+                                codigo_cuenta: devuelto.codigo_cuenta ?? null,
                                 _esNuevo: false,
                                 _isClassifying: false
                             } as any;
@@ -3085,13 +3108,8 @@ export default function AgregarRecursosPage() {
             });
         } catch (err: any) {
             console.error('Error al guardar todos los pendientes masivamente:', err);
-            const detalle = err?.response?.data?.detail;
-            const mensajeFinal = typeof detalle === 'string'
-                ? detalle
-                : (detalle && typeof detalle === 'object'
-                    ? (detalle.message || JSON.stringify(detalle))
-                    : 'Error al guardar los recursos pendientes en bloque');
-            mostrarNotificacion('error', 'Error al guardar pendientes', mensajeFinal);
+            const { mensaje, pista } = describirErrorApi(err, 'No se pudieron guardar los insumos pendientes.');
+            mostrarNotificacion('error', 'Error al guardar pendientes', mensaje, pista);
         } finally {
             guardandoTodosRef.current = false;
             setGuardandoTodos(false);
@@ -4758,6 +4776,14 @@ export default function AgregarRecursosPage() {
                                                                         </div>
                                                                         <p className="text-[10px] font-bold text-primary mt-1">{formatCLP(h.valor_unitario_iva)}</p>
                                                                     </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setDetalleAnterior(h)}
+                                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors shrink-0"
+                                                                        title="Ver detalle del insumo en ese presupuesto"
+                                                                    >
+                                                                        <Eye size={14} />
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -5786,10 +5812,7 @@ export default function AgregarRecursosPage() {
                                             value={formularioRecurso.destino_gasto}
                                             onChange={(e) => {
                                                 const val = e.target.value;
-                                                const matching = mapeosRecurso.filter(m => m.destino_gasto === val);
-                                                const subvId = matching.length > 0 ? matching[0].id_subvencion : null;
-                                                setFormularioRecurso(prev => ({ ...prev, destino_gasto: val, id_subvencion: subvId, codigo_cuenta: null }));
-                                                setSubcatResuelta(null);
+                                                setFormularioRecurso(prev => ({ ...prev, destino_gasto: val, id_subvencion: null, codigo_cuenta: null }));
                                             }}
                                             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-900 focus:outline-none"
                                         >
@@ -5856,6 +5879,7 @@ export default function AgregarRecursosPage() {
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 shrink-0">
                                                 Detalle del Insumo <span className="text-red-500">*</span>
                                             </label>
+                                                <LimiteCaracteres actual={formularioRecurso.descripcion.length} max={MAX_DETALLE_INSUMO} />
                                             <span className="text-gray-300 font-light">|</span>
                                             <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
                                                 Color, Tamaño, Marca...{' '}
@@ -5869,7 +5893,7 @@ export default function AgregarRecursosPage() {
                                                 Especifica todas las características que permitan identificar exactamente qué se compra: color, talla, marca, modelo, dimensiones, capacidad, material, etc.
                                             </p>
                                         )}
-                                        <textarea rows={3} value={formularioRecurso.descripcion} onChange={(e) => setFormularioRecurso({ ...formularioRecurso, descripcion: e.target.value })}
+                                        <textarea rows={3} maxLength={MAX_DETALLE_INSUMO} value={formularioRecurso.descripcion} onChange={(e) => setFormularioRecurso({ ...formularioRecurso, descripcion: e.target.value })}
                                             className={`w-full px-4 py-3 rounded-xl transition-all font-medium placeholder:font-medium text-xs resize-none focus:outline-none ${formularioRecurso.descripcion.trim() ? 'bg-white border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'bg-white border-2 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 placeholder:text-gray-400'}`}
                                             placeholder="Ej: Silla ergonómica negra con ruedas, respaldo alto, altura regulable. Lapicera punta fina azul BIC. Resma papel carta 75g..."
                                         />
@@ -5883,6 +5907,7 @@ export default function AgregarRecursosPage() {
                                         <div className="flex items-center justify-between mb-0.5">
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                                                 <span>Justificación / Motivo de Necesidad</span>
+                                                <LimiteCaracteres actual={formularioRecurso.motivo.length} max={MAX_MOTIVO_INSUMO} />
                                                 <span className="text-red-500">*</span>
                                             </label>
                                             <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider border border-red-200">Obligatorio</span>
@@ -5953,6 +5978,7 @@ export default function AgregarRecursosPage() {
                                         <div className="relative">
                                             <textarea
                                                 rows={2}
+                                                maxLength={MAX_MOTIVO_INSUMO}
                                                 value={formularioRecurso.motivo}
                                                 onChange={(e) => {
                                                     setFormularioRecurso(prev => ({ ...prev, motivo: e.target.value }));
@@ -6039,15 +6065,12 @@ export default function AgregarRecursosPage() {
                                                 value={formularioRecurso.destino_gasto}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
-                                                    const matching = mapeosRecurso.filter(m => m.destino_gasto === val);
-                                                    const subvId = matching.length > 0 ? matching[0].id_subvencion : null;
                                                     setFormularioRecurso(prev => ({
                                                         ...prev,
                                                         destino_gasto: val,
-                                                        id_subvencion: subvId,
+                                                        id_subvencion: null,
                                                         codigo_cuenta: null
                                                     }));
-                                                    setSubcatResuelta(null);
                                                 }}
                                                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold text-xs text-gray-900 focus:outline-none"
                                             >
@@ -6386,6 +6409,7 @@ export default function AgregarRecursosPage() {
                                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 shrink-0">
                                                     Detalle del Insumo <span className="text-red-500">*</span>
                                                 </label>
+                                                    <LimiteCaracteres actual={formularioRecurso.descripcion.length} max={MAX_DETALLE_INSUMO} />
                                                 <span className="text-gray-300 font-light">|</span>
                                                 <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
                                                     Color, Tamaño, Marca...{' '}
@@ -6399,7 +6423,7 @@ export default function AgregarRecursosPage() {
                                                     Especifica todas las características que permitan identificar exactamente qué se compra: color, talla, marca, modelo, dimensiones, capacidad, material, etc. Mientras más detallado, más fácil es cotizar y aprobar.
                                                 </p>
                                             )}
-                                            <textarea ref={detalleInsumoRef} rows={3} value={formularioRecurso.descripcion} onChange={(e) => setFormularioRecurso({ ...formularioRecurso, descripcion: e.target.value })}
+                                            <textarea ref={detalleInsumoRef} rows={3} maxLength={MAX_DETALLE_INSUMO} value={formularioRecurso.descripcion} onChange={(e) => setFormularioRecurso({ ...formularioRecurso, descripcion: e.target.value })}
                                                 className={`w-full px-4 py-3 rounded-xl transition-all font-medium placeholder:font-medium text-xs resize-none focus:outline-none ${formularioRecurso.descripcion.trim() ? 'bg-white border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-4 focus:ring-primary/10' : 'bg-white border-2 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-4 focus:ring-red-100 placeholder:text-gray-400'}`}
                                                 placeholder="Ej: Silla ergonómica negra con ruedas, respaldo alto, altura regulable. Lapicera punta fina azul BIC. Resma papel carta 75g..."
                                             />
@@ -6413,6 +6437,7 @@ export default function AgregarRecursosPage() {
                                             <div className="flex items-center justify-between mb-0.5">
                                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                                                     <span>Justificación / Motivo de Necesidad</span>
+                                                    <LimiteCaracteres actual={formularioRecurso.motivo.length} max={MAX_MOTIVO_INSUMO} />
                                                     <span className="text-red-500">*</span>
                                                 </label>
                                                 <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider border border-red-200">Obligatorio</span>
@@ -6483,6 +6508,7 @@ export default function AgregarRecursosPage() {
                                             <div className="relative">
                                                 <textarea
                                                     rows={2}
+                                                    maxLength={MAX_MOTIVO_INSUMO}
                                                     value={formularioRecurso.motivo}
                                                     onChange={(e) => {
                                                         setFormularioRecurso(prev => ({ ...prev, motivo: e.target.value }));
@@ -7192,7 +7218,6 @@ export default function AgregarRecursosPage() {
                                         {!isEditando && (
                                             <button
                                                 type="button"
-                                                disabled={loadingSubcat}
                                                 onClick={() => {
                                                     const faltan = getCamposFaltantes();
                                                     if (faltan.length > 0) { setCamposFaltantes(faltan); return; }
@@ -7207,7 +7232,6 @@ export default function AgregarRecursosPage() {
                                         )}
                                         <button
                                             type="button"
-                                            disabled={loadingSubcat}
                                             onClick={() => {
                                                 const faltan = getCamposFaltantes();
                                                 if (faltan.length > 0) { setCamposFaltantes(faltan); return; }
@@ -7215,7 +7239,7 @@ export default function AgregarRecursosPage() {
                                             }}
                                             className="px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:brightness-105 active:scale-[0.98] transition-all text-[13px] flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
                                         >
-                                            {loadingSubcat ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
+                                            <Check size={16} strokeWidth={2.5} />
                                             {isEditando ? 'Actualizar' : 'Añadir y Cerrar'}
                                         </button>
                                     </>
@@ -7835,6 +7859,11 @@ export default function AgregarRecursosPage() {
                                 <p className="text-xs text-gray-600 font-medium mt-1 leading-relaxed whitespace-pre-line">
                                     {modalNotificacion.mensaje}
                                 </p>
+                                {modalNotificacion.pista && (
+                                    <p className="mt-2 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-[10px] font-mono text-gray-500 break-all select-all" title="Detalle técnico para el equipo de desarrollo">
+                                        Pista: {modalNotificacion.pista}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -7859,6 +7888,35 @@ export default function AgregarRecursosPage() {
                 </div>
             )}
 
+            {/* Detalle de un insumo de un presupuesto anterior (solo lectura) */}
+            <DetalleInsumoModal
+                isOpen={Boolean(detalleAnterior)}
+                onClose={() => setDetalleAnterior(null)}
+                item={detalleAnterior ? {
+                    nombre_producto: detalleAnterior.nombre_producto,
+                    descripcion: detalleAnterior.descripcion || '',
+                    formato_unidad: detalleAnterior.formato_unidad,
+                    cantidad: detalleAnterior.cantidad,
+                    valor_unitario_iva: detalleAnterior.valor_unitario_iva,
+                    total_iva: detalleAnterior.total_iva,
+                    fecha_ejecucion: detalleAnterior.fecha_ejecucion,
+                    fecha_termino: detalleAnterior.fecha_termino,
+                    tipo_fecha: detalleAnterior.tipo_fecha,
+                    motivo: detalleAnterior.motivo,
+                    destino_gasto: detalleAnterior.destino_gasto || undefined,
+                    id_subvencion: detalleAnterior.id_subvencion || undefined,
+                    codigo_cuenta: detalleAnterior.codigo_cuenta || undefined,
+                    id_actividad: detalleAnterior.id_actividad || undefined,
+                    id_subarea: detalleAnterior.id_subarea || undefined,
+                    grupo_nombre: detalleAnterior.grupo_nombre || undefined,
+                } as DetallePresupuestoForm : null}
+                etiquetaOrigen={detalleAnterior ? `Presupuesto anterior · ${detalleAnterior.codigo_solicitud}` : undefined}
+                nombreSubarea={detalleAnterior ? (nombreSubareaDeFila({ id_subarea: detalleAnterior.id_subarea } as any) ?? undefined) : undefined}
+                nombreActividad={detalleAnterior?.actividad_nombre || undefined}
+                subvencionNombre={detalleAnterior ? getSubvencionLabel(detalleAnterior.id_subvencion) : undefined}
+                labelFecha={detalleAnterior ? labelFecha(detalleAnterior as any) : undefined}
+            />
+
             {/* Modal de Detalle Completo de Insumo */}
             <DetalleInsumoModal
                 isOpen={Boolean(detalleInsumoModal || catalogoDetalleModal)}
@@ -7866,13 +7924,35 @@ export default function AgregarRecursosPage() {
                     setDetalleInsumoModal(null);
                     setCatalogoDetalleModal(null);
                 }}
-                item={detalleInsumoModal?.item}
+                item={detalleInsumoModal?.item && detalleGuardado?.data && !detalleGuardado.borrador
+                    && detalleGuardado.clave === claveDetalle(detalleInsumoModal.item, detalleInsumoModal.index)
+                    ? {
+                        ...detalleInsumoModal.item,
+                        descripcion: detalleGuardado.data.descripcion ?? detalleInsumoModal.item.descripcion,
+                        motivo: detalleGuardado.data.motivo ?? detalleInsumoModal.item.motivo,
+                        codigo_cuenta: detalleGuardado.data.codigo_cuenta ?? null,
+                        destino_gasto: detalleGuardado.data.destino_gasto ?? detalleInsumoModal.item.destino_gasto,
+                        id_subvencion: detalleGuardado.data.id_subvencion ?? detalleInsumoModal.item.id_subvencion,
+                        cantidad: detalleGuardado.data.cantidad ?? detalleInsumoModal.item.cantidad,
+                        formato_unidad: detalleGuardado.data.formato_unidad ?? detalleInsumoModal.item.formato_unidad,
+                        valor_unitario_iva: detalleGuardado.data.valor_unitario_iva ?? detalleInsumoModal.item.valor_unitario_iva,
+                        total_iva: detalleGuardado.data.total_iva ?? detalleInsumoModal.item.total_iva,
+                    }
+                    : detalleInsumoModal?.item && detalleGuardado?.borrador && detalleGuardado.data
+                        && detalleGuardado.clave === claveDetalle(detalleInsumoModal.item, detalleInsumoModal.index)
+                        ? { ...detalleInsumoModal.item, codigo_cuenta: detalleGuardado.data.codigo_cuenta ?? null }
+                        : detalleInsumoModal?.item}
+                nombreCuenta={detalleGuardado?.data?.codigo_cuenta_nombre ?? null}
+                codigoPorConfirmar={Boolean(detalleGuardado?.borrador)}
+                cargando={Boolean(detalleGuardado?.cargando)}
                 catalogoItem={catalogoDetalleModal}
                 onEdit={detalleInsumoModal ? () => abrirEditar(detalleInsumoModal.index) : undefined}
                 onSeleccionarCatalogo={catalogoDetalleModal ? (r) => seleccionarRecurso(r) : undefined}
                 nombreSubarea={(detalleInsumoModal?.item ? nombreSubareaDeFila(detalleInsumoModal.item) : undefined) ?? undefined}
                 nombreActividad={detalleInsumoModal?.item?.id_actividad ? (todasActividades.find(a => a.id === detalleInsumoModal.item.id_actividad)?.nombre || (detalleInsumoModal.item as any).actividad_seleccionada?.nombre || (detalleInsumoModal.item as any).actividad_nombre) : undefined}
-                subvencionNombre={detalleInsumoModal?.item ? getSubvencionLabel(detalleInsumoModal.item.id_subvencion) : undefined}
+                subvencionNombre={detalleInsumoModal?.item
+                    ? ((!detalleGuardado?.borrador && detalleGuardado?.data?.subvencion_nombre) || getSubvencionLabel(detalleInsumoModal.item.id_subvencion))
+                    : undefined}
                 labelFecha={detalleInsumoModal?.item ? labelFecha(detalleInsumoModal.item) : undefined}
                 nombreCategoria={
                     detalleInsumoModal?.item

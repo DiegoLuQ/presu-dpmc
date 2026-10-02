@@ -279,6 +279,8 @@ class BudgetRequestResponse(BaseModel):
     user_nombre: Optional[str] = None
     colegio_nombre: Optional[str] = None
     detalles: List[BudgetDetailResponse]
+    # Solo al agregar ítems: ids creados, en el mismo orden en que se enviaron
+    ids_nuevos: Optional[List[int]] = None
     # Solo en listados "resumen" (sin ítems): se calculan en el servidor
     n_items: Optional[int] = None
     n_items_aprobados: Optional[int] = None

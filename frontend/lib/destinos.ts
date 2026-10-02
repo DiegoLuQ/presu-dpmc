@@ -78,6 +78,20 @@ export function destinoCanonico(valor: string | null | undefined): string {
     return '';
 }
 
+// Etiquetas cortas para badges en tablas (sin el detalle entre paréntesis).
+const DESTINOS_CORTOS: Record<string, string> = {
+    'clases(alumno)': 'Estudiantes',
+    'oficinas(administracion)': 'Funcionarios',
+    'premio/beneficio': 'Premio / Beneficio',
+    'mantencion/servicio': 'Mantención',
+    'apoderados': 'Apoderados',
+};
+
+/** Etiqueta corta de un destino ("Estudiantes", "Funcionarios"…); '' si no se reconoce. */
+export function etiquetaDestinoCorta(valor: string | null | undefined): string {
+    return DESTINOS_CORTOS[destinoCanonico(valor)] ?? '';
+}
+
 /** Etiqueta legible de un destino, tolerando valores antiguos ya guardados. */
 export function etiquetaDestino(valor: string | null | undefined): string {
     if (!valor) return '';

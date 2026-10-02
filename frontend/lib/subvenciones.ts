@@ -3,7 +3,7 @@
  * 
  * Determina la subvención financiera (SEP, PIE, GENERAL, MANTENIMIENTO, PRO_RETENCION)
  * basándose estrictamente en la jerarquía de reglas de negocio:
- * 1. PIE (Prioridad Máxima si el Área es PIE)
+ * 1. PIE (cargo o área PIE con destino Estudiantes; en Funcionarios sigue siendo GENERAL)
  * 2. MANTENIMIENTO (Si Área es Operaciones/Mantención y Destino es Mantención/Servicio)
  * 3. GENERAL (Si Destino es Funcionarios)
  * 4. SEP (Si Destino es Estudiantes)
@@ -32,14 +32,16 @@ export function calcularSubvencion(
     destinoGasto: string | null | undefined,
     conceptoText?: string | null | undefined,
     subvencionOriginalBD?: { id_subvencion: number; nombre_corto: string } | null,
-    aplicarSubvencionPIE: boolean = true
+    aplicarSubvencionPIE: boolean = true,
+    // Cargo / rol PIE del usuario aunque el nombre del área no diga "PIE"
+    contextoPIE: boolean = false
 ): ResultadoSubvencion {
     const areaUpper = (areaNombre || '').toUpperCase();
     const subareaUpper = (subareaNombre || '').toUpperCase();
     const destinoUpper = (destinoGasto || '').toUpperCase();
     const conceptoUpper = (conceptoText || '').toUpperCase();
 
-    const esAreaPIE = (areaUpper.includes('PIE') || subareaUpper.includes('PIE')) && aplicarSubvencionPIE;
+    const esAreaPIE = (areaUpper.includes('PIE') || subareaUpper.includes('PIE') || contextoPIE) && aplicarSubvencionPIE;
     const esAreaOperaciones = areaUpper.includes('OPE') || areaUpper.includes('OPERACION') || subareaUpper.includes('MANTEN') || subareaUpper.includes('OPE');
     
     // Normalizar Destino
@@ -65,14 +67,15 @@ export function calcularSubvencion(
         };
     }
 
-    // REGLA 1 (JERARQUÍA 1): Área PIE tiene prioridad absoluta sobre cualquier destino
-    if (esAreaPIE) {
+    // REGLA 1 (JERARQUÍA 1): cargo o área PIE con destino Estudiantes → PIE.
+    // Los demás destinos siguen su regla (p.ej. Funcionarios → GENERAL).
+    if (esAreaPIE && esEstudiantes) {
         return {
             subvencion_codigo: 'PIE',
             nombre_corto: 'PIE',
             nombre_completo: 'Programa de Integración Escolar',
             estado: 'exito',
-            motivo: 'Área PIE predomina con financiamiento PIE sobre cualquier destino',
+            motivo: 'Cargo o área PIE con destino Estudiantes: se financia con PIE',
             badgeStyle: {
                 bg: 'bg-purple-100',
                 text: 'text-purple-800',
