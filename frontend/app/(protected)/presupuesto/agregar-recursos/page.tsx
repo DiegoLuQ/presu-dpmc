@@ -120,6 +120,7 @@ interface RecursoHistorial {
     grupo_nombre?: string | null;
     solicitante_nombre?: string | null;
     colegio_nombre?: string | null;
+    subarea_nombre?: string | null;
 }
 
 // Actividad PME asociada a un insumo, devuelta por
@@ -798,12 +799,23 @@ export default function AgregarRecursosPage() {
     const [busquedaHistorial, setBusquedaHistorial] = useState('');
     const [filtroMotivosHistorial, setFiltroMotivosHistorial] = useState<string[]>([]);
     const [filtroActividadesHistorial, setFiltroActividadesHistorial] = useState<string[]>([]);
+    const [filtroCargosHistorial, setFiltroCargosHistorial] = useState<string[]>([]);
+    const [filtroMesesHistorial, setFiltroMesesHistorial] = useState<string[]>([]);
     const SIN_ACTIVIDAD = '(Sin actividad PME)';
+    const SIN_CARGO = '(Sin cargo)';
+    const SIN_MES = '(Sin mes)';
     const [paginaHistorial, setPaginaHistorial] = useState(1);
     const normalizarTexto = (t?: string | null) =>
         (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const motivoDe = (h: RecursoHistorial) => (h.motivo || '').trim() || SIN_MOTIVO;
     const actividadDe = (h: RecursoHistorial) => (h.actividad_nombre || '').trim() || SIN_ACTIVIDAD;
+    const cargoDe = (h: RecursoHistorial) =>
+        (h.subarea_nombre || todasSubareas.find(sa => sa.id_subarea === h.id_subarea)?.nombre || '').trim() || SIN_CARGO;
+    // Mes como "01".."12" (desde la fecha de ejecución); SIN_MES si no tiene
+    const mesDe = (h: RecursoHistorial) => {
+        const m = (h.fecha_ejecucion || '').substring(5, 7);
+        return /^(0[1-9]|1[0-2])$/.test(m) ? m : SIN_MES;
+    };
 
     // Ítems de la solicitud anterior elegida (o de todas)
     const historialBase = useMemo(
@@ -827,15 +839,34 @@ export default function AgregarRecursosPage() {
             .map(a => ({ valor: a, label: a, count: conteo[a] }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [historialBase]);
+    const opcionesCargoHistorial = useMemo(() => {
+        const conteo: Record<string, number> = {};
+        historialBase.forEach(h => { const c = cargoDe(h); conteo[c] = (conteo[c] || 0) + 1; });
+        return Object.keys(conteo)
+            .sort((a, b) => (a === SIN_CARGO ? 1 : b === SIN_CARGO ? -1 : a.localeCompare(b, 'es')))
+            .map(c => ({ valor: c, label: c, count: conteo[c] }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historialBase, todasSubareas]);
+    const opcionesMesHistorial = useMemo(() => {
+        const conteo: Record<string, number> = {};
+        historialBase.forEach(h => { const m = mesDe(h); conteo[m] = (conteo[m] || 0) + 1; });
+        // Orden calendario; "(Sin mes)" al final
+        return Object.keys(conteo)
+            .sort((a, b) => (a === SIN_MES ? 1 : b === SIN_MES ? -1 : a.localeCompare(b)))
+            .map(m => ({ valor: m, label: MESES.find(x => x.value === m)?.label || m, count: conteo[m] }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historialBase]);
     const historialFiltrado = useMemo(() => {
         const q = normalizarTexto(busquedaHistorial);
         return historialBase.filter(h =>
             (!q || normalizarTexto(h.nombre_producto).includes(q)) &&
             (filtroMotivosHistorial.length === 0 || filtroMotivosHistorial.includes(motivoDe(h))) &&
-            (filtroActividadesHistorial.length === 0 || filtroActividadesHistorial.includes(actividadDe(h)))
+            (filtroActividadesHistorial.length === 0 || filtroActividadesHistorial.includes(actividadDe(h))) &&
+            (filtroCargosHistorial.length === 0 || filtroCargosHistorial.includes(cargoDe(h))) &&
+            (filtroMesesHistorial.length === 0 || filtroMesesHistorial.includes(mesDe(h)))
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [historialBase, busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial]);
+    }, [historialBase, busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial, filtroCargosHistorial, filtroMesesHistorial, todasSubareas]);
     const totalPaginasHistorial = Math.max(1, Math.ceil(historialFiltrado.length / HISTORIAL_POR_PAGINA));
     const paginaHistorialActual = Math.min(paginaHistorial, totalPaginasHistorial);
     const historialPagina = historialFiltrado.slice(
@@ -843,7 +874,7 @@ export default function AgregarRecursosPage() {
         paginaHistorialActual * HISTORIAL_POR_PAGINA
     );
     // Volver a la página 1 al cambiar cualquier filtro
-    useEffect(() => { setPaginaHistorial(1); }, [busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial, filtroSolicitudHistorial]);
+    useEffect(() => { setPaginaHistorial(1); }, [busquedaHistorial, filtroMotivosHistorial, filtroActividadesHistorial, filtroCargosHistorial, filtroMesesHistorial, filtroSolicitudHistorial]);
     const [filtroAlcanceHistorial, setFiltroAlcanceHistorial] = useState<'mis' | 'area'>('area');
     const [cargandoHistorial, setCargandoHistorial] = useState(false);
     const [savingItems, setSavingItems] = useState<number[]>([]);
@@ -1841,7 +1872,8 @@ export default function AgregarRecursosPage() {
                             id_grupo_recurso: det.id_grupo_recurso || null,
                             grupo_nombre: det.grupo_nombre || null,
                             solicitante_nombre: sol.user_nombre || null,
-                            colegio_nombre: sol.colegio_nombre || null
+                            colegio_nombre: sol.colegio_nombre || null,
+                            subarea_nombre: det.subarea_nombre || det.cargo_nombre || sol.subarea_nombre || null
                         });
                     }
                 }
@@ -4616,6 +4648,8 @@ export default function AgregarRecursosPage() {
                                                                         setFiltroSolicitudHistorial(e.target.value);
                                                                         setFiltroMotivosHistorial([]);
                                                                         setFiltroActividadesHistorial([]);
+                                                                        setFiltroCargosHistorial([]);
+                                                                        setFiltroMesesHistorial([]);
                                                                         setBusquedaHistorial('');
                                                                         if (e.target.value) cargarItemsAnterior(e.target.value);
                                                                         else { setHistorialRecursos([]); setSelectedHistorial([]); }
@@ -4730,12 +4764,36 @@ export default function AgregarRecursosPage() {
                                                             anchoMinimo="min-w-[300px]"
                                                         />
                                                     )}
-                                                    {(busquedaHistorial || filtroMotivosHistorial.length > 0 || filtroActividadesHistorial.length > 0) && (
+                                                    {opcionesCargoHistorial.length > 0 && (
+                                                        <FiltroMultiSelectGenerico
+                                                            icono="👥"
+                                                            tituloVacio="Todos los cargos / subáreas"
+                                                            tituloPlural="cargos"
+                                                            seleccionados={filtroCargosHistorial}
+                                                            onChange={setFiltroCargosHistorial}
+                                                            opciones={opcionesCargoHistorial}
+                                                            placeholderBusqueda="Buscar cargo..."
+                                                            anchoMinimo="min-w-[260px]"
+                                                        />
+                                                    )}
+                                                    {opcionesMesHistorial.length > 0 && (
+                                                        <FiltroMultiSelectGenerico
+                                                            icono="🗓️"
+                                                            tituloVacio="Todos los meses"
+                                                            tituloPlural="meses"
+                                                            seleccionados={filtroMesesHistorial}
+                                                            onChange={setFiltroMesesHistorial}
+                                                            opciones={opcionesMesHistorial}
+                                                            placeholderBusqueda="Buscar mes..."
+                                                            anchoMinimo="min-w-[220px]"
+                                                        />
+                                                    )}
+                                                    {(busquedaHistorial || filtroMotivosHistorial.length > 0 || filtroActividadesHistorial.length > 0 || filtroCargosHistorial.length > 0 || filtroMesesHistorial.length > 0) && (
                                                         <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500">
                                                             <span>{historialFiltrado.length} de {historialBase.length} ítems</span>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => { setBusquedaHistorial(''); setFiltroMotivosHistorial([]); setFiltroActividadesHistorial([]); }}
+                                                                onClick={() => { setBusquedaHistorial(''); setFiltroMotivosHistorial([]); setFiltroActividadesHistorial([]); setFiltroCargosHistorial([]); setFiltroMesesHistorial([]); }}
                                                                 className="text-red-600 hover:underline font-bold"
                                                             >
                                                                 Limpiar filtros
