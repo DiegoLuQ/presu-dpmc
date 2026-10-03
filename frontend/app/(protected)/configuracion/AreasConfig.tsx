@@ -58,7 +58,7 @@ export default function AreasConfig() {
                     params: selectedColegio ? { id_colegio: selectedColegio } : {}
                 }),
                 api.get('/catalogos/cargos'),
-                api.get('/users').catch(() => ({ data: [] })),
+                api.get('/users/').catch(() => ({ data: [] })),
                 (user?.rol?.codigo === 'SOS' || user?.rol?.codigo === 'ADM')
                     ? api.get('/catalogos/colegios').catch(() => ({ data: [] }))
                     : Promise.resolve({ data: [] })
@@ -403,7 +403,14 @@ export default function AreasConfig() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Jefes de Área <span className="font-normal text-gray-400">(opcional)</span></label>
                         <p className="text-xs text-gray-400 mb-2">Un área puede tener más de un jefe. Marca a todos los que correspondan.</p>
                         <div className="grid grid-cols-1 gap-2 max-h-52 overflow-y-auto p-1">
-                            {usuarios.map(u => {
+                            {/* Los jefes ya asignados se muestran siempre (aunque no vengan en la
+                                lista de usuarios) para poder quitarlos. */}
+                            {[
+                                ...(areaModal.editing?.jefes || [])
+                                    .filter(j => !usuarios.some(u => u.id_user === j.id_jefe))
+                                    .map(j => ({ id_user: j.id_jefe, nombre: j.jefe_nombre || `Usuario #${j.id_jefe}`, rol: undefined as any })),
+                                ...usuarios,
+                            ].map(u => {
                                 const checked = areaForm.id_jefes.includes(u.id_user);
                                 return (
                                     <label key={u.id_user} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${checked ? 'bg-primary/5 border-primary/40' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
@@ -427,7 +434,7 @@ export default function AreasConfig() {
                                 );
                             })}
                             {usuarios.length === 0 && (
-                                <p className="text-xs text-gray-400 italic px-1">No hay usuarios disponibles.</p>
+                                <p className="text-xs text-gray-400 italic px-1">No se pudo cargar la lista de usuarios.</p>
                             )}
                         </div>
                     </div>

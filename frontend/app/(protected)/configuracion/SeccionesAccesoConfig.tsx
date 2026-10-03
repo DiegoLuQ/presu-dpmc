@@ -33,7 +33,7 @@ export default function SeccionesAccesoConfig() {
             setLoading(true);
             const [resSec, resUsers] = await Promise.all([
                 api.get('/catalogos/secciones-restringidas'),
-                api.get('/users').catch(() => ({ data: [] })),
+                api.get('/users/').catch(() => ({ data: [] })),
             ]);
             const secs: SeccionRestringida[] = resSec.data || [];
             setSecciones(secs);
