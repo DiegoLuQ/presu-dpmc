@@ -761,7 +761,7 @@ export default function AgregarRecursosPage() {
     const [historialRecursos, setHistorialRecursos] = useState<RecursoHistorial[]>([]);
     // "Anteriores": primero solo la lista de solicitudes (sin ítems); los ítems se cargan al elegir una
     const [solicitudesAnteriores, setSolicitudesAnteriores] = useState<{
-        id_presupuesto: number; codigo: string; user_nombre?: string | null; n_items: number;
+        id_presupuesto: number; codigo: string; cargo_nombre?: string | null; n_items: number;
     }[]>([]);
 
     const [loading, setLoading] = useState(true);
@@ -822,23 +822,32 @@ export default function AgregarRecursosPage() {
         () => historialRecursos.filter(h => !filtroSolicitudHistorial || h.codigo_solicitud === filtroSolicitudHistorial),
         [historialRecursos, filtroSolicitudHistorial]
     );
+    // Ítems del/los cargo(s) elegidos: las opciones de motivo, actividad PME y mes
+    // se calculan sobre esto, para ver solo lo que ese cargo solicitó.
+    const historialPorCargo = useMemo(
+        () => filtroCargosHistorial.length === 0
+            ? historialBase
+            : historialBase.filter(h => filtroCargosHistorial.includes(cargoDe(h))),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [historialBase, filtroCargosHistorial, todasSubareas]
+    );
     // Motivos disponibles (con conteo) para el filtro múltiple
     const opcionesMotivoHistorial = useMemo(() => {
         const conteo: Record<string, number> = {};
-        historialBase.forEach(h => { const m = motivoDe(h); conteo[m] = (conteo[m] || 0) + 1; });
+        historialPorCargo.forEach(h => { const m = motivoDe(h); conteo[m] = (conteo[m] || 0) + 1; });
         return Object.keys(conteo)
             .sort((a, b) => a.localeCompare(b, 'es'))
             .map(m => ({ valor: m, label: m, count: conteo[m] }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [historialBase]);
+    }, [historialPorCargo]);
     const opcionesActividadHistorial = useMemo(() => {
         const conteo: Record<string, number> = {};
-        historialBase.forEach(h => { const a = actividadDe(h); conteo[a] = (conteo[a] || 0) + 1; });
+        historialPorCargo.forEach(h => { const a = actividadDe(h); conteo[a] = (conteo[a] || 0) + 1; });
         return Object.keys(conteo)
             .sort((a, b) => (a === SIN_ACTIVIDAD ? 1 : b === SIN_ACTIVIDAD ? -1 : a.localeCompare(b, 'es')))
             .map(a => ({ valor: a, label: a, count: conteo[a] }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [historialBase]);
+    }, [historialPorCargo]);
     const opcionesCargoHistorial = useMemo(() => {
         const conteo: Record<string, number> = {};
         historialBase.forEach(h => { const c = cargoDe(h); conteo[c] = (conteo[c] || 0) + 1; });
@@ -849,13 +858,24 @@ export default function AgregarRecursosPage() {
     }, [historialBase, todasSubareas]);
     const opcionesMesHistorial = useMemo(() => {
         const conteo: Record<string, number> = {};
-        historialBase.forEach(h => { const m = mesDe(h); conteo[m] = (conteo[m] || 0) + 1; });
+        historialPorCargo.forEach(h => { const m = mesDe(h); conteo[m] = (conteo[m] || 0) + 1; });
         // Orden calendario; "(Sin mes)" al final
         return Object.keys(conteo)
             .sort((a, b) => (a === SIN_MES ? 1 : b === SIN_MES ? -1 : a.localeCompare(b)))
             .map(m => ({ valor: m, label: MESES.find(x => x.value === m)?.label || m, count: conteo[m] }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [historialBase]);
+    }, [historialPorCargo]);
+    // Al cambiar de cargo, quitar las selecciones de motivo/actividad/mes que ya no
+    // existen para ese cargo (si no, quedarían filtros ocultos dejando la lista vacía).
+    useEffect(() => {
+        const podar = (sel: string[], opciones: { valor: string }[]) => {
+            const validas = sel.filter(v => opciones.some(o => o.valor === v));
+            return validas.length === sel.length ? sel : validas;
+        };
+        setFiltroMotivosHistorial(prev => podar(prev, opcionesMotivoHistorial));
+        setFiltroActividadesHistorial(prev => podar(prev, opcionesActividadHistorial));
+        setFiltroMesesHistorial(prev => podar(prev, opcionesMesHistorial));
+    }, [opcionesMotivoHistorial, opcionesActividadHistorial, opcionesMesHistorial]);
     const historialFiltrado = useMemo(() => {
         const q = normalizarTexto(busquedaHistorial);
         return historialBase.filter(h =>
@@ -1815,7 +1835,7 @@ export default function AgregarRecursosPage() {
                     return {
                         id_presupuesto: sol.id_presupuesto,
                         codigo: sol.codigo,
-                        user_nombre: sol.user_nombre,
+                        cargo_nombre: sol.cargo_nombre || sol.subarea_nombre || null,
                         n_items: solAprobada ? (sol.n_items || 0) : (sol.n_items_aprobados || 0),
                     };
                 })
@@ -4659,11 +4679,11 @@ export default function AgregarRecursosPage() {
                                                                     <option value="">-- Elige una solicitud anterior ({codigosUnicos.length}) --</option>
                                                                     {codigosUnicos.map(cod => {
                                                                         const solAnt = solicitudesAnteriores.find(x => x.codigo === cod);
-                                                                        const autor = solAnt?.user_nombre ? ` • ${solAnt.user_nombre}` : '';
+                                                                        const cargo = solAnt?.cargo_nombre ? ` • ${solAnt.cargo_nombre}` : '';
                                                                         const count = solAnt?.n_items || 0;
                                                                         return (
                                                                             <option key={cod} value={cod}>
-                                                                                📋 {cod}{autor} ({count} ítems)
+                                                                                📋 {cod}{cargo} ({count} ítems)
                                                                             </option>
                                                                         );
                                                                     })}
@@ -4826,9 +4846,11 @@ export default function AgregarRecursosPage() {
                                                                             <span className="text-[9px] font-semibold text-gray-500 bg-gray-200/70 px-1.5 py-0.5 rounded">
                                                                                 {h.codigo_solicitud}
                                                                             </span>
-                                                                            {h.solicitante_nombre && (
-                                                                                <span className="text-[9px] text-primary/80 font-medium truncate max-w-[130px]" title={`Creado por: ${h.solicitante_nombre}`}>
-                                                                                    👤 {h.solicitante_nombre}
+                                                                            {/* Cargo solicitante del insumo (el elegido en "Cargo solicitante"),
+                                                                                no el usuario que lo registró: ese queda solo en el tooltip. */}
+                                                                            {cargoDe(h) !== SIN_CARGO && (
+                                                                                <span className="text-[9px] text-primary/80 font-medium truncate max-w-[130px]" title={`Cargo solicitante: ${cargoDe(h)}${h.solicitante_nombre ? ` · Registrado por: ${h.solicitante_nombre}` : ''}`}>
+                                                                                    👤 {cargoDe(h)}
                                                                                 </span>
                                                                             )}
                                                                         </div>
