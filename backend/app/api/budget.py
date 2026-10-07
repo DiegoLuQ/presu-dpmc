@@ -21,7 +21,7 @@ from app.schemas.budget import (
     GrupoRecursoCreate, GrupoRecursoResponse,
     MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
-    AsignarCodigoDetalleRequest,
+    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest,
     PresupuestoAnualCreate, PresupuestoAnualUpdate, PresupuestoAnualResponse,
     AsignarPresupuestoAnualRequest,
     ImportarSolicitudCreate, ImportarRecursosRequest, ImportarRecursosResponse,
@@ -29,7 +29,7 @@ from app.schemas.budget import (
     AnalizarPlanillaRequest, AnalizarPlanillaResponse, AnalisisFilaResultado, RecursoSugerido,
     ActaEntregaCreate, ActaEntregaUpdate, ActaEntregaResponse, ActaEntregaDetalleResponse
 )
-from app.api.deps import verificar_permisos, verificar_permisos_recursos, verificar_seccion
+from app.api.deps import verificar_permisos, verificar_permisos_recursos, verificar_seccion, verificar_revision_contralor
 from app.services.clasificacion_catalogo import aplicar_catalogo, codigo_catalogo
 from app.core.secciones import usuario_puede_seccion
 from sqlalchemy import func, or_, and_, case
@@ -2664,6 +2664,196 @@ def update_detalle_subvencion(
     return build_detalle_response(db_obj, db=db)
 
 
+# ── GO-Contralor › Revisión de Presupuestos ──────────────────────────────────
+
+def _colegios_contralor(user: User) -> Optional[set]:
+    """Colegios que ve el contralor: todos (None) si es multicolegio; si no, los suyos."""
+    return None if _es_multicolegio(user) else _colegios_de_usuario(user)
+
+
+@router.get("/contralor/presupuestos-anuales", response_model=List[PresupuestoAnualResponse])
+def contralor_presupuestos_anuales(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("ver")),
+):
+    """Presupuestos anuales de los colegios del contralor (el cliente los agrupa por año y colegio)."""
+    query = db.query(PresupuestoAnual).options(
+        joinedload(PresupuestoAnual.colegio), joinedload(PresupuestoAnual.creador)
+    )
+    colegios = _colegios_contralor(current_user)
+    if colegios is not None:
+        query = query.filter(PresupuestoAnual.id_colegio.in_(colegios or {-1}))
+    pptos = query.order_by(PresupuestoAnual.year.desc(), PresupuestoAnual.id_colegio).all()
+    return [_serializar_presupuesto_anual(db, p) for p in pptos]
+
+
+def _presupuesto_anual_contralor(db: Session, user: User, id_presupuesto_anual: int) -> PresupuestoAnual:
+    ppto = db.query(PresupuestoAnual).options(joinedload(PresupuestoAnual.colegio)).filter(
+        PresupuestoAnual.id_presupuesto_anual == id_presupuesto_anual
+    ).first()
+    if not ppto:
+        raise HTTPException(status_code=404, detail="Presupuesto anual no encontrado")
+    colegios = _colegios_contralor(user)
+    if colegios is not None and ppto.id_colegio not in colegios:
+        raise HTTPException(status_code=403, detail="No tienes acceso a este presupuesto")
+    return ppto
+
+
+@router.get("/contralor/presupuestos-anuales/{id_presupuesto_anual}", response_model=PresupuestoAnualResponse)
+def contralor_presupuesto_anual(
+    id_presupuesto_anual: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("ver")),
+):
+    return _serializar_presupuesto_anual(db, _presupuesto_anual_contralor(db, current_user, id_presupuesto_anual))
+
+
+@router.get("/contralor/presupuestos-anuales/{id_presupuesto_anual}/solicitudes", response_model=List[BudgetRequestResponse])
+def contralor_solicitudes_presupuesto(
+    id_presupuesto_anual: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("ver")),
+):
+    """Solicitudes (activas, con sus ítems) de un presupuesto anual."""
+    _presupuesto_anual_contralor(db, current_user, id_presupuesto_anual)
+    solicitudes = db.query(SolicitudPresupuesto).options(
+        *get_solicitudes_eager_options()
+    ).filter(
+        SolicitudPresupuesto.id_presupuesto_anual == id_presupuesto_anual,
+        SolicitudPresupuesto.activo.is_(True),
+    ).order_by(SolicitudPresupuesto.fecha.desc()).all()
+    return build_solicitudes_batch_response(solicitudes, db)
+
+
+@router.get("/contralor/actividades", response_model=List[ActividadBuscarResponse])
+def contralor_actividades(
+    id_presupuesto: int = Query(..., description="Solicitud: se usan las actividades del PME de su colegio"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("ver")),
+):
+    solicitud = db.query(SolicitudPresupuesto).filter(SolicitudPresupuesto.id_presupuesto == id_presupuesto).first()
+    _exigir_mismo_colegio(current_user, solicitud)
+    return buscar_actividades(q="", id_presupuesto=None, id_colegio=solicitud.id_colegio, db=db, current_user=current_user)
+
+
+@router.get("/contralor/subvenciones", response_model=List[SubvencionResponse])
+def contralor_subvenciones(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("ver")),
+):
+    return db.query(Subvencion).filter(Subvencion.estado == "ACTIVO").order_by(Subvencion.nombre_corto).all()
+
+
+def _actualizar_mapeo_catalogo(db: Session, detalle: PresupuestoDetalle, codigo_cuenta: str, id_subvencion: Optional[int]) -> bool:
+    """Deja en el catálogo el código (y subvención) del recurso del ítem para su destino.
+    Se reemplaza el mapeo que hoy manda (el primero registrado, ver codigo_catalogo);
+    si no hay, se crea. Devuelve False si el ítem no tiene recurso o destino."""
+    recurso = db.query(Recurso).filter(Recurso.id_recurso == detalle.id_recurso).first() if detalle.id_recurso else None
+    destino = _destino_canonico(detalle.destino_gasto) or detalle.destino_gasto
+    if not recurso or not destino:
+        return False
+    subcat = _subcategoria_para_codigo(db, codigo_cuenta, recurso, destino)
+    if not subcat:
+        raise HTTPException(status_code=400, detail=f"El código de cuenta '{codigo_cuenta}' no existe en la matriz")
+    mapeos = (
+        db.query(MapeoRecursoSubcategoria)
+        .filter(MapeoRecursoSubcategoria.id_recurso == recurso.id_recurso,
+                MapeoRecursoSubcategoria.destino_gasto == destino)
+        .order_by(MapeoRecursoSubcategoria.id_mapeo)
+        .all()
+    )
+    if mapeos:
+        principal = mapeos[0]
+        principal.id_subcat_recurso = subcat.id_subcat_recurso
+        principal.id_subvencion = id_subvencion
+        # Un mapeo posterior con el mismo código quedaría duplicado
+        for m in mapeos[1:]:
+            if m.id_subcat_recurso == subcat.id_subcat_recurso:
+                db.delete(m)
+    else:
+        db.add(MapeoRecursoSubcategoria(
+            id_recurso=recurso.id_recurso,
+            id_subcat_recurso=subcat.id_subcat_recurso,
+            destino_gasto=destino,
+            id_subvencion=id_subvencion,
+        ))
+    return True
+
+
+@router.patch("/detalles/{id_detalle}/contralor", response_model=BudgetDetailResponse)
+def editar_detalle_contralor(
+    id_detalle: int,
+    payload: EditarDetalleContralorRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("editar"))
+):
+    """El contralor corrige código contable, subvención o actividad PME de un ítem ya
+    enviado, en cualquier estado (también aprobado). Cada cambio queda registrado en
+    pre_solicitud_modificacion_detalle (campo 'contralor_*', estado APROBADO)."""
+    db_obj = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    solicitud = db_obj.solicitud
+    _exigir_mismo_colegio(current_user, solicitud)
+
+    cambios = []  # (campo, anterior, nuevo)
+
+    if payload.codigo_cuenta is not None:
+        cuenta = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == payload.codigo_cuenta).first()
+        if not cuenta:
+            raise HTTPException(status_code=400, detail=f"El código de cuenta '{payload.codigo_cuenta}' no existe en la matriz")
+        if db_obj.codigo_cuenta != payload.codigo_cuenta:
+            cambios.append(("contralor_codigo_cuenta", db_obj.codigo_cuenta, payload.codigo_cuenta))
+            db_obj.codigo_cuenta = payload.codigo_cuenta
+
+    if payload.id_subvencion is not None:
+        if not db.query(Subvencion).filter(Subvencion.id_subvencion == payload.id_subvencion).first():
+            raise HTTPException(status_code=400, detail="La subvención indicada no existe")
+        if db_obj.id_subvencion != payload.id_subvencion:
+            cambios.append(("contralor_subvencion", db_obj.id_subvencion, payload.id_subvencion))
+            db_obj.id_subvencion = payload.id_subvencion
+
+    if payload.quitar_actividad:
+        if db_obj.id_actividad is not None:
+            cambios.append(("contralor_actividad", db_obj.id_actividad, None))
+            db_obj.id_actividad = None
+    elif payload.id_actividad is not None:
+        # La actividad debe ser del PME del colegio de la solicitud
+        actividad = (
+            db.query(Actividad).join(Accion).join(PME, PME.id_pme == Accion.id_pme)
+            .filter(Actividad.id_actividad == payload.id_actividad, PME.id_colegio == solicitud.id_colegio)
+            .first()
+        )
+        if not actividad:
+            raise HTTPException(status_code=400, detail="La actividad no pertenece al PME del colegio de esta solicitud")
+        if db_obj.id_actividad != payload.id_actividad:
+            cambios.append(("contralor_actividad", db_obj.id_actividad, payload.id_actividad))
+            db_obj.id_actividad = payload.id_actividad
+
+    if payload.codigo_cuenta is not None and payload.actualizar_catalogo:
+        if _actualizar_mapeo_catalogo(db, db_obj, payload.codigo_cuenta, db_obj.id_subvencion):
+            cambios.append(("contralor_catalogo", None, f"recurso {db_obj.id_recurso}: {payload.codigo_cuenta}"))
+
+    ahora = datetime.utcnow()
+    for campo, anterior, nuevo in cambios:
+        db.add(SolicitudModificacionDetalle(
+            id_pre_detalle=db_obj.id_pre_detalle,
+            campo_modificado=campo,
+            valor_anterior=None if anterior is None else str(anterior),
+            valor_propuesto="" if nuevo is None else str(nuevo),
+            motivo_cambio="Corrección del contralor",
+            estado="APROBADO",
+            id_user_solicitante=current_user.id_user,
+            fecha_solicitud=ahora,
+            id_user_aprobador=current_user.id_user,
+            fecha_respuesta=ahora,
+        ))
+
+    db.commit()
+    db.refresh(db_obj)
+    return build_detalle_response(db_obj, db=db)
+
+
 class DetallesEstadoLoteRequest(BaseModel):
     ids: List[int]
     nuevo_estado: str
@@ -5142,7 +5332,9 @@ def listar_solicitudes_modificacion(
     current_user: User = Depends(verificar_permisos("presupuesto", "ver"))
 ):
     import json
-    query = db.query(SolicitudModificacionDetalle)
+    query = db.query(SolicitudModificacionDetalle).filter(
+        ~SolicitudModificacionDetalle.campo_modificado.like("contralor_%")
+    )
     if estado:
         query = query.filter(SolicitudModificacionDetalle.estado == estado)
     

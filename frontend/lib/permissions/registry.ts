@@ -106,6 +106,8 @@ export const MODULOS: ModuloDef[] = [
         acciones: ACCIONES_BASICAS,
         secciones: [
             { slug: 'contralor-operaciones', label: 'Contralor Operaciones', href: '/presupuesto/contralor-operaciones', icon: Calculator },
+            // Revisión por presupuesto anual: corrige código contable, subvención y actividad PME de los ítems
+            { slug: 'revision-presupuestos', label: 'Revisión de Presupuestos', href: '/go-contralor/presupuestos', icon: Wallet },
             { slug: 'recursos', label: 'Recursos', href: '/presupuesto/recursos', icon: Package },
             { slug: 'categorias', label: 'Categorías de Recursos', href: '/presupuesto/categorias', icon: Tag },
         ],

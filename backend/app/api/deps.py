@@ -78,6 +78,32 @@ def verificar_permisos_recursos(accion: str = "ver"):
     return _check
 
 
+SECCION_REVISION_CONTRALOR = "revision-presupuestos"
+
+
+def verificar_revision_contralor(accion: str = "ver"):
+    """Sección "Revisión de Presupuestos" de GO-Contralor (módulo `contabilidad`).
+    ver: permiso de la sección (`contabilidad.revision-presupuestos`) o `contabilidad.ver`.
+    editar: permiso de la sección o `contabilidad.editar`. ADM y SOS siempre."""
+    def _check(
+        current_user: User = Depends(get_current_user),
+    ):
+        codigo_rol = current_user.rol.codigo if current_user.rol else None
+        if codigo_rol in ["ADM", "SOS"]:
+            return current_user
+        permisos = get_user_permisos(current_user.rol)
+        if codigo_rol and (
+            tiene_permiso(permisos, "contabilidad", SECCION_REVISION_CONTRALOR)
+            or tiene_permiso(permisos, "contabilidad", accion)
+        ):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso a la Revisión de Presupuestos (GO-Contralor)."
+        )
+    return _check
+
+
 def verificar_seccion(seccion_key: str):
     """Exige que el usuario esté en la lista blanca de una sección restringida
     (o que aplique el respaldo por rol / bypass ADM)."""

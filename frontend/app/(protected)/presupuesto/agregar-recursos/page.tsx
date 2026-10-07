@@ -4823,6 +4823,47 @@ export default function AgregarRecursosPage() {
                                                 </div>
                                                 )}
 
+                                                {/* Seleccionar todos los ítems filtrados (todas las páginas) */}
+                                                {historialFiltrado.length > 0 && (() => {
+                                                    const idsFiltrados = historialFiltrado.map(h => h.id_pre_detalle);
+                                                    const todosMarcados = idsFiltrados.every(id => selectedHistorial.includes(id));
+                                                    return (
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const filtrados = new Set(idsFiltrados);
+                                                                    if (todosMarcados) {
+                                                                        setSelectedHistorial(selectedHistorial.filter(id => !filtrados.has(id)));
+                                                                    } else {
+                                                                        setSelectedHistorial(Array.from(new Set([...selectedHistorial, ...idsFiltrados])));
+                                                                    }
+                                                                }}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                                                    todosMarcados
+                                                                        ? 'bg-primary text-white border-primary hover:bg-primary/90'
+                                                                        : 'bg-white text-primary border-primary/30 hover:bg-primary/10'
+                                                                }`}
+                                                                title="Marca todos los insumos que cumplen los filtros actuales, en todas las páginas"
+                                                            >
+                                                                <Check size={12} />
+                                                                {todosMarcados
+                                                                    ? `Quitar selección de filtrados (${idsFiltrados.length})`
+                                                                    : `Seleccionar todos los filtrados (${idsFiltrados.length})`}
+                                                            </button>
+                                                            {selectedHistorial.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedHistorial([])}
+                                                                    className="text-[10px] font-bold text-gray-500 hover:text-red-600 hover:underline"
+                                                                >
+                                                                    Limpiar selección ({selectedHistorial.length})
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+
                                                 <div className="max-h-[440px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
                                                     {historialPagina
                                                         .map(h => (

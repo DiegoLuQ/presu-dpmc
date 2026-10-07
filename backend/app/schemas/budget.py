@@ -433,6 +433,18 @@ class AsignarCodigoDetalleRequest(BaseModel):
     id_subvencion: Optional[int] = None
 
 
+class EditarDetalleContralorRequest(BaseModel):
+    """Corrección del contralor sobre un ítem ya enviado (también aprobado).
+    Solo se aplican los campos enviados. Con `codigo_cuenta`, si el ítem está ligado
+    a un recurso del catálogo y `actualizar_catalogo` es true, el código y la
+    subvención se guardan también en el recurso (para su destino)."""
+    codigo_cuenta: Optional[str] = None
+    id_subvencion: Optional[int] = None
+    id_actividad: Optional[int] = None
+    quitar_actividad: bool = False
+    actualizar_catalogo: bool = False
+
+
 class ActividadCodigoContableUpsert(BaseModel):
     """Datos para asignar/actualizar un código contable de una actividad."""
     codigo_cuenta: str

@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.startup_tasks import run_startup_tasks
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 setup_logging()
@@ -76,6 +77,10 @@ app.add_middleware(
     expose_headers=["X-Request-ID"],
     max_age=600,
 )
+
+# Comprime las respuestas JSON grandes (p.ej. un presupuesto con ~1.600 ítems: ~1,9 MB → pocos cientos de KB).
+# Solo se aplica si el cliente envía Accept-Encoding: gzip; las respuestas pequeñas no se tocan.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include Routers (se registran con y sin prefijo /api para dar soporte a nginx-proxy y desarrollo local)
 all_routers = [
