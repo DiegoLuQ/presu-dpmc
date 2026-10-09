@@ -1,22 +1,27 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api/client';
 import { BudgetRequest, PresupuestoAnual } from '@/lib/types';
 import {
-    ArrowLeft, Building2, ChevronLeft, ChevronRight, ClipboardList, Edit3, Eye, Loader2, Package, Search, X,
+    ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardList, Edit3, Eye, Loader2, Package, Search, X,
 } from 'lucide-react';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import EditarContralorModal, { DetalleEditable, ModoEdicionContralor } from '@/components/presupuesto/EditarContralorModal';
 import { SinAccesoContralor, useAccesoRevisionContralor } from '@/components/go-contralor/accesoRevision';
-import { etiquetaDestinoCorta } from '@/lib/destinos';
+import { DESTINOS, destinoCanonico, etiquetaDestino, etiquetaDestinoCorta } from '@/lib/destinos';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const ESTADOS = ['Sin Revisar', 'Aprobado', 'Con Ajustes', 'Pendiente', 'Rechazado'];
 const POR_PAGINA = 50;
 const SIN_CODIGO = '(Sin código)';
 const SIN_DESTINO = '(Sin destino)';
+
+const DESTINOS_SELECT = DESTINOS.map(d => ({ valor: d.valor, label: etiquetaDestinoCorta(d.valor) || d.label }));
+
+// El backend guarda la fecha en UTC sin zona
+const fechaRevision = (f: string) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(f) ? f : `${f}Z`).toLocaleString('es-CL');
 
 const formatCLP = (value: number) => `$${Math.round(value || 0).toLocaleString('es-CL')}`;
 
@@ -69,6 +74,33 @@ interface Item {
     id_recurso: number | null;
     destino_gasto: string | null;
     destino: string;       // etiqueta corta ("Estudiantes", "Funcionarios"…)
+    revisado: boolean;
+    fecha_revision: string | null;
+}
+
+/** Descripción recortada a 2 líneas; si no cabe completa, muestra un ojo para verla entera. */
+function DescripcionRecortada({ texto, onVer }: { texto: string; onVer: () => void }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [recortada, setRecortada] = useState(false);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const medir = () => setRecortada(el.scrollHeight > el.clientHeight + 1);
+        medir();
+        const obs = new ResizeObserver(medir);
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, [texto]);
+    return (
+        <div className="flex items-start gap-1 mt-0.5">
+            <div ref={ref} className="text-[11px] text-gray-500 line-clamp-2 flex-1 min-w-0">{texto}</div>
+            {recortada && (
+                <button onClick={onVer} className="shrink-0 p-0.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded cursor-pointer" title="Ver descripción completa" aria-label="Ver descripción completa">
+                    <Eye size={13} />
+                </button>
+            )}
+        </div>
+    );
 }
 
 export default function RevisionPresupuestoDetallePage() {
@@ -82,7 +114,10 @@ export default function RevisionPresupuestoDetallePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [vista, setVista] = useState<'solicitudes' | 'recursos'>('solicitudes');
-    const [edicion, setEdicion] = useState<{ detalle: DetalleEditable; modo: ModoEdicionContralor; subvencionInicial?: number } | null>(null);
+    const [edicion, setEdicion] = useState<{ detalle: DetalleEditable; modo: ModoEdicionContralor; subvencionInicial?: number; destinoInicial?: string } | null>(null);
+    const [productoVer, setProductoVer] = useState<Item | null>(null);
+    const [marcando, setMarcando] = useState<Set<number>>(new Set());
+    const [errorRevision, setErrorRevision] = useState('');
 
     // Filtros de solicitudes
     const [busquedaSol, setBusquedaSol] = useState('');
@@ -91,6 +126,7 @@ export default function RevisionPresupuestoDetallePage() {
     // Filtros de recursos
     const [texto, setTexto] = useState('');
     const [estado, setEstado] = useState('todos');
+    const [revision, setRevision] = useState<'todos' | 'pendientes' | 'revisados'>('todos');
     const [actividad, setActividad] = useState('todos');
     const [categoria, setCategoria] = useState('todos');
     const [subvencion, setSubvencion] = useState('todos');
@@ -156,6 +192,8 @@ export default function RevisionPresupuestoDetallePage() {
             id_recurso: d.id_recurso ?? null,
             destino_gasto: d.destino_gasto ?? null,
             destino: etiquetaDestinoCorta(d.destino_gasto) || (d.destino_gasto || '').trim() || SIN_DESTINO,
+            revisado: !!d.revisado_contralor,
+            fecha_revision: d.fecha_revision_contralor ?? null,
         };
     })), [solicitudes]);
 
@@ -195,7 +233,12 @@ export default function RevisionPresupuestoDetallePage() {
             (solicitudSel.length === 0 || solicitudSel.includes(i.codigo_solicitud))
         );
     }, [items, texto, actividad, categoria, subvencion, meses, areas, lineas, codigos, destinos, solicitudSel]);
-    const filtrados = useMemo(() => base.filter(i => estado === 'todos' || i.estado === estado), [base, estado]);
+    const filtrados = useMemo(() => base.filter(i =>
+        (estado === 'todos' || i.estado === estado) &&
+        (revision === 'todos' || (revision === 'revisados') === i.revisado)
+    ), [base, estado, revision]);
+    const revisadosBase = useMemo(() => base.filter(i => i.revisado).length, [base]);
+    const revisadosTotal = useMemo(() => items.filter(i => i.revisado).length, [items]);
 
     const conteoEstados = useMemo(() => {
         const c: Record<string, number> = { todos: base.length };
@@ -221,21 +264,22 @@ export default function RevisionPresupuestoDetallePage() {
     const listaCategorias = useMemo(() => Array.from(new Set(items.map(i => i.categoria_nombre).filter(Boolean))).sort(), [items]);
     const listaSubvenciones = useMemo(() => Array.from(new Set(items.map(i => i.subvencion_nombre))).sort(), [items]);
 
-    const hayFiltros = texto || estado !== 'todos' || actividad !== 'todos' || categoria !== 'todos' || subvencion !== 'todos'
+    const hayFiltros = texto || estado !== 'todos' || revision !== 'todos' || actividad !== 'todos' || categoria !== 'todos' || subvencion !== 'todos'
         || meses.length || areas.length || lineas.length || codigos.length || destinos.length || solicitudSel.length;
     const limpiarFiltros = () => {
-        setTexto(''); setEstado('todos'); setActividad('todos'); setCategoria('todos'); setSubvencion('todos');
+        setTexto(''); setEstado('todos'); setRevision('todos'); setActividad('todos'); setCategoria('todos'); setSubvencion('todos');
         setMeses([]); setAreas([]); setLineas([]); setCodigos([]); setDestinos([]); setSolicitudSel([]);
     };
 
-    useEffect(() => { setPagina(1); }, [texto, estado, actividad, categoria, subvencion, meses, areas, lineas, codigos, destinos, solicitudSel]);
+    useEffect(() => { setPagina(1); }, [texto, estado, revision, actividad, categoria, subvencion, meses, areas, lineas, codigos, destinos, solicitudSel]);
     const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
     const paginaActual = Math.min(pagina, totalPaginas);
     const visibles = filtrados.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
 
-    const abrirEdicion = (i: Item, modo: ModoEdicionContralor, subvencionInicial?: number) => setEdicion({
+    const abrirEdicion = (i: Item, modo: ModoEdicionContralor, subvencionInicial?: number, destinoInicial?: string) => setEdicion({
         modo,
         subvencionInicial,
+        destinoInicial,
         detalle: {
             id_pre_detalle: i.id_pre_detalle,
             id_presupuesto: i.id_presupuesto,
@@ -261,6 +305,19 @@ export default function RevisionPresupuestoDetallePage() {
         }));
     };
 
+    const marcarRevisado = async (i: Item) => {
+        setErrorRevision('');
+        setMarcando(prev => new Set(prev).add(i.id_pre_detalle));
+        try {
+            const { data } = await api.patch(`/presupuesto/detalles/${i.id_pre_detalle}/contralor/revisado`, { revisado: !i.revisado });
+            aplicarDetalle(data);
+        } catch (e: any) {
+            setErrorRevision(e?.response?.data?.detail || 'No se pudo guardar la revisión.');
+        } finally {
+            setMarcando(prev => { const n = new Set(prev); n.delete(i.id_pre_detalle); return n; });
+        }
+    };
+
     if (!isLoading && !puedeVer) return <SinAccesoContralor />;
 
     const selectCls = 'px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-2xs cursor-pointer max-w-[210px] truncate';
@@ -282,6 +339,7 @@ export default function RevisionPresupuestoDetallePage() {
                 <div className="flex gap-3 text-sm">
                     <div className="px-4 py-2 bg-white rounded-xl border border-gray-100"><span className="text-gray-400 text-xs block">Solicitudes</span><b>{solicitudes.length}</b></div>
                     <div className="px-4 py-2 bg-white rounded-xl border border-gray-100"><span className="text-gray-400 text-xs block">Recursos</span><b>{items.length}</b></div>
+                    <div className="px-4 py-2 bg-white rounded-xl border border-gray-100"><span className="text-gray-400 text-xs block">Revisados</span><b className="text-emerald-700">{revisadosTotal}</b><span className="text-gray-400"> / {items.length}</span></div>
                     <div className="px-4 py-2 bg-white rounded-xl border border-gray-100"><span className="text-gray-400 text-xs block">Monto</span><b>{formatCLP(items.reduce((a, i) => a + i.total_iva, 0))}</b></div>
                 </div>
             </div>
@@ -416,11 +474,30 @@ export default function RevisionPresupuestoDetallePage() {
                                     );
                                 })}
                             </div>
+                            <div className="inline-flex bg-gray-200/60 p-1 rounded-xl border border-gray-200/80 shadow-inner gap-1">
+                                {([['todos', 'Todos', base.length], ['pendientes', 'Por revisar', base.length - revisadosBase], ['revisados', 'Revisados', revisadosBase]] as const).map(([k, l, n]) => {
+                                    const activo = revision === k;
+                                    return (
+                                        <button key={k} onClick={() => setRevision(k)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all ${activo ? 'bg-white text-emerald-700 shadow-xs ring-1 ring-black/5' : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'}`}>
+                                            {l}
+                                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-300/60 text-gray-700'}`}>{n}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                             {hayFiltros ? (
                                 <button onClick={limpiarFiltros} className="text-xs font-bold text-gray-500 hover:text-red-600 flex items-center gap-1 cursor-pointer"><X size={13} /> Limpiar filtros</button>
                             ) : null}
                         </div>
                     </div>
+
+                    {errorRevision && (
+                        <div className="mx-4 mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between gap-2">
+                            {errorRevision}
+                            <button onClick={() => setErrorRevision('')} className="p-0.5 hover:bg-red-100 rounded cursor-pointer" aria-label="Cerrar"><X size={13} /></button>
+                        </div>
+                    )}
 
                     {/* Tabla */}
                     <div className="overflow-x-auto">
@@ -436,14 +513,17 @@ export default function RevisionPresupuestoDetallePage() {
                                     <th className="px-3.5 py-3">Subvención</th>
                                     <th className="px-3.5 py-3">Código Contable</th>
                                     <th className="px-3.5 py-3">Estado</th>
+                                    <th className="px-3.5 py-3 text-center">Revisado</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {visibles.map(i => (
-                                    <tr key={i.id_pre_detalle} className="hover:bg-gray-50/60 align-top">
+                                {visibles.map(i => {
+                                    const editable = puedeEditar && !i.revisado;
+                                    return (
+                                    <tr key={i.id_pre_detalle} className={`align-top ${i.revisado ? 'bg-emerald-50/40 hover:bg-emerald-50/70' : 'hover:bg-gray-50/60'}`}>
                                         <td className="px-3.5 py-3.5 max-w-[260px]">
                                             <div className="font-bold text-gray-900">{i.nombre_producto}</div>
-                                            {i.descripcion && <div className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{i.descripcion}</div>}
+                                            {i.descripcion && <DescripcionRecortada texto={i.descripcion} onVer={() => setProductoVer(i)} />}
                                             <div className="text-[10px] text-gray-400 mt-1">{i.codigo_solicitud}{i.categoria_nombre ? ` · ${i.categoria_nombre}` : ''}</div>
                                         </td>
                                         <td className="px-3.5 py-3.5 whitespace-nowrap">
@@ -461,20 +541,33 @@ export default function RevisionPresupuestoDetallePage() {
                                             {i.actividad_nombre ? (
                                                 <div className="text-[10px] text-gray-400 mt-1 leading-tight">
                                                     <span className="font-semibold text-gray-600">PME:</span> {i.actividad_nombre}
-                                                    {puedeEditar && (
+                                                    {editable && (
                                                         <button onClick={() => abrirEdicion(i, 'actividad')} className="ml-1 inline-flex align-middle p-0.5 text-gray-400 hover:text-violet-700 hover:bg-violet-50 rounded cursor-pointer" title="Cambiar actividad PME" aria-label="Cambiar actividad PME">
                                                             <Edit3 size={11} />
                                                         </button>
                                                     )}
                                                 </div>
-                                            ) : puedeEditar ? (
+                                            ) : editable ? (
                                                 <button onClick={() => abrirEdicion(i, 'actividad')} className="mt-1 text-[10px] font-semibold text-violet-600 hover:text-violet-800 hover:underline cursor-pointer">
                                                     + Asignar actividad PME
                                                 </button>
                                             ) : null}
                                         </td>
                                         <td className="px-3.5 py-3.5 whitespace-nowrap">
-                                            {i.destino !== SIN_DESTINO
+                                            {editable ? (
+                                                <select
+                                                    value={destinoCanonico(i.destino_gasto)}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        if (val && val !== i.destino_gasto) abrirEdicion(i, 'destino', undefined, val);
+                                                    }}
+                                                    title={etiquetaDestino(i.destino_gasto)}
+                                                    className={`px-2 py-1 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 cursor-pointer max-w-[130px] truncate border ${destinoCanonico(i.destino_gasto) ? 'bg-teal-50/80 hover:bg-teal-100/80 text-teal-700 border-teal-200 focus:ring-teal-500' : 'bg-amber-50 text-amber-700 border-amber-200 focus:ring-amber-500'}`}
+                                                >
+                                                    <option value="" disabled>Sin destino</option>
+                                                    {DESTINOS_SELECT.map(d => <option key={d.valor} value={d.valor}>{d.label}</option>)}
+                                                </select>
+                                            ) : i.destino !== SIN_DESTINO
                                                 ? <span className="px-2 py-0.5 rounded-lg bg-teal-50 text-teal-700 text-[11px] font-bold border border-teal-100" title={i.destino_gasto || ''}>{i.destino}</span>
                                                 : <span className="text-[11px] text-amber-600 font-semibold italic">Sin destino</span>}
                                         </td>
@@ -484,7 +577,7 @@ export default function RevisionPresupuestoDetallePage() {
                                                 : <span className="text-[11px] text-gray-400 italic">Sin línea</span>}
                                         </td>
                                         <td className="px-3.5 py-3.5 whitespace-nowrap">
-                                            {puedeEditar ? (
+                                            {editable ? (
                                                 <select
                                                     value={i.id_subvencion || ''}
                                                     onChange={e => {
@@ -505,7 +598,7 @@ export default function RevisionPresupuestoDetallePage() {
                                                 {i.codigo_cuenta
                                                     ? <span className="font-mono font-bold text-gray-800 bg-gray-100 px-1.5 py-0.5 rounded">{i.codigo_cuenta}</span>
                                                     : <span className="text-[11px] text-amber-600 font-semibold italic">Sin código</span>}
-                                                {puedeEditar && (
+                                                {editable && (
                                                     <button onClick={() => abrirEdicion(i, 'codigo')} className="p-1 text-gray-400 hover:text-violet-700 hover:bg-violet-50 rounded-md cursor-pointer" title="Cambiar código contable" aria-label="Cambiar código contable">
                                                         <Edit3 size={13} />
                                                     </button>
@@ -515,10 +608,30 @@ export default function RevisionPresupuestoDetallePage() {
                                         <td className="px-3.5 py-3.5 whitespace-nowrap">
                                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${ESTILO_ESTADO[i.estado] || 'bg-gray-100 text-gray-700'}`}>{i.estado}</span>
                                         </td>
+                                        <td className="px-3.5 py-3.5 whitespace-nowrap text-center">
+                                            {puedeEditar ? (
+                                                <button
+                                                    onClick={() => marcarRevisado(i)}
+                                                    disabled={marcando.has(i.id_pre_detalle)}
+                                                    title={i.revisado
+                                                        ? `Revisado${i.fecha_revision ? ` el ${fechaRevision(i.fecha_revision)}` : ''}. Clic para desmarcar y poder corregir.`
+                                                        : 'Marcar como revisado'}
+                                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer border transition-all disabled:opacity-50 ${i.revisado ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700' : 'bg-white text-gray-500 border-gray-200 hover:border-emerald-400 hover:text-emerald-700'}`}
+                                                >
+                                                    {marcando.has(i.id_pre_detalle) ? <Loader2 size={13} className="animate-spin" /> : i.revisado ? <CheckCircle2 size={13} /> : <Circle size={13} />}
+                                                    {i.revisado ? 'Revisado' : 'Revisar'}
+                                                </button>
+                                            ) : i.revisado ? (
+                                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold inline-flex items-center gap-1"><CheckCircle2 size={12} /> Revisado</span>
+                                            ) : (
+                                                <span className="text-[11px] text-gray-400 italic">Pendiente</span>
+                                            )}
+                                        </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                                 {visibles.length === 0 && (
-                                    <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 italic">No hay recursos con estos filtros.</td></tr>
+                                    <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400 italic">No hay recursos con estos filtros.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -538,11 +651,48 @@ export default function RevisionPresupuestoDetallePage() {
                 </div>
             )}
 
+            {productoVer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setProductoVer(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 bg-slate-50 flex items-start gap-3 border-b border-gray-100">
+                            <div className="p-2.5 rounded-xl bg-primary/10 text-primary"><Package size={20} /></div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-gray-900 break-words">{productoVer.nombre_producto}</h3>
+                                <p className="text-[11px] text-gray-400">
+                                    {[productoVer.codigo_solicitud, productoVer.categoria_nombre, productoVer.area_nombre, productoVer.solicitante].filter(Boolean).join(' · ')}
+                                </p>
+                            </div>
+                            <button onClick={() => setProductoVer(null)} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer" aria-label="Cerrar"><X size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4 overflow-y-auto text-sm">
+                            <div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Descripción</div>
+                                <p className="text-gray-800 whitespace-pre-wrap break-words leading-relaxed">{productoVer.descripcion || '—'}</p>
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Justificación ({productoVer.mes})</div>
+                                <p className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{productoVer.motivo || '—'}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div><span className="text-gray-400 block">Cantidad</span><b>{productoVer.cantidad}</b> <span className="text-gray-500">({productoVer.formato_unidad})</span></div>
+                                <div><span className="text-gray-400 block">Total</span><b className="text-blue-700">{formatCLP(productoVer.total_iva)}</b></div>
+                                <div><span className="text-gray-400 block">Destino</span><b>{etiquetaDestino(productoVer.destino_gasto) || 'Sin destino'}</b></div>
+                                <div><span className="text-gray-400 block">Código / Subvención</span><b className="font-mono">{productoVer.codigo_cuenta || 'Sin código'}</b> · <b>{productoVer.subvencion_nombre}</b></div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 flex justify-end">
+                            <button onClick={() => setProductoVer(null)} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl text-sm font-medium cursor-pointer">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {edicion && (
                 <EditarContralorModal
                     detalle={edicion.detalle}
                     modo={edicion.modo}
                     subvencionInicial={edicion.subvencionInicial}
+                    destinoInicial={edicion.destinoInicial}
                     subvenciones={subvenciones}
                     onClose={() => setEdicion(null)}
                     onGuardado={(det) => {

@@ -1982,7 +1982,8 @@ export default function AgregarRecursosPage() {
                 fecha_termino: '',
                 motivo: h.motivo || '',
                 destino_gasto: h.destino_gasto || undefined,
-                id_subvencion: subvencionPorDestino(h.destino_gasto, h.id_subvencion || null, h.id_subarea) || undefined,
+                // La subvención ya ingresada (y revisada por el contralor) manda; la regla por destino es respaldo
+                id_subvencion: h.id_subvencion || subvencionPorDestino(h.destino_gasto, null, h.id_subarea) || undefined,
                 codigo_cuenta: undefined,
                 id_subarea: h.id_subarea || undefined,
                 id_grupo_recurso: h.id_grupo_recurso || undefined,
@@ -2024,7 +2025,8 @@ export default function AgregarRecursosPage() {
                 fecha_termino: '',
                 motivo: h.motivo || '',
                 destino_gasto: h.destino_gasto || undefined,
-                id_subvencion: subvencionPorDestino(h.destino_gasto, h.id_subvencion || null, h.id_subarea) || undefined,
+                // La subvención ya ingresada (y revisada por el contralor) manda; la regla por destino es respaldo
+                id_subvencion: h.id_subvencion || subvencionPorDestino(h.destino_gasto, null, h.id_subarea) || undefined,
                 codigo_cuenta: undefined,
                 id_subarea: h.id_subarea || undefined,
                 id_grupo_recurso: h.id_grupo_recurso || undefined,

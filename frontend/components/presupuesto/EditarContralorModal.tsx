@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowRight, Check, Database, Loader2, Search, X } from '
 import api from '@/lib/api/client';
 import { etiquetaDestino } from '@/lib/destinos';
 
-export type ModoEdicionContralor = 'codigo' | 'subvencion' | 'actividad';
+export type ModoEdicionContralor = 'codigo' | 'subvencion' | 'actividad' | 'destino';
 
 export interface DetalleEditable {
     id_pre_detalle: number;
@@ -48,6 +48,7 @@ const TITULOS: Record<ModoEdicionContralor, string> = {
     codigo: 'Cambiar código contable',
     subvencion: 'Cambiar subvención',
     actividad: 'Cambiar actividad PME',
+    destino: 'Cambiar destino',
 };
 
 /**
@@ -55,16 +56,19 @@ const TITULOS: Record<ModoEdicionContralor, string> = {
  * Paso 1: elegir el nuevo valor. Paso 2: confirmar el cambio (antes → después).
  * El código contable también se guarda en el recurso del catálogo, y así lo avisa.
  */
-export default function EditarContralorModal({ detalle, modo, subvenciones, subvencionInicial, onClose, onGuardado }: {
+export default function EditarContralorModal({ detalle, modo, subvenciones, subvencionInicial, destinoInicial, onClose, onGuardado }: {
     detalle: DetalleEditable;
     modo: ModoEdicionContralor;
     subvenciones: Subvencion[];
     /** Subvención ya elegida (desde el selector de la tabla): abre directo en la confirmación */
     subvencionInicial?: number | null;
+    /** Destino ya elegido (desde el selector de la tabla): abre directo en la confirmación */
+    destinoInicial?: string | null;
     onClose: () => void;
     onGuardado: (detalleActualizado: any) => void;
 }) {
-    const [paso, setPaso] = useState<'editar' | 'confirmar'>(subvencionInicial ? 'confirmar' : 'editar');
+    const [paso, setPaso] = useState<'editar' | 'confirmar'>(subvencionInicial || destinoInicial ? 'confirmar' : 'editar');
+    const directo = !!(subvencionInicial || destinoInicial);
     const [guardando, setGuardando] = useState(false);
     const [error, setError] = useState('');
 
@@ -129,12 +133,14 @@ export default function EditarContralorModal({ detalle, modo, subvenciones, subv
         if ((idSubvencion ?? null) !== (detalle.id_subvencion ?? null)) cambios.push({ campo: 'Subvención', antes: nombreSubv(detalle.id_subvencion), despues: nombreSubv(idSubvencion) });
     } else if (modo === 'subvencion') {
         if ((idSubvencion ?? null) !== (detalle.id_subvencion ?? null)) cambios.push({ campo: 'Subvención', antes: detalle.subvencion_nombre || nombreSubv(detalle.id_subvencion), despues: nombreSubv(idSubvencion) });
+    } else if (modo === 'destino') {
+        if (destinoInicial && destinoInicial !== detalle.destino_gasto) cambios.push({ campo: 'Destino', antes: etiquetaDestino(detalle.destino_gasto) || 'Sin destino', despues: etiquetaDestino(destinoInicial) });
     } else if ((actividad?.id ?? null) !== (detalle.id_actividad ?? null)) {
         cambios.push({ campo: 'Actividad PME', antes: detalle.actividad_nombre || 'Sin actividad PME', despues: actividad?.nombre || 'Sin actividad PME' });
     }
 
-    // Un cambio de código se guarda también en el recurso del catálogo (para el destino del ítem)
-    const actualizaCatalogo = modo === 'codigo' && !!detalle.id_recurso && !!codigo;
+    // Un cambio de código o de subvención se guarda también en el recurso del catálogo (para el destino del ítem)
+    const actualizaCatalogo = !!detalle.id_recurso && (modo === 'codigo' ? !!codigo : modo === 'subvencion' && !!detalle.destino_gasto && !!detalle.codigo_cuenta);
 
     const puedeContinuar = modo === 'codigo' ? !!codigo && cambios.length > 0 : cambios.length > 0;
 
@@ -144,7 +150,8 @@ export default function EditarContralorModal({ detalle, modo, subvenciones, subv
         try {
             const payload: Record<string, unknown> =
                 modo === 'codigo' ? { codigo_cuenta: codigo, id_subvencion: idSubvencion, actualizar_catalogo: actualizaCatalogo }
-                    : modo === 'subvencion' ? { id_subvencion: idSubvencion }
+                    : modo === 'subvencion' ? { id_subvencion: idSubvencion, actualizar_catalogo: actualizaCatalogo }
+                        : modo === 'destino' ? { destino_gasto: destinoInicial }
                         : actividad ? { id_actividad: actividad.id } : { quitar_actividad: true };
             const { data } = await api.patch(`/presupuesto/detalles/${detalle.id_pre_detalle}/contralor`, payload);
             onGuardado(data);
@@ -290,13 +297,23 @@ export default function EditarContralorModal({ detalle, modo, subvenciones, subv
                                     </div>
                                 ))}
                             </div>
-                            {modo === 'codigo' && (
+                            {modo === 'destino' && (
+                                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 flex gap-2">
+                                    <Database size={16} className="shrink-0 mt-0.5" />
+                                    <div>
+                                        {detalle.id_recurso
+                                            ? <>El ítem tomará el <b>código contable y la subvención</b> que el recurso tenga en el catálogo para el nuevo destino. Si el catálogo no tiene código para ese destino, el ítem quedará <b>sin código</b> para que lo asignes.</>
+                                            : <>Este ítem no está ligado a un recurso del catálogo: quedará <b>sin código</b> para que lo asignes.</>}
+                                    </div>
+                                </div>
+                            )}
+                            {(modo === 'codigo' || modo === 'subvencion') && (
                                 actualizaCatalogo ? (
                                     <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 flex gap-2">
                                         <Database size={16} className="shrink-0 mt-0.5" />
                                         <div>
                                             <b>También se cambiará el recurso en la base de datos.</b> El insumo «{detalle.nombre_producto}» quedará en el catálogo
-                                            con este código y subvención{detalle.destino_gasto ? <> para el destino <b>{etiquetaDestino(detalle.destino_gasto)}</b></> : null}.
+                                            con {modo === 'codigo' ? 'este código y subvención' : 'esta subvención'}{detalle.destino_gasto ? <> para el destino <b>{etiquetaDestino(detalle.destino_gasto)}</b></> : null}.
                                             Los próximos pedidos de este insumo los usarán; los ítems ya registrados no se modifican.
                                         </div>
                                     </div>
@@ -314,7 +331,7 @@ export default function EditarContralorModal({ detalle, modo, subvenciones, subv
                 </div>
 
                 <div className="p-4 bg-gray-50 flex justify-end gap-2">
-                    {paso === 'confirmar' && !subvencionInicial ? (
+                    {paso === 'confirmar' && !directo ? (
                         <button onClick={() => setPaso('editar')} disabled={guardando} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl text-sm font-medium">
                             Volver
                         </button>

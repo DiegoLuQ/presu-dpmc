@@ -124,6 +124,8 @@ export interface BudgetDetail {
   subarea_nombre?: string;
   centro_costos?: string | null;
   observacion?: string | null;
+  revisado_contralor?: boolean;
+  fecha_revision_contralor?: string | null;
 }
 
 export interface BudgetRequest {

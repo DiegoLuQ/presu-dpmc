@@ -21,7 +21,7 @@ from app.schemas.budget import (
     GrupoRecursoCreate, GrupoRecursoResponse,
     MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
-    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest,
+    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest, RevisadoContralorRequest,
     PresupuestoAnualCreate, PresupuestoAnualUpdate, PresupuestoAnualResponse,
     AsignarPresupuestoAnualRequest,
     ImportarSolicitudCreate, ImportarRecursosRequest, ImportarRecursosResponse,
@@ -593,7 +593,9 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
         "id_cargo": detalle.id_cargo,
         "id_subarea": detalle.id_cargo,
         "cargo_nombre": detalle.cargo_detalle.nombre if detalle.cargo_detalle else (detalle.subarea_detalle.nombre if detalle.subarea_detalle else None),
-        "subarea_nombre": detalle.cargo_detalle.nombre if detalle.cargo_detalle else (detalle.subarea_detalle.nombre if detalle.subarea_detalle else None)
+        "subarea_nombre": detalle.cargo_detalle.nombre if detalle.cargo_detalle else (detalle.subarea_detalle.nombre if detalle.subarea_detalle else None),
+        "revisado_contralor": bool(detalle.revisado_contralor),
+        "fecha_revision_contralor": detalle.fecha_revision_contralor,
     }
 
 
@@ -2795,8 +2797,34 @@ def editar_detalle_contralor(
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
     solicitud = db_obj.solicitud
     _exigir_mismo_colegio(current_user, solicitud)
+    if db_obj.revisado_contralor:
+        raise HTTPException(status_code=409, detail="El ítem está marcado como revisado. Desmárcalo para corregirlo.")
 
     cambios = []  # (campo, anterior, nuevo)
+
+    # El destino va primero: trae el código y la subvención que el catálogo tenga
+    # para ese destino (si no tiene, el ítem queda sin código hasta asignarlo).
+    if payload.destino_gasto is not None:
+        destino = _destino_canonico(payload.destino_gasto)
+        if destino not in CATEGORIA_PILAR_VALUES:
+            raise HTTPException(status_code=400, detail="Destino de gasto no válido")
+        if db_obj.destino_gasto != destino:
+            cambios.append(("contralor_destino", db_obj.destino_gasto, destino))
+            db_obj.destino_gasto = destino
+            mapeo = (
+                db.query(MapeoRecursoSubcategoria)
+                .filter(MapeoRecursoSubcategoria.id_recurso == db_obj.id_recurso,
+                        MapeoRecursoSubcategoria.destino_gasto == destino)
+                .order_by(MapeoRecursoSubcategoria.id_mapeo)
+                .first()
+            ) if db_obj.id_recurso else None
+            nuevo_codigo = mapeo.subcategoria.codigo_cuenta if mapeo and mapeo.subcategoria else None
+            if db_obj.codigo_cuenta != nuevo_codigo:
+                cambios.append(("contralor_codigo_cuenta", db_obj.codigo_cuenta, nuevo_codigo))
+                db_obj.codigo_cuenta = nuevo_codigo
+            if mapeo and mapeo.id_subvencion and db_obj.id_subvencion != mapeo.id_subvencion:
+                cambios.append(("contralor_subvencion", db_obj.id_subvencion, mapeo.id_subvencion))
+                db_obj.id_subvencion = mapeo.id_subvencion
 
     if payload.codigo_cuenta is not None:
         cuenta = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == payload.codigo_cuenta).first()
@@ -2830,9 +2858,12 @@ def editar_detalle_contralor(
             cambios.append(("contralor_actividad", db_obj.id_actividad, payload.id_actividad))
             db_obj.id_actividad = payload.id_actividad
 
-    if payload.codigo_cuenta is not None and payload.actualizar_catalogo:
-        if _actualizar_mapeo_catalogo(db, db_obj, payload.codigo_cuenta, db_obj.id_subvencion):
-            cambios.append(("contralor_catalogo", None, f"recurso {db_obj.id_recurso}: {payload.codigo_cuenta}"))
+    if payload.actualizar_catalogo and (payload.codigo_cuenta is not None or payload.id_subvencion is not None):
+        # Con solo subvención se guarda junto al código del ítem o, si no tiene, el del catálogo
+        codigo = payload.codigo_cuenta or db_obj.codigo_cuenta \
+            or codigo_catalogo(db, db_obj.id_recurso, None, db_obj.destino_gasto)[1]
+        if codigo and _actualizar_mapeo_catalogo(db, db_obj, codigo, db_obj.id_subvencion):
+            cambios.append(("contralor_catalogo", None, f"recurso {db_obj.id_recurso}: {codigo} / subvención {db_obj.id_subvencion}"))
 
     ahora = datetime.utcnow()
     for campo, anterior, nuevo in cambios:
@@ -2849,6 +2880,27 @@ def editar_detalle_contralor(
             fecha_respuesta=ahora,
         ))
 
+    db.commit()
+    db.refresh(db_obj)
+    return build_detalle_response(db_obj, db=db)
+
+
+@router.patch("/detalles/{id_detalle}/contralor/revisado", response_model=BudgetDetailResponse)
+def marcar_revisado_contralor(
+    id_detalle: int,
+    payload: RevisadoContralorRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("editar"))
+):
+    """El contralor marca (o desmarca) un ítem como revisado. Queda con usuario y fecha."""
+    db_obj = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
+
+    db_obj.revisado_contralor = payload.revisado
+    db_obj.fecha_revision_contralor = datetime.utcnow() if payload.revisado else None
+    db_obj.id_user_revision_contralor = current_user.id_user if payload.revisado else None
     db.commit()
     db.refresh(db_obj)
     return build_detalle_response(db_obj, db=db)

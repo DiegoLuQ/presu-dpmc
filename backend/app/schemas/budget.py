@@ -233,6 +233,8 @@ class BudgetDetailResponse(BaseModel):
     id_subarea: Optional[int] = None
     cargo_nombre: Optional[str] = None
     subarea_nombre: Optional[str] = None
+    revisado_contralor: bool = False
+    fecha_revision_contralor: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -437,12 +439,20 @@ class EditarDetalleContralorRequest(BaseModel):
     """Corrección del contralor sobre un ítem ya enviado (también aprobado).
     Solo se aplican los campos enviados. Con `codigo_cuenta`, si el ítem está ligado
     a un recurso del catálogo y `actualizar_catalogo` es true, el código y la
-    subvención se guardan también en el recurso (para su destino)."""
+    subvención se guardan también en el recurso (para su destino); con solo
+    `id_subvencion`, se guarda la subvención junto al código vigente del ítem.
+    Con `destino_gasto` (valor canónico), el ítem toma el código y la subvención que
+    el catálogo tenga para ese destino; si no tiene, queda sin código."""
     codigo_cuenta: Optional[str] = None
     id_subvencion: Optional[int] = None
     id_actividad: Optional[int] = None
     quitar_actividad: bool = False
+    destino_gasto: Optional[str] = None
     actualizar_catalogo: bool = False
+
+
+class RevisadoContralorRequest(BaseModel):
+    revisado: bool
 
 
 class ActividadCodigoContableUpsert(BaseModel):

@@ -461,6 +461,11 @@ class PresupuestoDetalle(Base):
     id_cat_recurso = Column(Integer, ForeignKey("pre_categoria_recurso.id_cat_recurso"), nullable=True)
     # Grupo directo: asignado directamente en el detalle (útil para ítems nuevos o personalizados)
     id_grupo_recurso = Column(Integer, ForeignKey("pre_grupo_recurso.id_grupo_recurso"), nullable=True)
+    # Revisión fila a fila del contralor (Go Contralor → Presupuestos). Mientras está
+    # marcado, el ítem no se puede corregir: hay que desmarcarlo primero.
+    revisado_contralor = Column(Boolean, nullable=False, default=False, server_default="0")
+    fecha_revision_contralor = Column(DateTime, nullable=True)
+    id_user_revision_contralor = Column(Integer, ForeignKey("auth_usuario.id_user"), nullable=True)
 
     solicitud = relationship("SolicitudPresupuesto", back_populates="detalles")
     recurso = relationship("Recurso", back_populates="presupuesto_detalles")

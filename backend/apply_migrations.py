@@ -49,6 +49,21 @@ def apply_migrations():
             except Exception as e:
                 print(f"Advertencia al agregar FK fk_detalle_grupo: {e}")
             
+        # Revisión fila a fila del contralor
+        res = conn.execute(text("SHOW COLUMNS FROM pre_detalle LIKE 'revisado_contralor';")).fetchone()
+        if not res:
+            print("Agregando columnas de revisión del contralor a 'pre_detalle'...")
+            conn.execute(text(
+                "ALTER TABLE pre_detalle "
+                "ADD COLUMN revisado_contralor TINYINT(1) NOT NULL DEFAULT 0, "
+                "ADD COLUMN fecha_revision_contralor DATETIME NULL, "
+                "ADD COLUMN id_user_revision_contralor INT NULL;"
+            ))
+            try:
+                conn.execute(text("ALTER TABLE pre_detalle ADD CONSTRAINT fk_detalle_revisor_contralor FOREIGN KEY (id_user_revision_contralor) REFERENCES auth_usuario(id_user) ON DELETE SET NULL;"))
+            except Exception as e:
+                print(f"Advertencia al agregar FK fk_detalle_revisor_contralor: {e}")
+
         # --- pre_cuenta_matriz_reglas ---
         res = conn.execute(text("SHOW COLUMNS FROM pre_cuenta_matriz_reglas LIKE 'categoria_pilar';")).fetchone()
         if not res:
