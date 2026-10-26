@@ -1,7 +1,7 @@
 'use client';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api/client';
 import {
@@ -13,7 +13,7 @@ import {
     SlidersHorizontal, Edit2, RotateCcw, Save, ArrowUpDown, ArrowUp, ArrowDown, HelpCircle,
     Flag, Target, Briefcase, MessageSquare, GripVertical, ChevronUp
 } from 'lucide-react';
-import { BudgetRequest, BudgetDetail, MESES } from '@/lib/types';
+import { BudgetRequest, BudgetDetail, MESES, PresupuestoAnual } from '@/lib/types';
 import ComprasFilters from '@/components/go-compras/ComprasFilters';
 import { useAuth } from '@/context/AuthContext';
 
@@ -415,14 +415,13 @@ export default function ProgramarComprasPage() {
 
     // Restaurar todos los filtros guardados en localStorage al cargar la página
     useEffect(() => {
+        let colegioInicial = '';
         try {
             const savedColegio = localStorage.getItem('go-compras-filter-colegio');
-            if (savedColegio !== null) setColegioId(savedColegio);
+            if (savedColegio !== null) colegioInicial = savedColegio;
             // Sin filtro guardado: partir por el colegio del usuario (no "todos los colegios")
-            else if (colegioActivo || user?.id_colegio) setColegioId(String(colegioActivo || user?.id_colegio));
-
-            const savedYear = localStorage.getItem('go-compras-filter-year');
-            if (savedYear !== null) setYear(savedYear);
+            else if (colegioActivo || user?.id_colegio) colegioInicial = String(colegioActivo || user?.id_colegio);
+            setColegioId(colegioInicial);
 
             const savedSearch = localStorage.getItem('go-compras-filter-search');
             if (savedSearch !== null) setSearchTerm(savedSearch);
@@ -530,8 +529,18 @@ export default function ProgramarComprasPage() {
         } catch (e) {
             console.error('Error cargando filtros de localStorage:', e);
         } finally {
-            setFiltersInitialized(true);
             setIsMounted(true);
+            // La página parte siempre en el presupuesto más reciente del colegio (no en el
+            // año guardado). La carga de la tabla espera a resolverlo para no pedir dos veces.
+            api.get('/presupuesto/presupuestos-anuales')
+                .then(res => {
+                    const anios = ((res.data || []) as PresupuestoAnual[])
+                        .filter(p => !colegioInicial || String(p.id_colegio) === colegioInicial)
+                        .map(p => p.year);
+                    if (anios.length > 0) setYear(String(Math.max(...anios)));
+                })
+                .catch(() => {})
+                .finally(() => setFiltersInitialized(true));
         }
     }, []);
 
@@ -2418,6 +2427,101 @@ export default function ProgramarComprasPage() {
                 return sum + (qtyReal * pReal);
             }, 0);
     }, [filtered, itemEstados, itemExtras]);
+    // ── Resumen de insumos por Línea / Grupo y por Destino ─────────────────────
+    // Se calcula sobre `filtered` (mismos filtros, estados y agrupación de destinos
+    // que la tabla), así un número del resumen coincide con las filas que muestra al filtrar.
+    type CeldaResumen = { items: number; unidades: number };
+    type FilaResumen = { clave: string; total: CeldaResumen; porEstado: Partial<Record<EstadoCompra, CeldaResumen>> };
+    const [showResumen, setShowResumen] = useState(false);
+    const [resumenTab, setResumenTab] = useState<'grupo' | 'destino'>('grupo');
+    // Filtro puesto desde el resumen y los valores que había antes, para poder deshacerlo.
+    const [filtroDesdeResumen, setFiltroDesdeResumen] = useState<{
+        tipo: 'grupo' | 'destino';
+        clave: string;
+        estado?: EstadoCompra;
+        previo: { grupos: string[]; destinos: string[]; estados: EstadoCompra[] };
+    } | null>(null);
+    const tablaRef = useRef<HTMLDivElement>(null);
+
+    const resumenInsumos = useMemo(() => {
+        const agrupar = (claveDe: (i: MasterItem) => string): FilaResumen[] => {
+            const filas = new Map<string, FilaResumen>();
+            for (const item of filtered) {
+                const clave = claveDe(item);
+                const fila = filas.get(clave) ?? { clave, total: { items: 0, unidades: 0 }, porEstado: {} };
+                const estado = getEstado(item.uid);
+                const celda = fila.porEstado[estado] ?? { items: 0, unidades: 0 };
+                const unidades = Number(item.detalle.cantidad) || 0;
+                celda.items++;
+                celda.unidades += unidades;
+                fila.total.items++;
+                fila.total.unidades += unidades;
+                fila.porEstado[estado] = celda;
+                filas.set(clave, fila);
+            }
+            return Array.from(filas.values())
+                .sort((a, b) => b.total.items - a.total.items || a.clave.localeCompare(b.clave));
+        };
+        return {
+            // Mismas claves que usan los filtros de Línea / Grupo y Destino de la tabla.
+            grupo: agrupar(i => i.detalle.grupo_nombre || '(Sin Línea / Grupo)'),
+            destino: agrupar(i => getDestinoNormalizado(i.detalle.destino_gasto)),
+        };
+    }, [filtered, getEstado]);
+
+    // "En revisión" solo aparece como columna si hay insumos en ese estado.
+    const estadosResumen: EstadoCompra[] = useMemo(() => {
+        const hayEnRevision = filtered.some(i => getEstado(i.uid) === 'En revisión');
+        return hayEnRevision
+            ? ['Pendiente', 'En revisión', 'Aprobado', 'En camino', 'Comprado']
+            : ['Pendiente', 'Aprobado', 'En camino', 'Comprado'];
+    }, [filtered, getEstado]);
+
+    const filtrosActivosResumen = [
+        searchTerm && `Búsqueda: "${searchTerm}"`,
+        filterCategorias.length > 0 && `Categoría: ${filterCategorias.join(', ')}`,
+        filterGrupos.length > 0 && `Línea: ${filterGrupos.join(', ')}`,
+        filterDestinos.length > 0 && `Destino: ${filterDestinos.join(', ')}`,
+        filterMotivos.length > 0 && `Motivo: ${filterMotivos.join(', ')}`,
+        filterAreas.length > 0 && `Área: ${filterAreas.join(', ')}`,
+        filterSubareas.length > 0 && `Cargo: ${filterSubareas.join(', ')}`,
+        filterEstadosCompra.length > 0 && `Estado: ${filterEstadosCompra.join(', ')}`,
+        filterMeses.length > 0 && `Mes: ${filterMeses.join(', ')}`,
+        (filterFechaDesde || filterFechaHasta) && `Fecha: ${filterFechaDesde || '…'} a ${filterFechaHasta || '…'}`,
+        showOnlyPendientes && 'Incluye pendientes de V°B°',
+    ].filter(Boolean) as string[];
+
+    // Agrega el filtro elegido sobre los que ya hay (el resumen ya los respetaba).
+    const aplicarFiltroResumen = (clave: string, estado?: EstadoCompra) => {
+        setFiltroDesdeResumen({
+            tipo: resumenTab,
+            clave,
+            estado,
+            previo: { grupos: filterGrupos, destinos: filterDestinos, estados: filterEstadosCompra }
+        });
+        if (resumenTab === 'grupo') handleSetGrupos([clave]);
+        else handleSetDestinos([clave]);
+        if (estado) handleSetEstadosCompra([estado]);
+        setShowResumen(false);
+        setTimeout(() => tablaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    };
+    const quitarFiltroResumen = () => {
+        if (!filtroDesdeResumen) return;
+        const { previo } = filtroDesdeResumen;
+        handleSetGrupos(previo.grupos);
+        handleSetDestinos(previo.destinos);
+        handleSetEstadosCompra(previo.estados);
+        setFiltroDesdeResumen(null);
+    };
+    // El aviso solo se muestra mientras los filtros sigan siendo los que puso el resumen.
+    const filtroResumenVigente = !!filtroDesdeResumen && (
+        filtroDesdeResumen.tipo === 'grupo'
+            ? filterGrupos.length === 1 && filterGrupos[0] === filtroDesdeResumen.clave
+            : filterDestinos.length === 1 && filterDestinos[0] === filtroDesdeResumen.clave
+    ) && (
+        !filtroDesdeResumen.estado ||
+        (filterEstadosCompra.length === 1 && filterEstadosCompra[0] === filtroDesdeResumen.estado)
+    );
     // ── Selection handlers ─────────────────────────────────────────────────────
     const isItemSelectable = useCallback((item: MasterItem) => {
         return true;
@@ -3379,6 +3483,15 @@ export default function ProgramarComprasPage() {
                                 <span className={`w-3 h-3 rounded-full ${showOnlyPendientes ? 'bg-white' : 'bg-amber-500'}`}></span>
                                 {showOnlyPendientes ? 'Viendo Pendientes de Aprobación' : 'Ver Pendientes'}
                             </button>
+                            {/* Resumen de insumos */}
+                            <button
+                                onClick={() => setShowResumen(true)}
+                                className="px-3.5 py-2.5 border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors text-primary font-bold text-xs rounded-xl flex items-center gap-2 shadow-sm"
+                                title="Cuántos insumos hay por Línea / Grupo y por Destino, según su estado de compra (respeta los filtros actuales)"
+                            >
+                                <Layers size={16} />
+                                <span>Resumen de insumos</span>
+                            </button>
                             {/* 9. Columnas */}
                             <button
                                 onClick={() => setShowColsModal(true)}
@@ -3400,6 +3513,23 @@ export default function ProgramarComprasPage() {
                                 </button>
                             )}
                         </div>
+                        {/* Filtro aplicado desde el Resumen de insumos */}
+                        {filtroResumenVigente && filtroDesdeResumen && (
+                            <div className="flex items-center gap-2 mb-4 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5 text-xs">
+                                <Layers size={15} className="text-primary" />
+                                <span className="font-semibold text-gray-700">Desde el resumen:</span>
+                                <span className="font-bold text-primary">
+                                    {filtroDesdeResumen.clave}{filtroDesdeResumen.estado ? ` · ${filtroDesdeResumen.estado}` : ''}
+                                </span>
+                                <button
+                                    onClick={quitarFiltroResumen}
+                                    className="ml-1 p-1 rounded-md hover:bg-primary/10 text-primary transition-colors"
+                                    title="Quitar este filtro y volver a los que había antes"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
                         {/* Barra de selección */}
                         {selectedUids.size > 0 && (
                             <div className="flex items-center gap-4 mb-4 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
@@ -3483,7 +3613,7 @@ export default function ProgramarComprasPage() {
                         )}
 
                         {/* Tabla principal */}
-                        <div className="bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+                        <div ref={tablaRef} className="scroll-mt-4 bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-100">
                                     <thead className="bg-gray-50/50">
@@ -3893,8 +4023,192 @@ export default function ProgramarComprasPage() {
             )}
 
             {/* ── Modal: Configurar Columnas (Visibles y Orden) ─────────────── */}
+            {/* Modal: Resumen de insumos por Línea / Grupo y Destino */}
+            {showResumen && (() => {
+                const filas = resumenInsumos[resumenTab];
+                const COLOR_ESTADO: Record<EstadoCompra, string> = {
+                    'Pendiente': 'text-amber-600',
+                    'En revisión': 'text-orange-600',
+                    'Aprobado': 'text-blue-600',
+                    'En camino': 'text-indigo-600',
+                    'Comprado': 'text-emerald-600',
+                };
+                const totalesPorEstado = estadosResumen.map(est => filas.reduce(
+                    (acc, f) => ({
+                        items: acc.items + (f.porEstado[est]?.items || 0),
+                        unidades: acc.unidades + (f.porEstado[est]?.unidades || 0)
+                    }),
+                    { items: 0, unidades: 0 }
+                ));
+                const totalGeneral = filas.reduce((acc, f) => acc + f.total.items, 0);
+                const unidadesGeneral = filas.reduce((acc, f) => acc + f.total.unidades, 0);
+                const compradosGeneral = filas.reduce((acc, f) => acc + (f.porEstado['Comprado']?.items || 0), 0);
+                const fmtUnidades = (n: number) => n.toLocaleString('es-CL');
+                const pct = (comprados: number, total: number) => (total > 0 ? Math.round((comprados / total) * 100) : 0);
+                const nombreColegio = colegioId ? (masterItems[0]?.colegio || '') : '';
+
+                return (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+                        onClick={() => setShowResumen(false)}
+                    >
+                        <div
+                            className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Encabezado */}
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                        <Layers size={20} className="text-primary" />
+                                        Resumen de insumos
+                                    </h3>
+                                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                        {nombreColegio ? `${nombreColegio} · ` : ''}
+                                        {year ? `Presupuesto ${year}` : 'Todos los presupuestos'}
+                                        {' · '}{totalGeneral} insumo{totalGeneral !== 1 ? 's' : ''}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowResumen(false)}
+                                    className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="Cerrar"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Pestañas y filtros activos */}
+                            <div className="px-6 pt-4 space-y-3">
+                                <div className="inline-flex bg-gray-100 rounded-xl p-1">
+                                    {([['grupo', 'Por Línea / Grupo'], ['destino', 'Por Destino']] as const).map(([key, label]) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => setResumenTab(key)}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${resumenTab === key
+                                                ? 'bg-white text-primary shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {filtrosActivosResumen.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                        <span className="font-semibold text-gray-500">Filtros de la tabla:</span>
+                                        {filtrosActivosResumen.map(f => (
+                                            <span key={f} className="px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-gray-600 font-medium">{f}</span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Tabla resumen */}
+                            <div className="p-6 overflow-auto">
+                                {filas.length === 0 ? (
+                                    <div className="py-12 text-center text-sm text-gray-400 font-medium">
+                                        No hay insumos con los filtros actuales.
+                                    </div>
+                                ) : (
+                                    <div className="border border-gray-100 rounded-2xl overflow-hidden">
+                                        <table className="min-w-full divide-y divide-gray-100 text-xs">
+                                            <thead className="bg-gray-50/70">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">
+                                                        {resumenTab === 'grupo' ? 'Línea / Grupo' : 'Destino de Uso'}
+                                                    </th>
+                                                    {estadosResumen.map(est => (
+                                                        <th key={est} className={`px-3 py-3 text-center font-bold uppercase tracking-wider ${COLOR_ESTADO[est]}`}>{est}</th>
+                                                    ))}
+                                                    <th className="px-3 py-3 text-center font-bold text-gray-700 uppercase tracking-wider">Total</th>
+                                                    <th className="px-3 py-3 text-left font-bold text-gray-500 uppercase tracking-wider w-36">% Comprado</th>
+                                                    <th className="px-3 py-3" />
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50 bg-white">
+                                                {filas.map(fila => {
+                                                    const p = pct(fila.porEstado['Comprado']?.items || 0, fila.total.items);
+                                                    return (
+                                                        <tr key={fila.clave} className="hover:bg-gray-50/50 transition-colors">
+                                                            <td className="px-4 py-2.5 font-bold text-gray-800">{fila.clave}</td>
+                                                            {estadosResumen.map(est => {
+                                                                const celda = fila.porEstado[est];
+                                                                return (
+                                                                    <td key={est} className="px-3 py-2.5 text-center">
+                                                                        {celda ? (
+                                                                            <button
+                                                                                onClick={() => aplicarFiltroResumen(fila.clave, est)}
+                                                                                title={`${celda.items} ítem${celda.items !== 1 ? 's' : ''} · ${fmtUnidades(celda.unidades)} unidades — ver en la tabla`}
+                                                                                className={`min-w-[2.25rem] px-2 py-1 rounded-lg font-bold hover:bg-gray-100 hover:underline transition-colors ${COLOR_ESTADO[est]}`}
+                                                                            >
+                                                                                {celda.items}
+                                                                            </button>
+                                                                        ) : (
+                                                                            <span className="text-gray-300">—</span>
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td
+                                                                className="px-3 py-2.5 text-center font-extrabold text-gray-900"
+                                                                title={`${fmtUnidades(fila.total.unidades)} unidades`}
+                                                            >
+                                                                {fila.total.items}
+                                                            </td>
+                                                            <td className="px-3 py-2.5">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p}%` }} />
+                                                                    </div>
+                                                                    <span className="w-9 text-right font-bold text-gray-600">{p}%</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-3 py-2.5 text-right">
+                                                                <button
+                                                                    onClick={() => aplicarFiltroResumen(fila.clave)}
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-primary font-bold hover:bg-primary/10 transition-colors whitespace-nowrap"
+                                                                    title="Ver todos los insumos de esta fila en la tabla"
+                                                                >
+                                                                    Ver <ArrowRight size={13} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot className="bg-gray-50/70 border-t border-gray-200">
+                                                <tr>
+                                                    <td className="px-4 py-3 font-extrabold text-gray-900 uppercase">Total</td>
+                                                    {totalesPorEstado.map((t, idx) => (
+                                                        <td
+                                                            key={estadosResumen[idx]}
+                                                            className={`px-3 py-3 text-center font-extrabold ${COLOR_ESTADO[estadosResumen[idx]]}`}
+                                                            title={`${fmtUnidades(t.unidades)} unidades`}
+                                                        >
+                                                            {t.items || <span className="text-gray-300">—</span>}
+                                                        </td>
+                                                    ))}
+                                                    <td className="px-3 py-3 text-center font-extrabold text-gray-900" title={`${fmtUnidades(unidadesGeneral)} unidades`}>
+                                                        {totalGeneral}
+                                                    </td>
+                                                    <td className="px-3 py-3 font-extrabold text-gray-700">{pct(compradosGeneral, totalGeneral)}%</td>
+                                                    <td />
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500 font-medium">
+                                Haz clic en un número o en "Ver" para mostrar esos insumos en la tabla. Pasa el cursor sobre un número para ver las unidades.
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
             {showColsModal && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
                     onClick={() => setShowColsModal(false)}
                 >

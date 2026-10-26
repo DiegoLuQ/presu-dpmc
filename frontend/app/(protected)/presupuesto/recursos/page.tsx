@@ -677,9 +677,11 @@ export default function RecursosPage() {
                 id_cat_recurso: parseInt(formData.id_cat_recurso)
             };
             let recursoId: number;
+            let renombrados = 0;
             if (editingRecurso) {
-                await api.put(`/presupuesto/recursos/${editingRecurso.id_recurso}`, payload);
+                const resEdit = await api.put(`/presupuesto/recursos/${editingRecurso.id_recurso}`, payload);
                 recursoId = editingRecurso.id_recurso;
+                renombrados = resEdit.data?.detalles_renombrados ?? 0;
             } else {
                 const res = await api.post('/presupuesto/recursos', payload);
                 recursoId = res.data.id_recurso;
@@ -694,6 +696,9 @@ export default function RecursosPage() {
             setIsModalOpen(false);
             resetForm();
             fetchData();
+            if (renombrados > 0) {
+                alert(`Recurso actualizado. El nombre nuevo se aplicó en ${renombrados} detalle(s) de solicitudes en curso.`);
+            }
         } catch (error: any) {
             alert(error.response?.data?.detail || 'Error al guardar');
         } finally { setIsSaving(false); }
@@ -1785,6 +1790,14 @@ export default function RecursosPage() {
 
                                             setConsolidatingToken(activeGroup.token);
                                             try {
+                                                // Primero se eliminan las variantes: el backend rechaza renombrar
+                                                // al nombre de otro recurso que todavía exista.
+                                                for (const delItem of toDelete) {
+                                                    try {
+                                                        await api.delete(`/presupuesto/recursos/${delItem.id_recurso}`);
+                                                    } catch {}
+                                                }
+
                                                 if (newTitle !== keeper.nombre) {
                                                     await api.put(`/presupuesto/recursos/${keeper.id_recurso}`, {
                                                         nombre: newTitle,
@@ -1793,12 +1806,6 @@ export default function RecursosPage() {
                                                         id_cat_recurso: keeper.id_cat_recurso,
                                                         id_grupo_recurso: keeper.id_grupo_recurso
                                                     });
-                                                }
-
-                                                for (const delItem of toDelete) {
-                                                    try {
-                                                        await api.delete(`/presupuesto/recursos/${delItem.id_recurso}`);
-                                                    } catch {}
                                                 }
 
                                                 const nextGroups = duplicateGroups.filter(x => x.token !== activeGroup.token);

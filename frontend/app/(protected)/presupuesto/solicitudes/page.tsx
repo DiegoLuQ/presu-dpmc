@@ -87,7 +87,8 @@ function SortableTh({ label, sortKey, sort, onSort, numerico = false, className 
 }
 
 // ── Columnas configurables ──────────────────────────────────────────────────
-interface ColumnaDef { key: string; label: string }
+// `sub`: datos que se muestran juntos dentro de la celda y que se pueden ocultar por separado
+interface ColumnaDef { key: string; label: string; sub?: { key: string; label: string }[] }
 
 const COLS_SOLICITUDES: ColumnaDef[] = [
     { key: 'solicitud', label: 'Solicitud / Colegio' },
@@ -101,10 +102,20 @@ const COLS_SOLICITUDES: ColumnaDef[] = [
     { key: 'acciones', label: 'Acciones' },
 ];
 const COLS_RECURSOS: ColumnaDef[] = [
-    { key: 'producto', label: 'Producto' },
+    { key: 'producto', label: 'Producto', sub: [
+        { key: 'producto_descripcion', label: 'Descripción' },
+        { key: 'producto_categoria', label: 'Categoría' },
+    ] },
     { key: 'area', label: 'Área / Solicitante' },
-    { key: 'valores', label: 'Cant. / Valores' },
-    { key: 'mes', label: 'Mes y Justificación' },
+    { key: 'valores', label: 'Cant. / Valores', sub: [
+        { key: 'valores_unitario', label: 'Valor unitario' },
+        { key: 'valores_total', label: 'Total' },
+    ] },
+    { key: 'mes', label: 'Mes y Justificación', sub: [
+        { key: 'mes_fecha', label: 'Mes' },
+        { key: 'mes_motivo', label: 'Justificación' },
+        { key: 'mes_pme', label: 'Actividad PME' },
+    ] },
     { key: 'linea', label: 'Línea' },
     { key: 'subvencion', label: 'Subvención' },
     { key: 'estado', label: 'Estado' },
@@ -112,7 +123,9 @@ const COLS_RECURSOS: ColumnaDef[] = [
 ];
 const COLS_STORAGE = { solicitudes: 'solicitudes-cols-solicitudes', recursos: 'solicitudes-cols-recursos' };
 
-const colsPorDefecto = (defs: ColumnaDef[]) => Object.fromEntries(defs.map(c => [c.key, true])) as Record<string, boolean>;
+const colsPorDefecto = (defs: ColumnaDef[]) => Object.fromEntries(
+    defs.flatMap(c => [c.key, ...(c.sub || []).map(s => s.key)]).map(k => [k, true])
+) as Record<string, boolean>;
 
 const leerColumnasGuardadas = (clave: string, defs: ColumnaDef[]): Record<string, boolean> => {
     try {
@@ -142,7 +155,8 @@ function ConfigColumnas({ defs, visibles, onChange, storageKey }: {
         onChange(colsPorDefecto(defs));
         try { localStorage.removeItem(storageKey); } catch { /* ignorar */ }
     };
-    const ocultas = defs.filter(c => !visibles[c.key]).length;
+    const ocultas = defs.filter(c => visibles[c.key] === false).length
+        + defs.filter(c => visibles[c.key] !== false).flatMap(c => c.sub || []).filter(s => visibles[s.key] === false).length;
     return (
         <div className="relative">
             <button
@@ -160,15 +174,28 @@ function ConfigColumnas({ defs, visibles, onChange, storageKey }: {
                     <div className="absolute right-0 mt-1.5 z-40 w-60 bg-white border border-gray-200 rounded-xl shadow-xl p-2">
                         <div className="max-h-72 overflow-y-auto">
                             {defs.map(c => (
-                                <label key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs font-semibold text-gray-700">
-                                    <input
-                                        type="checkbox"
-                                        checked={visibles[c.key] !== false}
-                                        onChange={() => onChange({ ...visibles, [c.key]: visibles[c.key] === false })}
-                                        className="w-4 h-4 rounded text-primary focus:ring-primary border-gray-300"
-                                    />
-                                    {c.label}
-                                </label>
+                                <div key={c.key}>
+                                    <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs font-semibold text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={visibles[c.key] !== false}
+                                            onChange={() => onChange({ ...visibles, [c.key]: visibles[c.key] === false })}
+                                            className="w-4 h-4 rounded text-primary focus:ring-primary border-gray-300"
+                                        />
+                                        {c.label}
+                                    </label>
+                                    {c.sub && visibles[c.key] !== false && c.sub.map(s => (
+                                        <label key={s.key} className="flex items-center gap-2 pl-8 pr-2.5 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-[11px] font-medium text-gray-500">
+                                            <input
+                                                type="checkbox"
+                                                checked={visibles[s.key] !== false}
+                                                onChange={() => onChange({ ...visibles, [s.key]: visibles[s.key] === false })}
+                                                className="w-3.5 h-3.5 rounded text-primary focus:ring-primary border-gray-300"
+                                            />
+                                            {s.label}
+                                        </label>
+                                    ))}
+                                </div>
                             ))}
                         </div>
                         <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5">
@@ -1942,14 +1969,14 @@ export default function SolicitudesPage() {
                                             {/* Producto: Nombre + Descripción Completa */}
                                             {colsRec.producto && (
                                             <td className="px-3.5 py-3.5 max-w-[260px]">
-                                                <div className="text-xs font-bold text-gray-900 leading-snug">{item.nombre_producto}</div>
-                                                {item.descripcion && (
-                                                    <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-words mt-0.5 leading-relaxed">
+                                                <div className="text-sm font-bold text-gray-900 leading-snug">{item.nombre_producto}</div>
+                                                {colsRec.producto_descripcion !== false && item.descripcion && (
+                                                    <div className="text-xs text-gray-500 whitespace-pre-wrap break-words mt-0.5 leading-relaxed">
                                                         {item.descripcion}
                                                     </div>
                                                 )}
-                                                {item.categoria_nombre && (
-                                                    <div className="text-[10px] text-gray-400 font-semibold mt-1">
+                                                {colsRec.producto_categoria !== false && item.categoria_nombre && (
+                                                    <div className="text-[11px] text-gray-400 font-semibold mt-1">
                                                         {item.categoria_nombre}
                                                     </div>
                                                 )}
@@ -1989,8 +2016,8 @@ export default function SolicitudesPage() {
                                             {colsRec.valores && (
                                             <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="text-xs font-semibold text-gray-800">
-                                                        {item.cantidad} <span className="text-[11px] font-normal text-gray-500">({item.formato_unidad})</span>
+                                                    <div className="text-sm font-semibold text-gray-800">
+                                                        {item.cantidad} <span className="text-xs font-normal text-gray-500">({item.formato_unidad})</span>
                                                     </div>
                                                     {(() => {
                                                         const esConAjustes = item.estado_aprobacion === 'Con Ajustes' || item.estado_aprobacion === 'Aprobado con Ajustes' || item.estado_aprobacion === 'Aprobado con ajustes';
@@ -2011,18 +2038,23 @@ export default function SolicitudesPage() {
                                                         );
                                                     })()}
                                                 </div>
-                                                <div className="text-[11px] text-gray-500 mt-0.5">
+                                                {colsRec.valores_unitario !== false && (
+                                                <div className="text-xs text-gray-500 mt-0.5">
                                                     Unit: {formatCLP(item.valor_unitario_iva)}
                                                 </div>
-                                                <div className={`text-xs font-bold mt-0.5 ${isMacaya ? 'text-emerald-700' : 'text-blue-700'}`}>
+                                                )}
+                                                {colsRec.valores_total !== false && (
+                                                <div className={`text-sm font-bold mt-0.5 ${isMacaya ? 'text-emerald-700' : 'text-blue-700'}`}>
                                                     Total: {formatCLP(item.total_iva)}
                                                 </div>
+                                                )}
                                             </td>
                                             )}
 
                                             {/* Mes, Motivo y Actividad PME */}
                                             {colsRec.mes && (
                                             <td className="px-3.5 py-3.5 max-w-[280px]">
+                                                {colsRec.mes_fecha !== false && (
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md capitalize ${
                                                         isMacaya ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-blue-800 border border-blue-200'
@@ -2030,10 +2062,13 @@ export default function SolicitudesPage() {
                                                         {labelFecha(item.fecha_ejecucion, item.tipo_fecha)}
                                                     </span>
                                                 </div>
+                                                )}
+                                                {colsRec.mes_motivo !== false && (
                                                 <div className="text-xs text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
                                                     {item.motivo || '-'}
                                                 </div>
-                                                {item.actividad_nombre && (
+                                                )}
+                                                {colsRec.mes_pme !== false && item.actividad_nombre && (
                                                     <div className="text-[10px] text-gray-400 mt-1 leading-tight" title={item.actividad_nombre}>
                                                         <span className="font-semibold text-gray-600">PME:</span> {item.actividad_nombre}
                                                     </div>

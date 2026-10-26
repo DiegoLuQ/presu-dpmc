@@ -2595,6 +2595,24 @@ def update_detalle(
     for field, value in update_data.items():
         setattr(db_obj, field, value)
 
+    # Si el ítem apunta a un recurso sugerido (pendiente de aprobación) que solo
+    # usa este detalle, renombrarlo junto con el ítem para que 'Recursos Sugeridos'
+    # del contralor muestre el nombre corregido y no el primero que se escribió.
+    nuevo_nombre = (db_obj.nombre_producto or "").strip()
+    if "nombre_producto" in update_data and db_obj.id_recurso and nuevo_nombre:
+        recurso = db.query(Recurso).filter(Recurso.id_recurso == db_obj.id_recurso).first()
+        if recurso and recurso.estado == "PENDIENTE_APROBACION" and recurso.nombre != nuevo_nombre:
+            otros = db.query(PresupuestoDetalle).filter(
+                PresupuestoDetalle.id_recurso == recurso.id_recurso,
+                PresupuestoDetalle.id_pre_detalle != db_obj.id_pre_detalle,
+            ).count()
+            duplicado = db.query(Recurso).filter(
+                func.lower(Recurso.nombre) == nuevo_nombre.lower(),
+                Recurso.id_recurso != recurso.id_recurso,
+            ).first()
+            if otros == 0 and not duplicado:
+                recurso.nombre = nuevo_nombre
+
     # Si cambió el insumo o el destino, el código se vuelve a tomar del catálogo.
     # Otras ediciones (p.ej. compras) no tocan el código ya asignado.
     if {"id_recurso", "nombre_producto", "destino_gasto"} & update_data.keys():
@@ -4152,8 +4170,12 @@ def update_recurso(
     if not recurso:
         raise HTTPException(status_code=404, detail="Recurso no encontrado")
     
+    detalles_renombrados = 0
     if "nombre" in obj and obj["nombre"]:
-        recurso.nombre = obj["nombre"]
+        nombre_nuevo = _validar_nombre_recurso(db, id_recurso, obj["nombre"])
+        if nombre_nuevo != (recurso.nombre or "").strip():
+            detalles_renombrados = _propagar_nombre_recurso(db, id_recurso, recurso.nombre, nombre_nuevo)
+            recurso.nombre = nombre_nuevo
     if "descripcion" in obj:
         recurso.descripcion = obj["descripcion"]
     if "formato" in obj:
@@ -4186,7 +4208,8 @@ def update_recurso(
         "grupo_nombre": recurso.grupo.nombre if recurso.grupo else None,
         "id_cat_recurso": recurso.id_cat_recurso,
         "categoria_nombre": recurso.categoria.nombre if recurso.categoria else None,
-        "categoria_descripcion": recurso.categoria.descripcion if recurso.categoria else None
+        "categoria_descripcion": recurso.categoria.descripcion if recurso.categoria else None,
+        "detalles_renombrados": detalles_renombrados
     }
 
 
@@ -4213,6 +4236,57 @@ def delete_all_recursos(
     return {"message": f"{total} recursos eliminados", "eliminados": total}
 
 
+def _presupuestos_que_usan_recurso(db: Session, id_recurso: int) -> List[str]:
+    """Códigos de las solicitudes activas que tienen al menos un detalle con este recurso."""
+    filas = db.query(SolicitudPresupuesto.id_presupuesto, SolicitudPresupuesto.codigo).join(
+        PresupuestoDetalle, PresupuestoDetalle.id_presupuesto == SolicitudPresupuesto.id_presupuesto
+    ).filter(
+        PresupuestoDetalle.id_recurso == id_recurso,
+        SolicitudPresupuesto.activo.is_(True)
+    ).distinct().all()
+    return [codigo or f"#{id_p}" for id_p, codigo in filas]
+
+
+def _validar_nombre_recurso(db: Session, id_recurso: int, nombre: str) -> str:
+    nombre = (nombre or "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre del recurso no puede quedar vacío.")
+    if len(nombre) > 255:
+        raise HTTPException(status_code=400, detail="El nombre del recurso no puede superar los 255 caracteres.")
+    duplicado = db.query(Recurso).filter(
+        func.lower(func.trim(Recurso.nombre)) == nombre.lower(),
+        Recurso.id_recurso != id_recurso
+    ).first()
+    if duplicado:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe otro recurso con el nombre \"{duplicado.nombre}\" (ID {duplicado.id_recurso})."
+        )
+    return nombre
+
+
+def _propagar_nombre_recurso(db: Session, id_recurso: int, nombre_anterior: str, nombre_nuevo: str) -> int:
+    """Lleva el nombre nuevo del recurso al `nombre_producto` de los detalles que lo usan.
+
+    Solo toca detalles que aún tienen el nombre anterior (no pisa un nombre que el
+    solicitante personalizó) y que no pertenecen a una solicitud aprobada ni están
+    aprobados, para no alterar presupuestos cerrados. Devuelve cuántos actualizó."""
+    anterior = (nombre_anterior or "").strip()
+    if not anterior or anterior.lower() == (nombre_nuevo or "").strip().lower():
+        return 0
+    detalles = db.query(PresupuestoDetalle).join(
+        SolicitudPresupuesto, SolicitudPresupuesto.id_presupuesto == PresupuestoDetalle.id_presupuesto
+    ).filter(
+        PresupuestoDetalle.id_recurso == id_recurso,
+        func.lower(func.trim(PresupuestoDetalle.nombre_producto)) == anterior.lower(),
+        or_(SolicitudPresupuesto.estado.is_(None), SolicitudPresupuesto.estado.notin_(["Aprobado", "Aceptado"])),
+        or_(PresupuestoDetalle.estado_aprobacion.is_(None), PresupuestoDetalle.estado_aprobacion != "Aprobado")
+    ).all()
+    for d in detalles:
+        d.nombre_producto = nombre_nuevo
+    return len(detalles)
+
+
 @router.delete("/recursos/{id_recurso}/sugerido")
 def delete_recurso_sugerido(
     id_recurso: int,
@@ -4232,6 +4306,13 @@ def delete_recurso_sugerido(
         raise HTTPException(
             status_code=400,
             detail="Solo se pueden descartar aquí recursos sugeridos (pendientes de aprobación)."
+        )
+
+    codigos = _presupuestos_que_usan_recurso(db, id_recurso)
+    if codigos:
+        raise HTTPException(
+            status_code=409,
+            detail=f"No se puede eliminar: está asociado a {len(codigos)} presupuesto(s) ({', '.join(codigos)})."
         )
 
     recurso.estado = "DESCARTADO"
@@ -4741,14 +4822,24 @@ def list_recursos_pendientes(
     # Destino, subvención, motivo y actividad PME que eligió el solicitante (en el detalle de presupuesto asociado).
     ids = [r.id_recurso for r in recursos]
     info_por_recurso = {}
+    # Presupuestos (solicitudes activas) que usan cada recurso: alimenta el badge
+    # "ppto: N" y bloquea el descarte de los que están en uso.
+    presupuestos_por_recurso: dict = {}
     if ids:
         detalles = db.query(PresupuestoDetalle).options(
             sl(PresupuestoDetalle.subvencion),
-            sl(PresupuestoDetalle.actividad)
+            sl(PresupuestoDetalle.actividad),
+            sl(PresupuestoDetalle.solicitud)
         ).filter(
             PresupuestoDetalle.id_recurso.in_(ids)
         ).order_by(PresupuestoDetalle.id_pre_detalle.asc()).all()
         for d in detalles:
+            if d.solicitud and d.solicitud.activo:
+                codigos = presupuestos_por_recurso.setdefault(d.id_recurso, {})
+                codigos[d.id_presupuesto] = d.solicitud.codigo or f"#{d.id_presupuesto}"
+            # Se toma el primer detalle (orden ascendente), no el último.
+            if d.id_recurso in info_por_recurso:
+                continue
             info_por_recurso[d.id_recurso] = {
                 "id_pre_detalle": d.id_pre_detalle,
                 "destino_gasto": d.destino_gasto,
@@ -4787,6 +4878,8 @@ def list_recursos_pendientes(
         "actividad_descripcion": info_por_recurso.get(r.id_recurso, {}).get("actividad_descripcion"),
         "actividad_recursos": info_por_recurso.get(r.id_recurso, {}).get("actividad_recursos"),
         "nombre_accion": info_por_recurso.get(r.id_recurso, {}).get("nombre_accion"),
+        "ppto_count": len(presupuestos_por_recurso.get(r.id_recurso, {})),
+        "presupuestos": list(presupuestos_por_recurso.get(r.id_recurso, {}).values()),
     } for r in recursos]
 
 
@@ -4931,6 +5024,8 @@ def aprobar_clasificar_recursos_lote(
     total_aprobados = 0
     total_detalles = 0
     total_mapeos = 0
+    total_renombrados = 0
+    nombres_rechazados = []
 
     destino_map = _DESTINO_USO_A_GASTO
 
@@ -4939,8 +5034,15 @@ def aprobar_clasificar_recursos_lote(
         if not recurso:
             continue
 
-        if item.nombre:
-            recurso.nombre = item.nombre
+        if item.nombre and item.nombre.strip() != (recurso.nombre or "").strip():
+            # Un nombre inválido (vacío, muy largo o duplicado) no frena el lote:
+            # el recurso se aprueba con su nombre actual y se informa.
+            try:
+                nombre_nuevo = _validar_nombre_recurso(db, recurso.id_recurso, item.nombre)
+                total_renombrados += _propagar_nombre_recurso(db, recurso.id_recurso, recurso.nombre, nombre_nuevo)
+                recurso.nombre = nombre_nuevo
+            except HTTPException as e:
+                nombres_rechazados.append({"id_recurso": recurso.id_recurso, "motivo": e.detail})
         if item.descripcion:
             recurso.descripcion = item.descripcion
         if item.formato:
@@ -5010,7 +5112,13 @@ def aprobar_clasificar_recursos_lote(
                 total_detalles += 1
 
     db.commit()
-    return {"aprobados": total_aprobados, "detalles_actualizados": total_detalles, "mapeos_creados": total_mapeos}
+    return {
+        "aprobados": total_aprobados,
+        "detalles_actualizados": total_detalles,
+        "mapeos_creados": total_mapeos,
+        "detalles_renombrados": total_renombrados,
+        "nombres_rechazados": nombres_rechazados,
+    }
 
 
 @router.get("/recursos/todos-mapeos")

@@ -185,6 +185,11 @@ export default function ContabilidadPage() {
         } catch (error: any) {
             const message = error.response?.data?.detail || 'Error al eliminar el recurso sugerido';
             alert(message);
+            // 409: la lista estaba desactualizada y el recurso ya está en uso.
+            if (error.response?.status === 409) {
+                setDeletingPendingResource(null);
+                fetchPendingResources();
+            }
         } finally {
             setIsDeletingPending(false);
         }
@@ -1030,16 +1035,31 @@ export default function ContabilidadPage() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        pendingResources.map((r) => (
-                                            <tr key={r.id_recurso} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                        pendingResources.map((r) => {
+                                            const pptoCount: number = r.ppto_count ?? 0;
+                                            const sinPpto = pptoCount === 0;
+                                            return (
+                                            <tr key={r.id_recurso} className={`hover:bg-gray-50/50 transition-colors ${sinPpto ? 'bg-red-50/30' : ''}`}>
+                                                <td className={`px-6 py-4 whitespace-nowrap border-l-4 ${sinPpto ? 'border-red-500' : 'border-transparent'}`}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-xs">
                                                             {r.tipo === 'SERVICIO' ? 'SRV' : 'BIEN'}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-sm font-bold text-gray-900">{r.nombre}</span>
-                                                            <span className="text-[10px] text-gray-400 font-mono">ID SUG: {r.id_recurso}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-gray-400 font-mono">ID SUG: {r.id_recurso}</span>
+                                                                <span
+                                                                    title={sinPpto
+                                                                        ? 'No está asociado a ningún presupuesto activo'
+                                                                        : `Asociado a: ${(r.presupuestos || []).join(', ')}`}
+                                                                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${sinPpto
+                                                                        ? 'bg-red-50 text-red-600 border-red-200'
+                                                                        : 'bg-blue-50 text-blue-700 border-blue-100'}`}
+                                                                >
+                                                                    ppto: {pptoCount}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -1122,8 +1142,11 @@ export default function ContabilidadPage() {
                                                     </button>
                                                     <button
                                                         onClick={() => setDeletingPendingResource(r)}
-                                                        title="Eliminar recurso sugerido"
-                                                        className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-1.5 transition-all duration-200"
+                                                        disabled={!sinPpto}
+                                                        title={sinPpto
+                                                            ? 'Eliminar recurso sugerido'
+                                                            : `Asociado a ${pptoCount} presupuesto(s): no se puede eliminar`}
+                                                        className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-1.5 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-50"
                                                     >
                                                         <Trash2 size={14} />
                                                         Eliminar
@@ -1131,7 +1154,8 @@ export default function ContabilidadPage() {
                                                   </div>
                                                 </td>
                                             </tr>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>
@@ -1144,7 +1168,7 @@ export default function ContabilidadPage() {
             <Modal isOpen={!!deletingPendingResource} onClose={() => setDeletingPendingResource(null)} title="Descartar Recurso Sugerido" maxWidth="max-w-sm">
                 <div className="py-4">
                     <p className="text-gray-600 mb-2">¿Descartar el recurso sugerido <strong className="text-gray-900">{deletingPendingResource?.nombre}</strong> de esta bandeja?</p>
-                    <p className="text-xs text-gray-500 mb-6">Solo se quitará de "Recursos Sugeridos". El registro seguirá en el presupuesto donde fue solicitado.</p>
+                    <p className="text-xs text-gray-500 mb-6">No está asociado a ningún presupuesto activo, así que se quitará de "Recursos Sugeridos" sin afectar ninguna solicitud.</p>
                     <div className="flex justify-end gap-3">
                         <button onClick={() => setDeletingPendingResource(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
                         <button onClick={handleDeletePendingResource} disabled={isDeletingPending} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
@@ -1786,8 +1810,17 @@ export default function ContabilidadPage() {
                                         type="text"
                                         value={reviewForm.nombre}
                                         onChange={e => setReviewForm(p => ({ ...p, nombre: e.target.value }))}
+                                        maxLength={255}
                                         className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                     />
+                                    {selectedPendingResource
+                                        && reviewForm.nombre.trim()
+                                        && reviewForm.nombre.trim() !== (selectedPendingResource.nombre || '').trim()
+                                        && (selectedPendingResource.ppto_count ?? 0) > 0 && (
+                                        <p className="text-[10px] text-blue-600 font-medium">
+                                            Se actualizará también el nombre en {selectedPendingResource.ppto_count} solicitud(es) en curso (las aprobadas o con nombre personalizado no se tocan).
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1">
@@ -2286,7 +2319,7 @@ export default function ContabilidadPage() {
                                     setIsSaving(true);
                                     try {
                                         // 1. Actualizar datos del recurso y del detalle de presupuesto (motivo, actividad PME)
-                                        await api.put(`/presupuesto/recursos/${selectedPendingResource.id_recurso}`, {
+                                        const resRecurso = await api.put(`/presupuesto/recursos/${selectedPendingResource.id_recurso}`, {
                                             nombre: reviewForm.nombre,
                                             descripcion: reviewForm.descripcion,
                                             formato: reviewForm.formato,
@@ -2320,7 +2353,11 @@ export default function ContabilidadPage() {
                                         setIsReviewModalOpen(false);
                                         setSelectedPendingResource(null);
                                         fetchPendingResources();
-                                        alert(`Recurso aprobado y registrado en el catálogo. Se actualizaron ${res.data.detalles_actualizados ?? 0} detalles de presupuesto asociados.`);
+                                        const renombrados = resRecurso.data?.detalles_renombrados ?? 0;
+                                        alert(
+                                            `Recurso aprobado y registrado en el catálogo. Se actualizaron ${res.data.detalles_actualizados ?? 0} detalles de presupuesto asociados.` +
+                                            (renombrados > 0 ? `\nEl nombre nuevo se aplicó en ${renombrados} detalle(s) de solicitudes en curso.` : '')
+                                        );
                                     } catch (err: any) {
                                         alert(err.response?.data?.detail || 'Error al aprobar el recurso');
                                     } finally {
@@ -2761,7 +2798,14 @@ export default function ContabilidadPage() {
                                             alert(`¡Aprobación Masiva Completada!\n\n` +
                                                 `✅ Recursos Aprobados: ${res.data?.aprobados || 0}\n` +
                                                 `📋 Mapeos Contables Creados: ${res.data?.mapeos_creados || 0}\n` +
-                                                `🔄 Detalles Actualizados: ${res.data?.detalles_actualizados || 0}`);
+                                                `🔄 Detalles Actualizados: ${res.data?.detalles_actualizados || 0}` +
+                                                ((res.data?.detalles_renombrados || 0) > 0
+                                                    ? `\n✏️ Nombres aplicados en solicitudes: ${res.data.detalles_renombrados}`
+                                                    : '') +
+                                                ((res.data?.nombres_rechazados || []).length > 0
+                                                    ? `\n\n⚠️ Se aprobaron con su nombre original:\n` +
+                                                      res.data.nombres_rechazados.map((n: any) => `• ID ${n.id_recurso}: ${n.motivo}`).join('\n')
+                                                    : ''));
                                         } catch (err: any) {
                                             alert(err.response?.data?.detail || 'Error al aprobar recursos en lote');
                                         } finally {

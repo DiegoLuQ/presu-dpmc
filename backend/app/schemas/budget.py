@@ -97,6 +97,8 @@ class ResourceResponse(ResourceBase):
     categoria_nombre: Optional[str] = None
     categoria_descripcion: Optional[str] = None
     codigos_contables: Optional[List[str]] = None
+    # Solo en la edición: cuántos detalles de presupuesto recibieron el nombre nuevo.
+    detalles_renombrados: Optional[int] = None
 
     class Config:
         from_attributes = True
