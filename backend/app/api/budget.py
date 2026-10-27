@@ -774,7 +774,9 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
             "id_cargo": detalle.id_cargo,
             "id_subarea": detalle.id_cargo,
             "cargo_nombre": cargo_nombre,
-            "subarea_nombre": cargo_nombre
+            "subarea_nombre": cargo_nombre,
+            "revisado_contralor": bool(detalle.revisado_contralor),
+            "fecha_revision_contralor": detalle.fecha_revision_contralor,
         }
 
     def _build_solicitud(solicitud: SolicitudPresupuesto) -> dict:
@@ -4185,15 +4187,22 @@ def update_recurso(
     if "id_cat_recurso" in obj:
         recurso.id_cat_recurso = obj["id_cat_recurso"]
     
+    # "NO APLICA" a actividad PME: queda en el catálogo y se quita la actividad de los detalles
+    pme_no_aplica = bool(obj.get("pme_no_aplica")) if "pme_no_aplica" in obj else None
+    if pme_no_aplica is not None:
+        recurso.pme_no_aplica = pme_no_aplica
+
     # Actualizar campos de detalle si vienen presentes
     motivo = obj.get("motivo")
-    id_actividad = obj.get("id_actividad")
-    if motivo is not None or id_actividad is not None:
+    id_actividad = None if pme_no_aplica else obj.get("id_actividad")
+    if motivo is not None or id_actividad is not None or pme_no_aplica:
         detalles = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_recurso == id_recurso).all()
         for d in detalles:
             if motivo is not None:
                 d.motivo = motivo
-            if id_actividad is not None:
+            if pme_no_aplica:
+                d.id_actividad = None
+            elif id_actividad is not None:
                 d.id_actividad = id_actividad
     
     db.commit()
@@ -4209,6 +4218,7 @@ def update_recurso(
         "id_cat_recurso": recurso.id_cat_recurso,
         "categoria_nombre": recurso.categoria.nombre if recurso.categoria else None,
         "categoria_descripcion": recurso.categoria.descripcion if recurso.categoria else None,
+        "pme_no_aplica": bool(recurso.pme_no_aplica),
         "detalles_renombrados": detalles_renombrados
     }
 
@@ -4823,8 +4833,11 @@ def list_recursos_pendientes(
     ids = [r.id_recurso for r in recursos]
     info_por_recurso = {}
     # Presupuestos (solicitudes activas) que usan cada recurso: alimenta el badge
-    # "ppto: N" y bloquea el descarte de los que están en uso.
+    # "ppto: N" y bloquea el descarte de los que están en uso. Se cuenta por id; las
+    # solicitudes cuyo ítem tiene otro nombre se informan aparte para avisar el desfase.
     presupuestos_por_recurso: dict = {}
+    nombre_distinto_por_recurso: dict = {}
+    nombres = {r.id_recurso: (r.nombre or "").strip().lower() for r in recursos}
     if ids:
         detalles = db.query(PresupuestoDetalle).options(
             sl(PresupuestoDetalle.subvencion),
@@ -4835,8 +4848,12 @@ def list_recursos_pendientes(
         ).order_by(PresupuestoDetalle.id_pre_detalle.asc()).all()
         for d in detalles:
             if d.solicitud and d.solicitud.activo:
-                codigos = presupuestos_por_recurso.setdefault(d.id_recurso, {})
-                codigos[d.id_presupuesto] = d.solicitud.codigo or f"#{d.id_presupuesto}"
+                codigo = d.solicitud.codigo or f"#{d.id_presupuesto}"
+                presupuestos_por_recurso.setdefault(d.id_recurso, {})[d.id_presupuesto] = codigo
+                if (d.nombre_producto or "").strip().lower() != nombres.get(d.id_recurso):
+                    nombre_distinto_por_recurso.setdefault(d.id_recurso, []).append(
+                        f"{codigo}: \"{(d.nombre_producto or '').strip()}\""
+                    )
             # Se toma el primer detalle (orden ascendente), no el último.
             if d.id_recurso in info_por_recurso:
                 continue
@@ -4878,8 +4895,10 @@ def list_recursos_pendientes(
         "actividad_descripcion": info_por_recurso.get(r.id_recurso, {}).get("actividad_descripcion"),
         "actividad_recursos": info_por_recurso.get(r.id_recurso, {}).get("actividad_recursos"),
         "nombre_accion": info_por_recurso.get(r.id_recurso, {}).get("nombre_accion"),
+        "pme_no_aplica": bool(r.pme_no_aplica),
         "ppto_count": len(presupuestos_por_recurso.get(r.id_recurso, {})),
         "presupuestos": list(presupuestos_por_recurso.get(r.id_recurso, {}).values()),
+        "nombre_distinto": nombre_distinto_por_recurso.get(r.id_recurso, []),
     } for r in recursos]
 
 

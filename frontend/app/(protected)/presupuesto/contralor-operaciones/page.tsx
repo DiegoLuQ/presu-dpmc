@@ -86,6 +86,7 @@ export default function ContabilidadPage() {
         descripcion: '',
         motivo: '',
         id_actividad: null as number | null,
+        pme_no_aplica: false,
         tipo: 'BIEN',
         formato: 'unidad',
         id_cat_recurso: null as number | null,
@@ -1007,7 +1008,7 @@ export default function ContabilidadPage() {
                             <table className="min-w-full divide-y divide-gray-100">
                                 <thead className="bg-gray-50/50">
                                     <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Recurso</th>
+                                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Recurso</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Justificación de Uso</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Solicitado Por</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoría Sugerida</th>
@@ -1040,15 +1041,15 @@ export default function ContabilidadPage() {
                                             const sinPpto = pptoCount === 0;
                                             return (
                                             <tr key={r.id_recurso} className={`hover:bg-gray-50/50 transition-colors ${sinPpto ? 'bg-red-50/30' : ''}`}>
-                                                <td className={`px-6 py-4 whitespace-nowrap border-l-4 ${sinPpto ? 'border-red-500' : 'border-transparent'}`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-xs">
+                                                <td className={`px-4 py-3 border-l-4 ${sinPpto ? 'border-red-500' : 'border-transparent'}`}>
+                                                    <div className="flex items-start gap-2 max-w-[260px]">
+                                                        <div className="shrink-0 mt-0.5 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 font-bold text-[9px]">
                                                             {r.tipo === 'SERVICIO' ? 'SRV' : 'BIEN'}
                                                         </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-bold text-gray-900">{r.nombre}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] text-gray-400 font-mono">ID SUG: {r.id_recurso}</span>
+                                                        <div className="flex flex-col min-w-0 gap-0.5">
+                                                            <span className="text-xs font-bold text-gray-900 leading-snug break-words line-clamp-2" title={r.nombre}>{r.nombre}</span>
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <span className="text-[10px] text-gray-400 font-mono">#{r.id_recurso}</span>
                                                                 <span
                                                                     title={sinPpto
                                                                         ? 'No está asociado a ningún presupuesto activo'
@@ -1059,6 +1060,17 @@ export default function ContabilidadPage() {
                                                                 >
                                                                     ppto: {pptoCount}
                                                                 </span>
+                                                                {(r.nombre_distinto || []).length > 0 && (
+                                                                    <span
+                                                                        title={`El ítem de la solicitud tiene otro nombre que el recurso:\n${(r.nombre_distinto as string[]).join('\n')}`}
+                                                                        className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 cursor-help"
+                                                                    >
+                                                                        ⚠ nombre distinto
+                                                                    </span>
+                                                                )}
+                                                                {r.pme_no_aplica && (
+                                                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-gray-100 text-gray-600 border-gray-200">PME: N/A</span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1108,7 +1120,8 @@ export default function ContabilidadPage() {
                                                                 nombre: r.nombre || '',
                                                                 descripcion: r.descripcion || '',
                                                                 motivo: r.motivo || r.descripcion_solicitud || '',
-                                                                id_actividad: r.id_actividad ?? null,
+                                                                id_actividad: r.pme_no_aplica ? null : (r.id_actividad ?? null),
+                                                                pme_no_aplica: !!r.pme_no_aplica,
                                                                 tipo: r.tipo || 'BIEN',
                                                                 formato: r.formato || 'unidad',
                                                                 id_cat_recurso: r.id_cat_recurso ?? null,
@@ -1667,6 +1680,20 @@ export default function ContabilidadPage() {
                                         <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">
                                             Actividad PME Vinculada *
                                         </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setReviewForm(p => ({ ...p, pme_no_aplica: !p.pme_no_aplica, id_actividad: null }));
+                                                setPmeSearchTerm('');
+                                                setPmeSearchOpen(false);
+                                            }}
+                                            title="El recurso no se vincula a ninguna actividad PME (queda guardado en el catálogo)"
+                                            className={`ml-auto mr-2 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${reviewForm.pme_no_aplica
+                                                ? 'bg-gray-700 text-white border-gray-700'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
+                                        >
+                                            NO APLICA
+                                        </button>
                                         {reviewForm.id_actividad && (() => {
                                             const actActual = pmeActividades.find(a => a.id === reviewForm.id_actividad) || {
                                                 id: reviewForm.id_actividad,
@@ -1689,6 +1716,11 @@ export default function ContabilidadPage() {
                                         })()}
                                     </div>
 
+                                    {reviewForm.pme_no_aplica ? (
+                                        <div className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600">
+                                            NO APLICA <span className="font-medium text-gray-500">— el recurso no se vincula a una actividad PME.</span>
+                                        </div>
+                                    ) : (
                                     <div className="relative">
                                         <div className="relative">
                                             <input
@@ -1779,6 +1811,7 @@ export default function ContabilidadPage() {
                                             </>
                                         )}
                                     </div>
+                                    )}
                                     {reviewForm.id_actividad && (
                                         <p className="text-[11px] text-amber-800 font-semibold flex items-center gap-1 mt-1">
                                             <Check size={13} className="text-green-600" />
@@ -2326,7 +2359,8 @@ export default function ContabilidadPage() {
                                             id_cat_recurso: reviewForm.id_cat_recurso,
                                             id_grupo_recurso: reviewForm.id_grupo_recurso,
                                             motivo: reviewForm.motivo,
-                                            id_actividad: reviewForm.id_actividad
+                                            id_actividad: reviewForm.pme_no_aplica ? null : reviewForm.id_actividad,
+                                            pme_no_aplica: reviewForm.pme_no_aplica
                                         });
                                         // 2. Aprobar y clasificar: una fila por código, cada uno con su
                                         // destino y subvención.

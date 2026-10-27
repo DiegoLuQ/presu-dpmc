@@ -238,6 +238,8 @@ class Recurso(Base):
     estado = Column(String(50), default="ACTIVO")  # "ACTIVO", "PENDIENTE_APROBACION"
     id_solicitante = Column(Integer, ForeignKey("auth_usuario.id_user"), nullable=True)
     descripcion_solicitud = Column(Text, nullable=True)
+    # El contralor indicó que el recurso no se vincula a ninguna actividad PME
+    pme_no_aplica = Column(Boolean, nullable=False, default=False, server_default="0")
 
     solicitante = relationship("User")
     grupo = relationship("GrupoRecurso", back_populates="recursos")
