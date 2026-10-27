@@ -391,6 +391,8 @@ export default function RevisionPresupuestoDetallePage() {
                             <tbody className="divide-y divide-gray-100">
                                 {solicitudesFiltradas.map(s => {
                                     const sinCodigo = (s.detalles || []).filter(d => !d.codigo_cuenta).length;
+                                    const totalRec = (s.detalles || []).length;
+                                    const revisadosRec = (s.detalles || []).filter(d => d.revisado_contralor).length;
                                     return (
                                         <tr key={s.id_presupuesto} className="hover:bg-gray-50/60">
                                             <td className="px-4 py-3 font-bold text-gray-900 whitespace-nowrap">{codigoSol(s)}</td>
@@ -401,7 +403,11 @@ export default function RevisionPresupuestoDetallePage() {
                                             </td>
                                             <td className="px-4 py-3 text-gray-600">{s.user_nombre || '—'}</td>
                                             <td className="px-4 py-3 text-right whitespace-nowrap">
-                                                <b>{(s.detalles || []).length}</b>
+                                                <span title={`${revisadosRec} revisado(s) de ${totalRec}${totalRec > revisadosRec ? ` · faltan ${totalRec - revisadosRec}` : ''}`}>
+                                                    <b className={totalRec > 0 && revisadosRec === totalRec ? 'text-emerald-700' : 'text-gray-900'}>{revisadosRec}</b>
+                                                    <span className="text-gray-400"> / {totalRec}</span>
+                                                </span>
+                                                {totalRec > revisadosRec && <div className="text-[10px] text-gray-500 font-semibold">faltan {totalRec - revisadosRec}</div>}
                                                 {sinCodigo > 0 && <div className="text-[10px] text-amber-600 font-semibold">{sinCodigo} sin código</div>}
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold whitespace-nowrap">{formatCLP(s.monto_total)}</td>

@@ -33,6 +33,11 @@ def apply_migrations():
             print("Agregando columna 'descripcion_solicitud' a 'pre_recurso'...")
             conn.execute(text("ALTER TABLE pre_recurso ADD COLUMN descripcion_solicitud TEXT NULL;"))
 
+        res = conn.execute(text("SHOW COLUMNS FROM pre_recurso LIKE 'nombre_original';")).fetchone()
+        if not res:
+            print("Agregando columna 'nombre_original' a 'pre_recurso'...")
+            conn.execute(text("ALTER TABLE pre_recurso ADD COLUMN nombre_original VARCHAR(255) NULL;"))
+
         # El contralor marca el recurso como "NO APLICA" a actividad PME
         res = conn.execute(text("SHOW COLUMNS FROM pre_recurso LIKE 'pme_no_aplica';")).fetchone()
         if not res:

@@ -1048,6 +1048,11 @@ export default function ContabilidadPage() {
                                                         </div>
                                                         <div className="flex flex-col min-w-0 gap-0.5">
                                                             <span className="text-xs font-bold text-gray-900 leading-snug break-words line-clamp-2" title={r.nombre}>{r.nombre}</span>
+                                                            {r.nombre_original && r.nombre_original.trim().toLowerCase() !== (r.nombre || '').trim().toLowerCase() && (
+                                                                <span className="text-[10px] text-gray-400 leading-snug break-words line-clamp-1" title={`Nombre original: ${r.nombre_original}`}>
+                                                                    antes: <span className="line-through">{r.nombre_original}</span>
+                                                                </span>
+                                                            )}
                                                             <div className="flex items-center gap-1.5 flex-wrap">
                                                                 <span className="text-[10px] text-gray-400 font-mono">#{r.id_recurso}</span>
                                                                 <span

@@ -2597,22 +2597,21 @@ def update_detalle(
     for field, value in update_data.items():
         setattr(db_obj, field, value)
 
-    # Si el ítem apunta a un recurso sugerido (pendiente de aprobación) que solo
-    # usa este detalle, renombrarlo junto con el ítem para que 'Recursos Sugeridos'
-    # del contralor muestre el nombre corregido y no el primero que se escribió.
+    # Si el ítem apunta a un recurso sugerido (pendiente de aprobación), renombrarlo
+    # junto con el ítem: 'Recursos Sugeridos' del contralor muestra siempre el último
+    # nombre escrito y conserva el primero en `nombre_original`. Si otro ítem usa el
+    # mismo recurso con el nombre anterior, el contralor lo ve como "nombre distinto".
     nuevo_nombre = (db_obj.nombre_producto or "").strip()
     if "nombre_producto" in update_data and db_obj.id_recurso and nuevo_nombre:
         recurso = db.query(Recurso).filter(Recurso.id_recurso == db_obj.id_recurso).first()
         if recurso and recurso.estado == "PENDIENTE_APROBACION" and recurso.nombre != nuevo_nombre:
-            otros = db.query(PresupuestoDetalle).filter(
-                PresupuestoDetalle.id_recurso == recurso.id_recurso,
-                PresupuestoDetalle.id_pre_detalle != db_obj.id_pre_detalle,
-            ).count()
             duplicado = db.query(Recurso).filter(
                 func.lower(Recurso.nombre) == nuevo_nombre.lower(),
                 Recurso.id_recurso != recurso.id_recurso,
             ).first()
-            if otros == 0 and not duplicado:
+            if not duplicado:
+                if not recurso.nombre_original:
+                    recurso.nombre_original = recurso.nombre
                 recurso.nombre = nuevo_nombre
 
     # Si cambió el insumo o el destino, el código se vuelve a tomar del catálogo.
@@ -4874,6 +4873,7 @@ def list_recursos_pendientes(
         "id_recurso": r.id_recurso,
         "id_pre_detalle": info_por_recurso.get(r.id_recurso, {}).get("id_pre_detalle"),
         "nombre": r.nombre,
+        "nombre_original": r.nombre_original,
         "descripcion": r.descripcion,
         "descripcion_solicitud": r.descripcion_solicitud,
         "tipo": "SERVICIO" if r.nombre and ("servicio" in r.nombre.lower() or "arriendo" in r.nombre.lower()) else "BIEN",
