@@ -4329,6 +4329,45 @@ def delete_recurso_sugerido(
     return {"message": "Recurso sugerido descartado de la bandeja del contralor"}
 
 
+class UsarRecursoExistenteRequest(BaseModel):
+    id_recurso_existente: int
+
+
+@router.post("/recursos/{id_recurso}/usar-existente")
+def usar_recurso_existente(
+    id_recurso: int,
+    payload: UsarRecursoExistenteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "aprobar"))
+):
+    """El recurso sugerido ya existe en el catálogo con otro id: los ítems de las
+    solicitudes pasan a usar el recurso existente (con su nombre y su código contable)
+    y el sugerido se descarta de la bandeja del contralor."""
+    sugerido = db.query(Recurso).filter(Recurso.id_recurso == id_recurso).first()
+    if not sugerido:
+        raise HTTPException(status_code=404, detail="Recurso sugerido no encontrado")
+    if sugerido.estado != "PENDIENTE_APROBACION":
+        raise HTTPException(status_code=400, detail="Solo se aplica a recursos sugeridos (pendientes de aprobación).")
+    existente = db.query(Recurso).filter(Recurso.id_recurso == payload.id_recurso_existente).first()
+    if not existente or existente.id_recurso == sugerido.id_recurso or existente.estado == "DESCARTADO":
+        raise HTTPException(status_code=400, detail="El recurso existente no es válido")
+
+    detalles = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_recurso == id_recurso).all()
+    for d in detalles:
+        d.id_recurso = existente.id_recurso
+        d.nombre_producto = existente.nombre
+        # Los ítems ya aprobados conservan el código con que se aprobaron
+        if d.estado_aprobacion != "Aprobado":
+            aplicar_catalogo(db, d)
+
+    sugerido.estado = "DESCARTADO"
+    db.commit()
+    return {
+        "message": f"Se usará \"{existente.nombre}\" del catálogo",
+        "detalles_actualizados": len(detalles),
+    }
+
+
 @router.delete("/recursos/{id_recurso}")
 def delete_recurso(
     id_recurso: int,
@@ -4835,8 +4874,8 @@ def list_recursos_pendientes(
     # "ppto: N" y bloquea el descarte de los que están en uso. Se cuenta por id; las
     # solicitudes cuyo ítem tiene otro nombre se informan aparte para avisar el desfase.
     presupuestos_por_recurso: dict = {}
-    nombre_distinto_por_recurso: dict = {}
-    nombres = {r.id_recurso: (r.nombre or "").strip().lower() for r in recursos}
+    # Nombres con que las solicitudes activas usan cada recurso: (código, nombre_producto)
+    usos_por_recurso: dict = {}
     if ids:
         detalles = db.query(PresupuestoDetalle).options(
             sl(PresupuestoDetalle.subvencion),
@@ -4849,10 +4888,9 @@ def list_recursos_pendientes(
             if d.solicitud and d.solicitud.activo:
                 codigo = d.solicitud.codigo or f"#{d.id_presupuesto}"
                 presupuestos_por_recurso.setdefault(d.id_recurso, {})[d.id_presupuesto] = codigo
-                if (d.nombre_producto or "").strip().lower() != nombres.get(d.id_recurso):
-                    nombre_distinto_por_recurso.setdefault(d.id_recurso, []).append(
-                        f"{codigo}: \"{(d.nombre_producto or '').strip()}\""
-                    )
+                nombre_det = (d.nombre_producto or "").strip()
+                if nombre_det:
+                    usos_por_recurso.setdefault(d.id_recurso, []).append((codigo, nombre_det))
             # Se toma el primer detalle (orden ascendente), no el último.
             if d.id_recurso in info_por_recurso:
                 continue
@@ -4869,11 +4907,46 @@ def list_recursos_pendientes(
                 "nombre_accion": d.actividad.accion.nombre_accion if (d.actividad and d.actividad.accion) else None
             }
 
+    def _nombres(r: Recurso):
+        """Nombre a mostrar: el que tiene el ítem en la solicitud (si todas lo usan con el
+        mismo nombre, o el del último ítem si difieren y ninguno coincide con el recurso).
+        Así se ve el último nombre aunque pre_recurso haya quedado con el primero."""
+        usos = usos_por_recurso.get(r.id_recurso, [])
+        actual = (r.nombre or "").strip()
+        distintos = {n.lower() for _, n in usos}
+        if len(distintos) == 1:
+            nombre = usos[0][1]
+        elif usos and actual.lower() not in distintos:
+            nombre = usos[-1][1]
+        else:
+            nombre = actual
+        original = r.nombre_original or (actual if actual.lower() != nombre.lower() else None)
+        distinto = [f"{c}: \"{n}\"" for c, n in usos if n.lower() != nombre.lower()]
+        return nombre, original, distinto
+
+    nombres = {r.id_recurso: _nombres(r) for r in recursos}
+
+    # Recurso del catálogo que ya tiene el nombre mostrado (para "usar recurso existente")
+    existentes: dict = {}
+    claves = {n[0].lower() for n in nombres.values() if n[0]}
+    if claves:
+        for e in db.query(Recurso).filter(
+            func.lower(func.trim(Recurso.nombre)).in_(claves),
+            or_(Recurso.estado.is_(None), Recurso.estado != "DESCARTADO"),
+        ).all():
+            existentes.setdefault((e.nombre or "").strip().lower(), []).append(e)
+
+    def _existente(r: Recurso):
+        candidatos = [e for e in existentes.get(nombres[r.id_recurso][0].lower(), []) if e.id_recurso != r.id_recurso]
+        # Se prefiere uno ya aprobado en el catálogo antes que otro sugerido
+        candidatos.sort(key=lambda e: e.estado == "PENDIENTE_APROBACION")
+        return {"id_recurso": candidatos[0].id_recurso, "nombre": candidatos[0].nombre, "estado": candidatos[0].estado} if candidatos else None
+
     return [{
         "id_recurso": r.id_recurso,
         "id_pre_detalle": info_por_recurso.get(r.id_recurso, {}).get("id_pre_detalle"),
-        "nombre": r.nombre,
-        "nombre_original": r.nombre_original,
+        "nombre": nombres[r.id_recurso][0],
+        "nombre_original": nombres[r.id_recurso][1],
         "descripcion": r.descripcion,
         "descripcion_solicitud": r.descripcion_solicitud,
         "tipo": "SERVICIO" if r.nombre and ("servicio" in r.nombre.lower() or "arriendo" in r.nombre.lower()) else "BIEN",
@@ -4898,7 +4971,8 @@ def list_recursos_pendientes(
         "pme_no_aplica": bool(r.pme_no_aplica),
         "ppto_count": len(presupuestos_por_recurso.get(r.id_recurso, {})),
         "presupuestos": list(presupuestos_por_recurso.get(r.id_recurso, {}).values()),
-        "nombre_distinto": nombre_distinto_por_recurso.get(r.id_recurso, []),
+        "nombre_distinto": nombres[r.id_recurso][2],
+        "recurso_existente": _existente(r),
     } for r in recursos]
 
 

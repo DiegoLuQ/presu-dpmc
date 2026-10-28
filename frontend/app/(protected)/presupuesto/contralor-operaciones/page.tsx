@@ -71,6 +71,7 @@ export default function ContabilidadPage() {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [selectedPendingResource, setSelectedPendingResource] = useState<any>(null);
     const [deletingPendingResource, setDeletingPendingResource] = useState<any>(null);
+    const [usandoExistente, setUsandoExistente] = useState(false);
     const [isDeletingPending, setIsDeletingPending] = useState(false);
     const [accountSearchInModal, setAccountSearchInModal] = useState('');
     const [catSearchReview, setCatSearchReview] = useState('');
@@ -1073,6 +1074,14 @@ export default function ContabilidadPage() {
                                                                         ⚠ nombre distinto
                                                                     </span>
                                                                 )}
+                                                                {r.recurso_existente && (
+                                                                    <span
+                                                                        title={`Ya existe "${r.recurso_existente.nombre}" (#${r.recurso_existente.id_recurso}) en el catálogo. En Revisar puedes usar ese recurso.`}
+                                                                        className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-sky-50 text-sky-700 border-sky-200 cursor-help"
+                                                                    >
+                                                                        ya existe #{r.recurso_existente.id_recurso}
+                                                                    </span>
+                                                                )}
                                                                 {r.pme_no_aplica && (
                                                                     <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-gray-100 text-gray-600 border-gray-200">PME: N/A</span>
                                                                 )}
@@ -1645,6 +1654,46 @@ export default function ContabilidadPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* El nombre ya existe en el catálogo: se puede usar ese recurso en vez de crear otro */}
+                        {selectedPendingResource.recurso_existente && (
+                            <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="text-xs text-sky-900">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                        <Info size={14} className="text-sky-600" />
+                                        "{selectedPendingResource.recurso_existente.nombre}" ya existe en el catálogo (#{selectedPendingResource.recurso_existente.id_recurso}
+                                        {selectedPendingResource.recurso_existente.estado === 'PENDIENTE_APROBACION' ? ', también sugerido' : ''})
+                                    </p>
+                                    <p className="text-sky-800/80 mt-0.5">
+                                        Los ítems de {selectedPendingResource.ppto_count || 0} solicitud(es) pasarán a usar ese recurso (con su nombre y código contable) y este sugerido se descartará.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={usandoExistente}
+                                    onClick={async () => {
+                                        const ex = selectedPendingResource.recurso_existente;
+                                        if (!window.confirm(`¿Usar "${ex.nombre}" (#${ex.id_recurso}) del catálogo y descartar este recurso sugerido?`)) return;
+                                        setUsandoExistente(true);
+                                        try {
+                                            const res = await api.post(`/presupuesto/recursos/${selectedPendingResource.id_recurso}/usar-existente`, { id_recurso_existente: ex.id_recurso });
+                                            setIsReviewModalOpen(false);
+                                            setSelectedPendingResource(null);
+                                            fetchPendingResources();
+                                            alert(`${res.data.message}. Se actualizaron ${res.data.detalles_actualizados ?? 0} ítem(s) de solicitudes.`);
+                                        } catch (err: any) {
+                                            alert(err.response?.data?.detail || 'No se pudo usar el recurso existente');
+                                        } finally {
+                                            setUsandoExistente(false);
+                                        }
+                                    }}
+                                    className="shrink-0 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                                >
+                                    {usandoExistente ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                    Usar recurso existente
+                                </button>
+                            </div>
+                        )}
 
                         {/* SECCIÓN APARTE: Vinculación Plan PME y Justificación/Motivo de Compra (EDITABLE) */}
                         <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4.5 space-y-4">
