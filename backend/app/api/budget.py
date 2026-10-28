@@ -21,7 +21,7 @@ from app.schemas.budget import (
     GrupoRecursoCreate, GrupoRecursoResponse,
     MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
-    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest, RevisadoContralorRequest,
+    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest, RevisadoContralorRequest, AjusteCantidadRequest,
     PresupuestoAnualCreate, PresupuestoAnualUpdate, PresupuestoAnualResponse,
     AsignarPresupuestoAnualRequest,
     ImportarSolicitudCreate, ImportarRecursosRequest, ImportarRecursosResponse,
@@ -570,6 +570,7 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
         "formato_unidad": detalle.formato_unidad,
         "cantidad": float(detalle.cantidad) if detalle.cantidad else 0,
         "cantidad_real": float(detalle.cantidad_real) if detalle.cantidad_real is not None else None,
+        "cantidad_original": float(detalle.cantidad_original) if detalle.cantidad_original is not None else None,
         "valor_unitario": float(detalle.valor_unitario) if detalle.valor_unitario else 0,
         "valor_unitario_iva": float(detalle.valor_unitario_iva) if detalle.valor_unitario_iva else 0,
         "valor_real_iva": float(detalle.valor_real_iva) if detalle.valor_real_iva is not None else None,
@@ -750,6 +751,7 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
             "formato_unidad": detalle.formato_unidad,
             "cantidad": float(detalle.cantidad) if detalle.cantidad else 0,
             "cantidad_real": float(detalle.cantidad_real) if detalle.cantidad_real is not None else None,
+        "cantidad_original": float(detalle.cantidad_original) if detalle.cantidad_original is not None else None,
             "valor_unitario": float(detalle.valor_unitario) if detalle.valor_unitario else 0,
             "valor_unitario_iva": float(detalle.valor_unitario_iva) if detalle.valor_unitario_iva else 0,
             "valor_real_iva": float(detalle.valor_real_iva) if detalle.valor_real_iva is not None else None,
@@ -2991,6 +2993,51 @@ def update_detalle_estado(
     db.refresh(db_obj)
 
     return build_detalle_response(db_obj)
+
+
+@router.patch("/detalles/{id_detalle}/ajuste-cantidad", response_model=BudgetDetailResponse)
+def ajustar_cantidad_detalle(
+    id_detalle: int,
+    payload: AjusteCantidadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "aprobar"))
+):
+    """El revisor ajusta la cantidad de un ítem "Con Ajustes". La cantidad y el total
+    quedan con el valor nuevo (los montos de la solicitud y las cards usan ese), y la
+    cantidad pedida se conserva en `cantidad_original` + historial con quién y cuándo."""
+    db_obj = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
+    if db_obj.estado_aprobacion not in ["Con Ajustes", "Aprobado con Ajustes", "Aprobado con ajustes"]:
+        raise HTTPException(status_code=400, detail="Solo se ajusta la cantidad de ítems en estado 'Con Ajustes'.")
+    if payload.cantidad <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0.")
+
+    anterior = float(db_obj.cantidad or 0)
+    if payload.cantidad == anterior:
+        return build_detalle_response(db_obj, db=db)
+    if db_obj.cantidad_original is None:
+        db_obj.cantidad_original = db_obj.cantidad
+    db_obj.cantidad = payload.cantidad
+    db_obj.total_iva = round(payload.cantidad * float(db_obj.valor_unitario_iva or 0))
+
+    ahora = datetime.utcnow()
+    db.add(SolicitudModificacionDetalle(
+        id_pre_detalle=db_obj.id_pre_detalle,
+        campo_modificado="ajuste_cantidad",
+        valor_anterior=f"{anterior:g}",
+        valor_propuesto=f"{payload.cantidad:g}",
+        motivo_cambio=db_obj.comentario_revision or "Ajuste de cantidad del revisor",
+        estado="APROBADO",
+        id_user_solicitante=current_user.id_user,
+        fecha_solicitud=ahora,
+        id_user_aprobador=current_user.id_user,
+        fecha_respuesta=ahora,
+    ))
+    db.commit()
+    db.refresh(db_obj)
+    return build_detalle_response(db_obj, db=db)
 
 
 @router.delete("/detalles/{id_detalle}")
@@ -5652,7 +5699,8 @@ def listar_solicitudes_modificacion(
 ):
     import json
     query = db.query(SolicitudModificacionDetalle).filter(
-        ~SolicitudModificacionDetalle.campo_modificado.like("contralor_%")
+        ~SolicitudModificacionDetalle.campo_modificado.like("contralor_%"),
+        SolicitudModificacionDetalle.campo_modificado != "ajuste_cantidad",
     )
     if estado:
         query = query.filter(SolicitudModificacionDetalle.estado == estado)

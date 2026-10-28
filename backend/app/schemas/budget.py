@@ -238,6 +238,7 @@ class BudgetDetailResponse(BaseModel):
     id_subarea: Optional[int] = None
     cargo_nombre: Optional[str] = None
     subarea_nombre: Optional[str] = None
+    cantidad_original: Optional[float] = None
     revisado_contralor: bool = False
     fecha_revision_contralor: Optional[datetime] = None
 
@@ -458,6 +459,10 @@ class EditarDetalleContralorRequest(BaseModel):
 
 class RevisadoContralorRequest(BaseModel):
     revisado: bool
+
+
+class AjusteCantidadRequest(BaseModel):
+    cantidad: float
 
 
 class ActividadCodigoContableUpsert(BaseModel):

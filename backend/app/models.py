@@ -443,6 +443,8 @@ class PresupuestoDetalle(Base):
     formato_unidad = Column(Text, nullable=False)
     cantidad = Column(Numeric(15, 2), nullable=False)
     cantidad_real = Column(Numeric(15, 2), nullable=True)
+    # Cantidad que pidió el solicitante, guardada al primer ajuste del revisor ("Con Ajustes")
+    cantidad_original = Column(Numeric(15, 2), nullable=True)
     valor_unitario = Column(Numeric(15, 2), nullable=False)
     valor_unitario_iva = Column(Numeric(15, 2), nullable=False)
     valor_real_iva = Column(Numeric(15, 2), nullable=True)

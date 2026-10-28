@@ -60,6 +60,12 @@ def apply_migrations():
             except Exception as e:
                 print(f"Advertencia al agregar FK fk_detalle_grupo: {e}")
             
+        # Cantidad pedida antes del ajuste del revisor ("Con Ajustes")
+        res = conn.execute(text("SHOW COLUMNS FROM pre_detalle LIKE 'cantidad_original';")).fetchone()
+        if not res:
+            print("Agregando columna 'cantidad_original' a 'pre_detalle'...")
+            conn.execute(text("ALTER TABLE pre_detalle ADD COLUMN cantidad_original DECIMAL(15,2) NULL;"))
+
         # Revisión fila a fila del contralor
         res = conn.execute(text("SHOW COLUMNS FROM pre_detalle LIKE 'revisado_contralor';")).fetchone()
         if not res:

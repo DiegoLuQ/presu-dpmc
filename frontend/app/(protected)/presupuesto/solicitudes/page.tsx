@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -238,6 +238,7 @@ interface FlatItem {
     categoria_nombre?: string;
     formato_unidad: string;
     cantidad: number;
+    cantidad_original?: number | null;
     valor_unitario_iva: number;
     total_iva: number;
     fecha_ejecucion: string;
@@ -495,21 +496,12 @@ export default function SolicitudesPage() {
         if (isNaN(nuevaCantidad) || nuevaCantidad <= 0) return;
         try {
             setUpdatingCantidadId(detalle.id_pre_detalle);
-            const valorUnitarioIva = Number(detalle.valor_unitario_iva) || 0;
-            const nuevoTotalIva = nuevaCantidad * valorUnitarioIva;
-            const valorUnitario = Number(detalle.valor_unitario) || 0;
-            
-            await api.put(`/presupuesto/detalles/${detalle.id_pre_detalle}`, {
-                cantidad: nuevaCantidad,
-                total_iva: nuevoTotalIva,
-                total: nuevaCantidad * valorUnitario,
-                valor_unitario: valorUnitario,
-                valor_unitario_iva: valorUnitarioIva
-            });
+            // El backend recalcula el total y guarda la cantidad pedida + historial del ajuste
+            await api.patch(`/presupuesto/detalles/${detalle.id_pre_detalle}/ajuste-cantidad`, { cantidad: nuevaCantidad });
             await refrescarSolicitudes([detalle.id_presupuesto]);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error actualizando cantidad:', error);
-            alert('No se pudo actualizar la cantidad del detalle.');
+            alert(error?.response?.data?.detail || 'No se pudo actualizar la cantidad del detalle.');
         } finally {
             setUpdatingCantidadId(null);
         }
@@ -632,6 +624,7 @@ export default function SolicitudesPage() {
                     categoria_nombre: d.categoria_nombre,
                     formato_unidad: d.formato_unidad,
                     cantidad: d.cantidad || 0,
+                    cantidad_original: d.cantidad_original ?? null,
                     valor_unitario_iva: d.valor_unitario_iva || 0,
                     total_iva: d.total_iva || ((d.cantidad || 0) * (d.valor_unitario_iva || 0)),
                     fecha_ejecucion: d.fecha_ejecucion,
@@ -964,6 +957,19 @@ export default function SolicitudesPage() {
     useEffect(() => {
         setPaginaItems(1);
     }, [filtroTexto, filtroEstadoRecursos, filtroSubvencionRecursos, filtroAreas, filtroLineas, filtroCategoria, filtroActividad, filtroMeses, sortRec, vistaModo, pageSizeRecursos]);
+
+    // Al cambiar de página se vuelve al inicio de la tabla: si no, la vista queda abajo
+    // (junto a la paginación) y la página nueva parece "rellenar" hacia abajo.
+    const tablaSolicitudesRef = useRef<HTMLDivElement>(null);
+    const tablaRecursosRef = useRef<HTMLDivElement>(null);
+    const irAPaginaSolicitudes = (p: number) => {
+        setPaginaSolicitudes(p);
+        tablaSolicitudesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const irAPaginaItems = (p: number) => {
+        setPaginaItems(p);
+        tablaRecursosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     const totalPaginasItems = Math.ceil(filteredItems.length / pageSizeRecursos) || 1;
     const itemsPaginados = itemsOrdenados.slice(
@@ -1419,7 +1425,7 @@ export default function SolicitudesPage() {
 
             {/* TABLA 1: VISTA POR SOLICITUDES */}
             {vistaModo === 'solicitudes' && (
-                <div className="bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+                <div ref={tablaSolicitudesRef} className="scroll-mt-4 bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-100">
                             <thead className="bg-gray-50/50">
@@ -1640,7 +1646,7 @@ export default function SolicitudesPage() {
 
                                 <div className="flex items-center gap-1.5">
                                     <button
-                                        onClick={() => setPaginaSolicitudes(p => Math.max(1, p - 1))}
+                                        onClick={() => irAPaginaSolicitudes(Math.max(1, paginaSolicitudes - 1))}
                                         disabled={paginaSolicitudes === 1}
                                         className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 cursor-pointer transition-all"
                                     >
@@ -1650,7 +1656,7 @@ export default function SolicitudesPage() {
                                         {paginaSolicitudes} / {totalPaginasSolicitudes}
                                     </span>
                                     <button
-                                        onClick={() => setPaginaSolicitudes(p => Math.min(totalPaginasSolicitudes, p + 1))}
+                                        onClick={() => irAPaginaSolicitudes(Math.min(totalPaginasSolicitudes, paginaSolicitudes + 1))}
                                         disabled={paginaSolicitudes === totalPaginasSolicitudes}
                                         className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 cursor-pointer transition-all"
                                     >
@@ -1665,7 +1671,7 @@ export default function SolicitudesPage() {
 
             {/* TABLA 2: VISTA CONSOLIDADA DE TODOS LOS RECURSOS / ÍTEMS (IDÉNTICO A [id]/page.tsx) */}
             {vistaModo === 'recursos' && (
-                <div className={`bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border overflow-hidden mb-6 ${
+                <div ref={tablaRecursosRef} className={`scroll-mt-4 bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border overflow-hidden mb-6 ${
                     isMacaya ? 'border-emerald-200/80' : 'border-blue-200/80'
                 }`}>
                     {/* Barra de Filtros Integrada */}
@@ -2018,6 +2024,11 @@ export default function SolicitudesPage() {
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-sm font-semibold text-gray-800">
                                                         {item.cantidad} <span className="text-xs font-normal text-gray-500">({item.formato_unidad})</span>
+                                                        {item.cantidad_original != null && Number(item.cantidad_original) !== Number(item.cantidad) && (
+                                                            <span className="ml-1 text-[11px] font-semibold text-amber-700" title={`Cantidad pedida: ${item.cantidad_original}. Ajustada a ${item.cantidad}.`}>
+                                                                (antes <span className="line-through">{item.cantidad_original}</span>)
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     {(() => {
                                                         const esConAjustes = item.estado_aprobacion === 'Con Ajustes' || item.estado_aprobacion === 'Aprobado con Ajustes' || item.estado_aprobacion === 'Aprobado con ajustes';
@@ -2251,7 +2262,7 @@ export default function SolicitudesPage() {
 
                                 <div className="flex items-center gap-1.5">
                                     <button
-                                        onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
+                                        onClick={() => irAPaginaItems(Math.max(1, paginaItems - 1))}
                                         disabled={paginaItems === 1}
                                         className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 cursor-pointer transition-all"
                                     >
@@ -2261,7 +2272,7 @@ export default function SolicitudesPage() {
                                         {paginaItems} / {totalPaginasItems}
                                     </span>
                                     <button
-                                        onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
+                                        onClick={() => irAPaginaItems(Math.min(totalPaginasItems, paginaItems + 1))}
                                         disabled={paginaItems === totalPaginasItems}
                                         className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 cursor-pointer transition-all"
                                     >

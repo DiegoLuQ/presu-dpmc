@@ -99,6 +99,8 @@ export interface BudgetDetail {
   formato_unidad: string;
   cantidad: number;
   cantidad_real?: number | null;
+  // Cantidad pedida antes del ajuste del revisor ("Con Ajustes"); null si no se ajustó
+  cantidad_original?: number | null;
   valor_unitario?: number;
   valor_unitario_iva: number;
   valor_real_iva?: number | null;
