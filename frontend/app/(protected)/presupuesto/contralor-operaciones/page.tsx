@@ -1912,6 +1912,11 @@ export default function ContabilidadPage() {
 
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Descripción</label>
+                                    {(selectedPendingResource.ppto_count ?? 0) > 0 && (
+                                        <p className="text-[10px] text-blue-600 font-medium">
+                                            Descripción, formato, categoría y línea también se aplican a las solicitudes en curso (no se tocan las aprobadas ni los ítems con un valor propio distinto).
+                                        </p>
+                                    )}
                                     <textarea
                                         rows={3}
                                         value={reviewForm.descripcion}
@@ -2442,9 +2447,11 @@ export default function ContabilidadPage() {
                                         setSelectedPendingResource(null);
                                         fetchPendingResources();
                                         const renombrados = resRecurso.data?.detalles_renombrados ?? 0;
+                                        const fichaActualizada = resRecurso.data?.detalles_actualizados ?? 0;
                                         alert(
                                             `Recurso aprobado y registrado en el catálogo. Se actualizaron ${res.data.detalles_actualizados ?? 0} detalles de presupuesto asociados.` +
-                                            (renombrados > 0 ? `\nEl nombre nuevo se aplicó en ${renombrados} detalle(s) de solicitudes en curso.` : '')
+                                            (renombrados > 0 ? `\nEl nombre nuevo se aplicó en ${renombrados} detalle(s) de solicitudes en curso.` : '') +
+                                            (fichaActualizada > 0 ? `\nDescripción/formato/categoría se aplicaron en ${fichaActualizada} detalle(s) de solicitudes en curso.` : '')
                                         );
                                     } catch (err: any) {
                                         alert(err.response?.data?.detail || 'Error al aprobar el recurso');

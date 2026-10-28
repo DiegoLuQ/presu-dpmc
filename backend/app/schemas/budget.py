@@ -100,6 +100,8 @@ class ResourceResponse(ResourceBase):
     pme_no_aplica: bool = False
     # Solo en la edición: cuántos detalles de presupuesto recibieron el nombre nuevo.
     detalles_renombrados: Optional[int] = None
+    # Solo en la edición: cuántos detalles recibieron descripción/formato/categoría/línea.
+    detalles_actualizados: Optional[int] = None
 
     class Config:
         from_attributes = True

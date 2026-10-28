@@ -4177,6 +4177,9 @@ def update_recurso(
         if nombre_nuevo != (recurso.nombre or "").strip():
             detalles_renombrados = _propagar_nombre_recurso(db, id_recurso, recurso.nombre, nombre_nuevo)
             recurso.nombre = nombre_nuevo
+    detalles_actualizados = _propagar_ficha_recurso(db, recurso, {
+        k: obj[k] for k in ("descripcion", "formato", "id_cat_recurso", "id_grupo_recurso") if k in obj
+    })
     if "descripcion" in obj:
         recurso.descripcion = obj["descripcion"]
     if "formato" in obj:
@@ -4218,7 +4221,8 @@ def update_recurso(
         "categoria_nombre": recurso.categoria.nombre if recurso.categoria else None,
         "categoria_descripcion": recurso.categoria.descripcion if recurso.categoria else None,
         "pme_no_aplica": bool(recurso.pme_no_aplica),
-        "detalles_renombrados": detalles_renombrados
+        "detalles_renombrados": detalles_renombrados,
+        "detalles_actualizados": detalles_actualizados
     }
 
 
@@ -4279,21 +4283,80 @@ def _propagar_nombre_recurso(db: Session, id_recurso: int, nombre_anterior: str,
 
     Solo toca detalles que aún tienen el nombre anterior (no pisa un nombre que el
     solicitante personalizó) y que no pertenecen a una solicitud aprobada ni están
-    aprobados, para no alterar presupuestos cerrados. Devuelve cuántos actualizó."""
-    anterior = (nombre_anterior or "").strip()
-    if not anterior or anterior.lower() == (nombre_nuevo or "").strip().lower():
+    aprobados, para no alterar presupuestos cerrados. Devuelve cuántos actualizó.
+
+    Si todas las solicitudes activas usan el recurso con un mismo nombre distinto al
+    guardado en pre_recurso (el que muestra 'Recursos Sugeridos'), ese nombre también
+    cuenta como anterior."""
+    nuevo = (nombre_nuevo or "").strip().lower()
+    anteriores = {(nombre_anterior or "").strip().lower()}
+    nombres_en_uso = {
+        (n or "").strip().lower() for (n,) in db.query(PresupuestoDetalle.nombre_producto).join(
+            SolicitudPresupuesto, SolicitudPresupuesto.id_presupuesto == PresupuestoDetalle.id_presupuesto
+        ).filter(
+            PresupuestoDetalle.id_recurso == id_recurso,
+            SolicitudPresupuesto.activo.is_(True),
+        ).distinct().all()
+    }
+    if len(nombres_en_uso) == 1:
+        anteriores |= nombres_en_uso
+    anteriores -= {"", nuevo}
+    if not anteriores:
         return 0
     detalles = db.query(PresupuestoDetalle).join(
         SolicitudPresupuesto, SolicitudPresupuesto.id_presupuesto == PresupuestoDetalle.id_presupuesto
     ).filter(
         PresupuestoDetalle.id_recurso == id_recurso,
-        func.lower(func.trim(PresupuestoDetalle.nombre_producto)) == anterior.lower(),
+        func.lower(func.trim(PresupuestoDetalle.nombre_producto)).in_(anteriores),
         or_(SolicitudPresupuesto.estado.is_(None), SolicitudPresupuesto.estado.notin_(["Aprobado", "Aceptado"])),
         or_(PresupuestoDetalle.estado_aprobacion.is_(None), PresupuestoDetalle.estado_aprobacion != "Aprobado")
     ).all()
     for d in detalles:
         d.nombre_producto = nombre_nuevo
     return len(detalles)
+
+
+def _propagar_ficha_recurso(db: Session, recurso: Recurso, nuevos: dict) -> int:
+    """Lleva descripción, formato, categoría y línea del recurso a los detalles que lo
+    usan, para que el catálogo oficial y las solicitudes queden ordenados igual.
+
+    `nuevos` trae solo los campos que cambian (claves de pre_recurso). Se llama antes
+    de asignarlos al recurso, para comparar con los valores anteriores. Mismas
+    condiciones que el nombre: solo solicitudes en curso e ítems no aprobados, y un
+    campo del ítem se cambia solo si está vacío o igual al valor anterior del recurso
+    (no pisa lo que el solicitante escribió distinto). Devuelve cuántos ítems cambió."""
+    def _txt(v):
+        return (v or "").strip().lower()
+
+    nuevos = {k: v for k, v in nuevos.items() if v != getattr(recurso, k)}
+    if not nuevos:
+        return 0
+    detalles = db.query(PresupuestoDetalle).join(
+        SolicitudPresupuesto, SolicitudPresupuesto.id_presupuesto == PresupuestoDetalle.id_presupuesto
+    ).filter(
+        PresupuestoDetalle.id_recurso == recurso.id_recurso,
+        or_(SolicitudPresupuesto.estado.is_(None), SolicitudPresupuesto.estado.notin_(["Aprobado", "Aceptado"])),
+        or_(PresupuestoDetalle.estado_aprobacion.is_(None), PresupuestoDetalle.estado_aprobacion != "Aprobado")
+    ).all()
+    cambiados = 0
+    for d in detalles:
+        cambio = False
+        # La descripción del ítem suele ser la que el solicitante envió con la sugerencia
+        if "descripcion" in nuevos and _txt(d.descripcion) in {"", _txt(recurso.descripcion), _txt(recurso.descripcion_solicitud)}:
+            d.descripcion = (nuevos["descripcion"] or None) and nuevos["descripcion"][:500]
+            cambio = True
+        if nuevos.get("formato") and _txt(d.formato_unidad) in {"", _txt(recurso.formato)}:
+            d.formato_unidad = nuevos["formato"]
+            cambio = True
+        # Categoría y línea: el ítem solo guarda las suyas si difieren del recurso
+        if "id_cat_recurso" in nuevos and d.id_cat_recurso is not None and d.id_cat_recurso == recurso.id_cat_recurso:
+            d.id_cat_recurso = nuevos["id_cat_recurso"]
+            cambio = True
+        if "id_grupo_recurso" in nuevos and d.id_grupo_recurso is not None and d.id_grupo_recurso == recurso.id_grupo_recurso:
+            d.id_grupo_recurso = nuevos["id_grupo_recurso"]
+            cambio = True
+        cambiados += cambio
+    return cambiados
 
 
 @router.delete("/recursos/{id_recurso}/sugerido")
@@ -5136,6 +5199,9 @@ def aprobar_clasificar_recursos_lote(
                 recurso.nombre = nombre_nuevo
             except HTTPException as e:
                 nombres_rechazados.append({"id_recurso": recurso.id_recurso, "motivo": e.detail})
+        _propagar_ficha_recurso(db, recurso, {
+            k: getattr(item, k) for k in ("descripcion", "formato", "id_cat_recurso", "id_grupo_recurso") if getattr(item, k)
+        })
         if item.descripcion:
             recurso.descripcion = item.descripcion
         if item.formato:
