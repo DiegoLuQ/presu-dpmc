@@ -2650,11 +2650,13 @@ _CAMPOS_NO_COPIABLES = {
 @router.post("/detalles/{id_detalle}/duplicar", response_model=BudgetDetailResponse, status_code=status.HTTP_201_CREATED)
 def duplicar_detalle(
     id_detalle: int,
+    cambios: Optional[BudgetDetailUpdate] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
 ):
     """Crea una copia del ítem en la misma solicitud, con todas sus columnas,
-    sin revisión ni datos de compra (queda 'Sin Revisar')."""
+    sin revisión ni datos de compra (queda 'Sin Revisar'). `cambios` se aplica
+    sobre la copia (lo editado en el modal antes de confirmar)."""
     original = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
     if not original:
         raise HTTPException(status_code=404, detail="Detalle no encontrado")
@@ -2669,6 +2671,17 @@ def duplicar_detalle(
         if col.name not in _CAMPOS_NO_COPIABLES
     }
     copia = PresupuestoDetalle(**datos, estado_aprobacion="Sin Revisar", estado_compra="Pendiente")
+    update_data = cambios.dict(exclude_unset=True) if cambios else {}
+    if "destino_gasto" in update_data:
+        update_data["destino_gasto"] = (
+            _destino_canonico(update_data["destino_gasto"]) or update_data["destino_gasto"]
+        )
+    for field, value in update_data.items():
+        setattr(copia, field, value)
+    # Igual que en la edición: si cambió el insumo o el destino, el código sale del catálogo
+    # salvo que se haya escrito uno explícitamente.
+    if ({"id_recurso", "nombre_producto", "destino_gasto"} & update_data.keys()) and "codigo_cuenta" not in update_data:
+        aplicar_catalogo(db, copia)
     db.add(copia)
     db.commit()
     db.refresh(copia)

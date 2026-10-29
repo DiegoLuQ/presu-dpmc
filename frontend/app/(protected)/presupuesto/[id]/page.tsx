@@ -286,8 +286,11 @@ export default function DetalleSolicitudPage() {
         cantidad: '' as number | string, valor_unitario_iva: '' as number | string, mes: '', motivo: '',
     });
     const [savingEdit, setSavingEdit] = useState(false);
+    // 'copiar': el modal parte del ítem original y la copia solo se crea al confirmar
+    const [editModo, setEditModo] = useState<'editar' | 'copiar'>('editar');
 
-    const abrirEdicion = (det: BudgetDetail) => {
+    const abrirEdicion = (det: BudgetDetail, modo: 'editar' | 'copiar' = 'editar') => {
+        setEditModo(modo);
         setEditDetalle(det);
         setEditForm({
             nombre_producto: det.nombre_producto || '',
@@ -299,22 +302,6 @@ export default function DetalleSolicitudPage() {
             mes: (det.fecha_ejecucion || '').substring(5, 7),
             motivo: det.motivo || '',
         });
-    };
-
-    // Copia el ítem en la misma solicitud y abre la edición sobre la copia
-    const [duplicandoId, setDuplicandoId] = useState<number | null>(null);
-    const duplicarDetalle = async (det: BudgetDetail) => {
-        try {
-            setDuplicandoId(det.id_pre_detalle);
-            const res = await api.post(`/presupuesto/detalles/${det.id_pre_detalle}/duplicar`);
-            await fetchSolicitud(true);
-            abrirEdicion(res.data);
-        } catch (error: any) {
-            console.error('Error copiando ítem:', error);
-            alert(error?.response?.data?.detail || 'No se pudo copiar el ítem.');
-        } finally {
-            setDuplicandoId(null);
-        }
     };
 
     const guardarEdicion = async () => {
@@ -344,18 +331,23 @@ export default function DetalleSolicitudPage() {
             const anio = (editDetalle.fecha_ejecucion || '').substring(0, 4) || String(new Date().getFullYear() + 1);
             payload.fecha_ejecucion = `${anio}-${editForm.mes}-01`;
         }
-        if (Object.keys(payload).length === 0) {
+        const esCopia = editModo === 'copiar';
+        if (!esCopia && Object.keys(payload).length === 0) {
             setEditDetalle(null);
             return;
         }
         try {
             setSavingEdit(true);
-            await api.put(`/presupuesto/detalles/${editDetalle.id_pre_detalle}`, payload);
+            if (esCopia) {
+                await api.post(`/presupuesto/detalles/${editDetalle.id_pre_detalle}/duplicar`, payload);
+            } else {
+                await api.put(`/presupuesto/detalles/${editDetalle.id_pre_detalle}`, payload);
+            }
             await fetchSolicitud(true);
             setEditDetalle(null);
         } catch (error: any) {
-            console.error('Error editando ítem:', error);
-            alert(error?.response?.data?.detail || 'No se pudo guardar el ítem.');
+            console.error(esCopia ? 'Error copiando ítem:' : 'Error editando ítem:', error);
+            alert(error?.response?.data?.detail || (esCopia ? 'No se pudo crear la copia.' : 'No se pudo guardar el ítem.'));
         } finally {
             setSavingEdit(false);
         }
@@ -1426,13 +1418,12 @@ export default function DetalleSolicitudPage() {
                                                                 {canApprove && (
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => duplicarDetalle(detalle)}
-                                                                        disabled={duplicandoId !== null}
-                                                                        className="p-1 text-gray-500 hover:text-primary bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-all active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
-                                                                        title="Copiar ítem en esta solicitud (y editar la copia)"
+                                                                        onClick={() => abrirEdicion(detalle, 'copiar')}
+                                                                        className="p-1 text-gray-500 hover:text-primary bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-all active:scale-95 cursor-pointer shrink-0"
+                                                                        title="Copiar ítem en esta solicitud (podrás editar la copia antes de crearla)"
                                                                         aria-label="Copiar ítem"
                                                                     >
-                                                                        {duplicandoId === detalle.id_pre_detalle ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
+                                                                        <Copy size={12} />
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -2072,16 +2063,24 @@ export default function DetalleSolicitudPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
                         <div className="p-5 flex items-center gap-3 border-b border-gray-100 bg-gray-50/70 shrink-0">
-                            <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shrink-0"><Edit3 size={20} /></div>
+                            <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shrink-0">
+                                {editModo === 'copiar' ? <Copy size={20} /> : <Edit3 size={20} />}
+                            </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-base font-bold text-gray-900 leading-tight">Editar ítem #{editDetalle.id_pre_detalle}</h3>
-                                <p className="text-[11px] text-gray-500 mt-0.5">Los cambios se guardan en esta misma solicitud.</p>
+                                <h3 className="text-base font-bold text-gray-900 leading-tight">
+                                    {editModo === 'copiar' ? `Copiando ítem #${editDetalle.id_pre_detalle}` : `Editar ítem #${editDetalle.id_pre_detalle}`}
+                                </h3>
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                    {editModo === 'copiar'
+                                        ? 'Ajusta los datos de la copia. Se agregará a esta solicitud solo al confirmar.'
+                                        : 'Los cambios se guardan en esta misma solicitud.'}
+                                </p>
                             </div>
                             <button type="button" onClick={() => setEditDetalle(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"><X size={18} /></button>
                         </div>
 
                         <div className="p-5 space-y-3 overflow-y-auto">
-                            {editDetalle.recurso_estado === 'PENDIENTE_APROBACION' && (
+                            {editModo === 'editar' && editDetalle.recurso_estado === 'PENDIENTE_APROBACION' && (
                                 <div className="flex gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
                                     <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                                     <span>Recurso nuevo pendiente de aprobación. Si cambias el nombre, también se renombra el recurso sugerido que verá el contralor.</span>
@@ -2155,7 +2154,7 @@ export default function DetalleSolicitudPage() {
                             <button type="button" disabled={savingEdit} onClick={guardarEdicion}
                                 className="px-5 py-2.5 text-white rounded-xl transition-all font-bold text-xs flex items-center gap-2 bg-primary hover:opacity-90 shadow-md active:scale-95 disabled:opacity-50">
                                 {savingEdit ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                                Guardar cambios
+                                {editModo === 'copiar' ? 'Crear copia' : 'Guardar cambios'}
                             </button>
                         </div>
                     </div>
