@@ -204,6 +204,70 @@ export default function DetalleSolicitudPage() {
         }
     };
 
+    // Modal de edición de ítem (código, cantidad, precio, descripción, motivo, mes)
+    const [editDetalle, setEditDetalle] = useState<BudgetDetail | null>(null);
+    const [editForm, setEditForm] = useState({
+        nombre_producto: '', descripcion: '', codigo_cuenta: '',
+        cantidad: '' as number | string, valor_unitario_iva: '' as number | string, mes: '', motivo: '',
+    });
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const abrirEdicion = (det: BudgetDetail) => {
+        setEditDetalle(det);
+        setEditForm({
+            nombre_producto: det.nombre_producto || '',
+            descripcion: det.descripcion || '',
+            codigo_cuenta: det.codigo_cuenta || '',
+            cantidad: det.cantidad ?? '',
+            valor_unitario_iva: det.valor_unitario_iva ?? '',
+            mes: (det.fecha_ejecucion || '').substring(5, 7),
+            motivo: det.motivo || '',
+        });
+    };
+
+    const guardarEdicion = async () => {
+        if (!editDetalle) return;
+        const cantidad = Number(editForm.cantidad);
+        const valorIva = Number(editForm.valor_unitario_iva);
+        if (!editForm.nombre_producto.trim() || !(cantidad > 0) || !(valorIva >= 0)) {
+            alert('Revisa nombre, cantidad y precio.');
+            return;
+        }
+        // Solo se envían los campos modificados (cambiar el nombre recalcula el código desde el catálogo)
+        const payload: Record<string, any> = {};
+        const nombre = editForm.nombre_producto.trim();
+        if (nombre !== editDetalle.nombre_producto) payload.nombre_producto = nombre;
+        if (editForm.descripcion !== (editDetalle.descripcion || '')) payload.descripcion = editForm.descripcion;
+        if (editForm.codigo_cuenta.trim() !== (editDetalle.codigo_cuenta || '')) payload.codigo_cuenta = editForm.codigo_cuenta.trim();
+        if (editForm.motivo !== (editDetalle.motivo || '')) payload.motivo = editForm.motivo;
+        if (cantidad !== Number(editDetalle.cantidad) || valorIva !== Number(editDetalle.valor_unitario_iva)) {
+            payload.cantidad = cantidad;
+            payload.valor_unitario_iva = valorIva;
+            payload.valor_unitario = Math.round(valorIva / 1.19);
+            payload.total_iva = cantidad * valorIva;
+        }
+        const mesActual = (editDetalle.fecha_ejecucion || '').substring(5, 7);
+        if (editForm.mes && editForm.mes !== mesActual) {
+            const anio = (editDetalle.fecha_ejecucion || '').substring(0, 4) || String(new Date().getFullYear() + 1);
+            payload.fecha_ejecucion = `${anio}-${editForm.mes}-01`;
+        }
+        if (Object.keys(payload).length === 0) {
+            setEditDetalle(null);
+            return;
+        }
+        try {
+            setSavingEdit(true);
+            await api.put(`/presupuesto/detalles/${editDetalle.id_pre_detalle}`, payload);
+            await fetchSolicitud(true);
+            setEditDetalle(null);
+        } catch (error: any) {
+            console.error('Error editando ítem:', error);
+            alert(error?.response?.data?.detail || 'No se pudo guardar el ítem.');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
     // Modal de rechazo con motivo
     const [rechazoDetalle, setRechazoDetalle] = useState<BudgetDetail | null>(null);
     const [rechazoComentario, setRechazoComentario] = useState('');
@@ -1180,14 +1244,17 @@ export default function DetalleSolicitudPage() {
                                                 const DetStatusIcon = detStatusStyle.icon;
                                                 const numItem = ((paginaActual - 1) * pageSize) + i + 1;
                                                 const isRowSelected = selectedIds.includes(detalle.id_pre_detalle);
+                                                const esRecursoSugerido = detalle.recurso_estado === 'PENDIENTE_APROBACION';
+                                                const puedeEditarItem = canApprove && detalle.estado_compra !== 'Comprado';
 
                                                 return (
                                                     <tr key={detalle.id_pre_detalle} className={`transition-colors ${
-                                                        isRowSelected 
-                                                            ? 'bg-primary/5 hover:bg-primary/10' 
+                                                        isRowSelected
+                                                            ? 'bg-primary/5 hover:bg-primary/10'
+                                                            : esRecursoSugerido ? 'bg-amber-50/60 hover:bg-amber-50'
                                                             : isMacaya ? 'hover:bg-emerald-50/30' : 'hover:bg-blue-50/30'
                                                     }`}>
-                                                        <td className="px-3.5 py-3.5 text-xs font-medium text-gray-900">
+                                                        <td className={`px-3.5 py-3.5 text-xs font-medium text-gray-900 ${esRecursoSugerido ? 'border-l-4 border-amber-400' : ''}`}>
                                                             <div className="flex items-center gap-2">
                                                                 {canApprove && (
                                                                     <input
@@ -1209,7 +1276,28 @@ export default function DetalleSolicitudPage() {
 
                                                         {/* Producto: Nombre + Descripción Completa */}
                                                         <td className="px-3.5 py-3.5 max-w-[260px]">
-                                                            <div className="text-xs font-bold text-gray-900 leading-snug">{detalle.nombre_producto}</div>
+                                                            <div className="flex items-start gap-1.5">
+                                                                <div className="text-xs font-bold text-gray-900 leading-snug flex-1">{detalle.nombre_producto}</div>
+                                                                {puedeEditarItem && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => abrirEdicion(detalle)}
+                                                                        className="p-1 text-gray-500 hover:text-primary bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-all active:scale-95 cursor-pointer shrink-0"
+                                                                        title="Editar ítem (código, cantidad, precio, descripción, motivo, mes)"
+                                                                        aria-label="Editar ítem"
+                                                                    >
+                                                                        <Edit3 size={12} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            {esRecursoSugerido && (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                                                                    title="Recurso nuevo sugerido por el solicitante; aún no ha sido aprobado por el contralor"
+                                                                >
+                                                                    <AlertTriangle size={11} /> Recurso nuevo · pendiente de aprobación
+                                                                </span>
+                                                            )}
                                                             {detalle.descripcion && (
                                                                 <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-words mt-0.5 leading-relaxed">
                                                                     {detalle.descripcion}
@@ -1788,6 +1876,91 @@ export default function DetalleSolicitudPage() {
                             >
                                 {updatingCantidadId !== null ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                                 Guardar Cantidad
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Editar ítem */}
+            {editDetalle && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+                        <div className="p-5 flex items-center gap-3 border-b border-gray-100 bg-gray-50/70 shrink-0">
+                            <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shrink-0"><Edit3 size={20} /></div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-gray-900 leading-tight">Editar ítem #{editDetalle.id_pre_detalle}</h3>
+                                <p className="text-[11px] text-gray-500 mt-0.5">Los cambios se guardan en esta misma solicitud.</p>
+                            </div>
+                            <button type="button" onClick={() => setEditDetalle(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"><X size={18} /></button>
+                        </div>
+
+                        <div className="p-5 space-y-3 overflow-y-auto">
+                            {editDetalle.recurso_estado === 'PENDIENTE_APROBACION' && (
+                                <div className="flex gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
+                                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                    <span>Recurso nuevo pendiente de aprobación. Si cambias el nombre, también se renombra el recurso sugerido que verá el contralor.</span>
+                                </div>
+                            )}
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Insumo *</label>
+                                <input value={editForm.nombre_producto} onChange={(e) => setEditForm(f => ({ ...f, nombre_producto: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Descripción</label>
+                                <textarea rows={2} value={editForm.descripcion} onChange={(e) => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Código contable</label>
+                                    <input value={editForm.codigo_cuenta} onChange={(e) => setEditForm(f => ({ ...f, codigo_cuenta: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Mes</label>
+                                    <select value={editForm.mes} onChange={(e) => setEditForm(f => ({ ...f, mes: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                        <option value="">{labelFecha(editDetalle)}</option>
+                                        {MESES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Cantidad ({editDetalle.formato_unidad || 'Unidades'}) *</label>
+                                    <input type="number" min={0.01} step="any" value={editForm.cantidad} onChange={(e) => setEditForm(f => ({ ...f, cantidad: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Precio unit. (con IVA) *</label>
+                                    <input type="number" min={0} step="any" value={editForm.valor_unitario_iva} onChange={(e) => setEditForm(f => ({ ...f, valor_unitario_iva: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Motivo / Justificación</label>
+                                <textarea rows={2} value={editForm.motivo} onChange={(e) => setEditForm(f => ({ ...f, motivo: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                            </div>
+                            <div className="flex justify-end">
+                                <div className="text-right px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase block">Nuevo total</span>
+                                    <span className="text-xs font-bold text-primary">
+                                        {formatCLP((Number(editForm.cantidad) || 0) * (Number(editForm.valor_unitario_iva) || 0))}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-5 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                            <button type="button" onClick={() => setEditDetalle(null)}
+                                className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors font-bold text-xs">
+                                Cancelar
+                            </button>
+                            <button type="button" disabled={savingEdit} onClick={guardarEdicion}
+                                className="px-5 py-2.5 text-white rounded-xl transition-all font-bold text-xs flex items-center gap-2 bg-primary hover:opacity-90 shadow-md active:scale-95 disabled:opacity-50">
+                                {savingEdit ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                Guardar cambios
                             </button>
                         </div>
                     </div>

@@ -2617,8 +2617,9 @@ def update_detalle(
                 recurso.nombre = nuevo_nombre
 
     # Si cambió el insumo o el destino, el código se vuelve a tomar del catálogo.
-    # Otras ediciones (p.ej. compras) no tocan el código ya asignado.
-    if {"id_recurso", "nombre_producto", "destino_gasto"} & update_data.keys():
+    # Otras ediciones (p.ej. compras) no tocan el código ya asignado, y un código
+    # enviado explícitamente (edición del revisor) prevalece sobre el catálogo.
+    if ({"id_recurso", "nombre_producto", "destino_gasto"} & update_data.keys()) and "codigo_cuenta" not in update_data:
         aplicar_catalogo(db, db_obj)
 
     # Sincronizar con PME si se actualizó id_actividad
