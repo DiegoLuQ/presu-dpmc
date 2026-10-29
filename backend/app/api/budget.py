@@ -2639,6 +2639,42 @@ def update_detalle(
     return build_detalle_response(db_obj, db=db)
 
 
+# Campos que no se copian al duplicar: identidad, revisión y ejecución de compra
+_CAMPOS_NO_COPIABLES = {
+    "id_pre_detalle", "cantidad_real", "cantidad_original", "valor_real_iva",
+    "estado_aprobacion", "estado_compra", "comentario_revision",
+    "revisado_contralor", "fecha_revision_contralor", "id_user_revision_contralor",
+}
+
+
+@router.post("/detalles/{id_detalle}/duplicar", response_model=BudgetDetailResponse, status_code=status.HTTP_201_CREATED)
+def duplicar_detalle(
+    id_detalle: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "crear"))
+):
+    """Crea una copia del ítem en la misma solicitud, con todas sus columnas,
+    sin revisión ni datos de compra (queda 'Sin Revisar')."""
+    original = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    solicitud = db.query(SolicitudPresupuesto).filter(
+        SolicitudPresupuesto.id_presupuesto == original.id_presupuesto
+    ).first()
+    _exigir_modificar(db, current_user, solicitud)
+
+    datos = {
+        col.name: getattr(original, col.name)
+        for col in PresupuestoDetalle.__table__.columns
+        if col.name not in _CAMPOS_NO_COPIABLES
+    }
+    copia = PresupuestoDetalle(**datos, estado_aprobacion="Sin Revisar", estado_compra="Pendiente")
+    db.add(copia)
+    db.commit()
+    db.refresh(copia)
+    return build_detalle_response(copia, db=db)
+
+
 @router.patch("/detalles/{id_detalle}/clasificacion", response_model=BudgetDetailResponse)
 def actualizar_clasificacion_detalle(
     id_detalle: int,

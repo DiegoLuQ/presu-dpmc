@@ -7,7 +7,7 @@ import api from '@/lib/api/client';
 import {
     ArrowLeft, CheckCircle, XCircle, Clock, Loader2,
     Download, User, Calendar, DollarSign, Check, X, AlertCircle, AlertTriangle, Package, Building2, SlidersHorizontal, RotateCcw, Users,
-    Search, FileDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Edit3, HelpCircle
+    Search, FileDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Edit3, HelpCircle, Copy
 } from 'lucide-react';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import * as XLSX from 'xlsx';
@@ -298,6 +298,22 @@ export default function DetalleSolicitudPage() {
             mes: (det.fecha_ejecucion || '').substring(5, 7),
             motivo: det.motivo || '',
         });
+    };
+
+    // Copia el ítem en la misma solicitud y abre la edición sobre la copia
+    const [duplicandoId, setDuplicandoId] = useState<number | null>(null);
+    const duplicarDetalle = async (det: BudgetDetail) => {
+        try {
+            setDuplicandoId(det.id_pre_detalle);
+            const res = await api.post(`/presupuesto/detalles/${det.id_pre_detalle}/duplicar`);
+            await fetchSolicitud(true);
+            abrirEdicion(res.data);
+        } catch (error: any) {
+            console.error('Error copiando ítem:', error);
+            alert(error?.response?.data?.detail || 'No se pudo copiar el ítem.');
+        } finally {
+            setDuplicandoId(null);
+        }
     };
 
     const guardarEdicion = async () => {
@@ -1403,6 +1419,18 @@ export default function DetalleSolicitudPage() {
                                                                         aria-label="Editar ítem"
                                                                     >
                                                                         <Edit3 size={12} />
+                                                                    </button>
+                                                                )}
+                                                                {canApprove && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => duplicarDetalle(detalle)}
+                                                                        disabled={duplicandoId !== null}
+                                                                        className="p-1 text-gray-500 hover:text-primary bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-all active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                                                                        title="Copiar ítem en esta solicitud (y editar la copia)"
+                                                                        aria-label="Copiar ítem"
+                                                                    >
+                                                                        {duplicandoId === detalle.id_pre_detalle ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
                                                                     </button>
                                                                 )}
                                                             </div>
