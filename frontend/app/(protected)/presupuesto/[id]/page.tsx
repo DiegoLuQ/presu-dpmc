@@ -9,7 +9,7 @@ import {
     Download, User, Calendar, DollarSign, Check, X, AlertCircle, AlertTriangle, Package, Building2, SlidersHorizontal, RotateCcw, Users,
     Search, FileDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Edit3, HelpCircle, Copy
 } from 'lucide-react';
-import { BudgetRequest, BudgetDetail } from '@/lib/types';
+import { BudgetRequest, BudgetDetail, FORMATOS_UNIDAD } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { DESTINOS, destinoCanonico, etiquetaDestino, etiquetaDestinoCorta } from '@/lib/destinos';
@@ -282,7 +282,7 @@ export default function DetalleSolicitudPage() {
     // Modal de edición de ítem (código, cantidad, precio, descripción, motivo, mes)
     const [editDetalle, setEditDetalle] = useState<BudgetDetail | null>(null);
     const [editForm, setEditForm] = useState({
-        nombre_producto: '', descripcion: '', codigo_cuenta: '',
+        nombre_producto: '', descripcion: '', codigo_cuenta: '', formato_unidad: '',
         cantidad: '' as number | string, valor_unitario_iva: '' as number | string, mes: '', motivo: '',
     });
     const [savingEdit, setSavingEdit] = useState(false);
@@ -293,6 +293,7 @@ export default function DetalleSolicitudPage() {
             nombre_producto: det.nombre_producto || '',
             descripcion: det.descripcion || '',
             codigo_cuenta: det.codigo_cuenta || '',
+            formato_unidad: det.formato_unidad || '',
             cantidad: det.cantidad ?? '',
             valor_unitario_iva: det.valor_unitario_iva ?? '',
             mes: (det.fecha_ejecucion || '').substring(5, 7),
@@ -331,6 +332,7 @@ export default function DetalleSolicitudPage() {
         if (editForm.descripcion !== (editDetalle.descripcion || '')) payload.descripcion = editForm.descripcion;
         if (editForm.codigo_cuenta.trim() !== (editDetalle.codigo_cuenta || '')) payload.codigo_cuenta = editForm.codigo_cuenta.trim();
         if (editForm.motivo !== (editDetalle.motivo || '')) payload.motivo = editForm.motivo;
+        if (editForm.formato_unidad && editForm.formato_unidad !== (editDetalle.formato_unidad || '')) payload.formato_unidad = editForm.formato_unidad;
         if (cantidad !== Number(editDetalle.cantidad) || valorIva !== Number(editDetalle.valor_unitario_iva)) {
             payload.cantidad = cantidad;
             payload.valor_unitario_iva = valorIva;
@@ -2110,7 +2112,17 @@ export default function DetalleSolicitudPage() {
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Cantidad ({editDetalle.formato_unidad || 'Unidades'}) *</label>
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Formato</label>
+                                    <select value={editForm.formato_unidad} onChange={(e) => setEditForm(f => ({ ...f, formato_unidad: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                        {editDetalle.formato_unidad && !FORMATOS_UNIDAD.some(f => f.value === editDetalle.formato_unidad) && (
+                                            <option value={editDetalle.formato_unidad}>{editDetalle.formato_unidad}</option>
+                                        )}
+                                        {FORMATOS_UNIDAD.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Cantidad ({editForm.formato_unidad || 'Unidades'}) *</label>
                                     <input type="number" min={0.01} step="any" value={editForm.cantidad} onChange={(e) => setEditForm(f => ({ ...f, cantidad: e.target.value }))}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                                 </div>
