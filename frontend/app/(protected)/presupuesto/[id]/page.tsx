@@ -29,6 +29,23 @@ const MESES = [
     { value: '12', label: 'Diciembre' },
 ];
 
+// Columnas configurables de la tabla de insumos (# y Producto siempre visibles)
+const COLUMNAS_TABLA = [
+    { key: 'area', label: 'Área / Solicitante' },
+    { key: 'cantidad', label: 'Cant. / Valores' },
+    { key: 'mes', label: 'Mes y Justificación' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'linea', label: 'Línea' },
+    { key: 'subvencion', label: 'Subvención' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
+] as const;
+type ColumnaTabla = typeof COLUMNAS_TABLA[number]['key'];
+const COLUMNAS_STORAGE_KEY = 'presupuesto-detalle-columnas';
+const COLUMNAS_DEFAULT: Record<ColumnaTabla, boolean> = {
+    area: true, cantidad: true, mes: true, categoria: true, linea: true, subvencion: true, estado: true, acciones: true,
+};
+
 export default function DetalleSolicitudPage() {
     const { user, tienePermiso, puedeSeccion, setSidebarCollapsed } = useAuth();
     const router = useRouter();
@@ -86,6 +103,51 @@ export default function DetalleSolicitudPage() {
 
     // Solo Administrador, Sostenedor, cargo Jefe de Compras, o usuarios con permiso en Acceso Restringido
     const canApprove = esAdmin || isSostenedor || esJefeCompras || puedeSeccion('presupuesto.solicitudes');
+    // Categoría y línea del ítem: solo Administrador o Jefe de Compras
+    const puedeClasificar = esAdmin || esJefeCompras;
+
+    // Columnas visibles (preferencia por navegador)
+    const [columnas, setColumnas] = useState<Record<ColumnaTabla, boolean>>(COLUMNAS_DEFAULT);
+    const [menuColumnasAbierto, setMenuColumnasAbierto] = useState(false);
+    useEffect(() => {
+        try {
+            const guardado = localStorage.getItem(COLUMNAS_STORAGE_KEY);
+            if (guardado) setColumnas({ ...COLUMNAS_DEFAULT, ...JSON.parse(guardado) });
+        } catch {}
+    }, []);
+    const toggleColumna = (key: ColumnaTabla) => {
+        setColumnas(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            try { localStorage.setItem(COLUMNAS_STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+        });
+    };
+    const restablecerColumnas = () => {
+        setColumnas(COLUMNAS_DEFAULT);
+        try { localStorage.removeItem(COLUMNAS_STORAGE_KEY); } catch {}
+    };
+    const verAcciones = canApprove && columnas.acciones;
+    const totalColumnasVisibles = 2 + COLUMNAS_TABLA.filter(c => columnas[c.key] && (c.key !== 'acciones' || canApprove)).length;
+
+    // Catálogos para editar categoría / línea
+    const [categoriasRecurso, setCategoriasRecurso] = useState<{ id_cat_recurso: number; nombre: string }[]>([]);
+    const [gruposRecurso, setGruposRecurso] = useState<{ id_grupo_recurso: number; nombre: string }[]>([]);
+    const [updatingClasifId, setUpdatingClasifId] = useState<number | null>(null);
+    useEffect(() => {
+        if (!puedeClasificar) return;
+        (async () => {
+            try {
+                const [cats, grupos] = await Promise.all([
+                    api.get('/presupuesto/categoria-recurso'),
+                    api.get('/presupuesto/grupos-recurso'),
+                ]);
+                setCategoriasRecurso(cats.data || []);
+                setGruposRecurso(grupos.data || []);
+            } catch (e) {
+                console.error('Error cargando categorías/líneas:', e);
+            }
+        })();
+    }, [puedeClasificar]);
 
     const fetchSolicitud = useCallback(async (silent = false) => {
         try {
@@ -201,6 +263,19 @@ export default function DetalleSolicitudPage() {
             alert('No se pudo actualizar la cantidad del detalle.');
         } finally {
             setUpdatingCantidadId(null);
+        }
+    };
+
+    const updateDetalleClasificacion = async (detalleId: number, cambios: { id_cat_recurso?: number | null; id_grupo_recurso?: number | null }) => {
+        try {
+            setUpdatingClasifId(detalleId);
+            await api.patch(`/presupuesto/detalles/${detalleId}/clasificacion`, cambios);
+            await fetchSolicitud(true);
+        } catch (error: any) {
+            console.error('Error actualizando categoría/línea:', error);
+            alert(error?.response?.data?.detail || 'No se pudo actualizar la categoría o línea.');
+        } finally {
+            setUpdatingClasifId(null);
         }
     };
 
@@ -1078,6 +1153,45 @@ export default function DetalleSolicitudPage() {
                                             )}
                                         </button>
 
+                                        {/* Selector de columnas visibles (se guarda en este navegador) */}
+                                        <div className="relative shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => setMenuColumnasAbierto(v => !v)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-xs cursor-pointer active:scale-95"
+                                                title="Elegir columnas visibles"
+                                            >
+                                                <SlidersHorizontal size={13} className="shrink-0" />
+                                                <span>Columnas</span>
+                                            </button>
+                                            {menuColumnasAbierto && (
+                                                <>
+                                                    <div className="fixed inset-0 z-30" onClick={() => setMenuColumnasAbierto(false)} />
+                                                    <div className="absolute right-0 mt-1.5 z-40 w-56 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
+                                                        <p className="px-2 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Columnas visibles</p>
+                                                        {COLUMNAS_TABLA.filter(c => c.key !== 'acciones' || canApprove).map(c => (
+                                                            <label key={c.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs font-semibold text-gray-700 cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={columnas[c.key]}
+                                                                    onChange={() => toggleColumna(c.key)}
+                                                                    className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer border-gray-300"
+                                                                />
+                                                                {c.label}
+                                                            </label>
+                                                        ))}
+                                                        <button
+                                                            type="button"
+                                                            onClick={restablecerColumnas}
+                                                            className="w-full mt-1 pt-2 border-t border-gray-100 text-[11px] font-bold text-gray-500 hover:text-primary cursor-pointer"
+                                                        >
+                                                            Restablecer
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
                                         {/* Contador de insumos */}
                                         <div className={`px-3 py-1.5 rounded-xl border shadow-2xs font-extrabold text-xs shrink-0 ${
                                             isMacaya 
@@ -1201,10 +1315,12 @@ export default function DetalleSolicitudPage() {
                                                 </div>
                                             </th>
                                             <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase min-w-[200px]">Producto</th>
-                                            <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Área / Solicitante</th>
-                                            <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Cant. / Valores</th>
-                                            <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase min-w-[240px]">Mes y Justificación</th>
-                                            <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                                            {columnas.area && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Área / Solicitante</th>}
+                                            {columnas.cantidad && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Cant. / Valores</th>}
+                                            {columnas.mes && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase min-w-[240px]">Mes y Justificación</th>}
+                                            {columnas.categoria && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Categoría</th>}
+                                            {columnas.linea && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Línea</th>}
+                                            {columnas.subvencion && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
                                                 <div className="inline-flex items-center gap-1">
                                                     <span>Subvención</span>
                                                     <span
@@ -1215,15 +1331,15 @@ export default function DetalleSolicitudPage() {
                                                         !
                                                     </span>
                                                 </div>
-                                            </th>
-                                            <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Estado</th>
-                                            {canApprove && <th className="px-3.5 py-3.5 text-center text-xs font-bold text-gray-500 uppercase">Acciones</th>}
+                                            </th>}
+                                            {columnas.estado && <th className="px-3.5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Estado</th>}
+                                            {verAcciones && <th className="px-3.5 py-3.5 text-center text-xs font-bold text-gray-500 uppercase">Acciones</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 text-xs">
                                         {detallesPaginados.length === 0 ? (
                                             <tr>
-                                                <td colSpan={canApprove ? 8 : 7} className="px-6 py-12 text-center">
+                                                <td colSpan={totalColumnasVisibles} className="px-6 py-12 text-center">
                                                     <div className="flex flex-col items-center gap-2 opacity-40">
                                                         <Search size={32} className="text-gray-400" />
                                                         <p className="text-sm font-bold text-gray-700">Sin resultados para la búsqueda</p>
@@ -1303,7 +1419,7 @@ export default function DetalleSolicitudPage() {
                                                                     {detalle.descripcion}
                                                                 </div>
                                                             )}
-                                                            {detalle.categoria_nombre && (
+                                                            {!columnas.categoria && detalle.categoria_nombre && (
                                                                 <div className="text-[10px] text-gray-400 font-semibold mt-1">
                                                                     {detalle.categoria_nombre}
                                                                 </div>
@@ -1311,7 +1427,7 @@ export default function DetalleSolicitudPage() {
                                                         </td>
 
                                                         {/* Área y Solicitante */}
-                                                        <td className="px-3.5 py-3.5 whitespace-nowrap">
+                                                        {columnas.area && <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                             <div className="font-semibold text-gray-900 text-xs">{solicitud.area_nombre || 'N/A'}</div>
                                                             <div className="text-[11px] text-gray-500 mt-0.5">
                                                                 {solicitud.user_nombre || 'N/A'}
@@ -1336,10 +1452,10 @@ export default function DetalleSolicitudPage() {
                                                                 }
                                                                 return null;
                                                             })()}
-                                                        </td>
+                                                        </td>}
 
                                                         {/* Cantidad y Valores */}
-                                                        <td className="px-3.5 py-3.5 whitespace-nowrap">
+                                                        {columnas.cantidad && <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="text-xs font-semibold text-gray-800">
                                                                     {detalle.cantidad} <span className="text-[11px] font-normal text-gray-500">({detalle.formato_unidad})</span>
@@ -1369,10 +1485,10 @@ export default function DetalleSolicitudPage() {
                                                             <div className={`text-xs font-bold mt-0.5 ${isMacaya ? 'text-emerald-700' : 'text-blue-700'}`}>
                                                                 Total: {formatCLP(detalle.total_iva)}
                                                             </div>
-                                                        </td>
+                                                        </td>}
 
                                                         {/* Mes, Motivo y Actividad PME */}
-                                                        <td className="px-3.5 py-3.5 max-w-[280px]">
+                                                        {columnas.mes && <td className="px-3.5 py-3.5 max-w-[280px]">
                                                             <div className="flex items-center gap-1.5 mb-1">
                                                                 <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md capitalize ${
                                                                     isMacaya ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-blue-800 border border-blue-200'
@@ -1396,10 +1512,49 @@ export default function DetalleSolicitudPage() {
                                                                     <span className="font-semibold text-gray-600">PME:</span> {detalle.actividad_nombre}
                                                                 </div>
                                                             )}
-                                                        </td>
+                                                        </td>}
+
+                                                        {/* Categoría (editable por Admin / Jefe de Compras) */}
+                                                        {columnas.categoria && <td className="px-3.5 py-3.5 text-xs">
+                                                            {puedeClasificar && detalle.estado_compra !== 'Comprado' ? (
+                                                                <select
+                                                                    value={detalle.id_cat_recurso || ''}
+                                                                    disabled={updatingClasifId === detalle.id_pre_detalle}
+                                                                    onChange={(e) => updateDetalleClasificacion(detalle.id_pre_detalle, { id_cat_recurso: e.target.value ? Number(e.target.value) : null })}
+                                                                    className="px-2 py-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer max-w-[160px] truncate disabled:opacity-50"
+                                                                    title={detalle.categoria_nombre || 'Sin categoría'}
+                                                                >
+                                                                    <option value="">— Sin categoría —</option>
+                                                                    {detalle.id_cat_recurso && !categoriasRecurso.some(c => c.id_cat_recurso === detalle.id_cat_recurso) && (
+                                                                        <option value={detalle.id_cat_recurso}>{detalle.categoria_nombre}</option>
+                                                                    )}
+                                                                    {categoriasRecurso.map(c => <option key={c.id_cat_recurso} value={c.id_cat_recurso}>{c.nombre}</option>)}
+                                                                </select>
+                                                            ) : (
+                                                                <span className="text-[11px] font-semibold text-gray-700">{detalle.categoria_nombre || '-'}</span>
+                                                            )}
+                                                        </td>}
+
+                                                        {/* Línea (editable por Admin / Jefe de Compras) */}
+                                                        {columnas.linea && <td className="px-3.5 py-3.5 text-xs">
+                                                            {puedeClasificar && detalle.estado_compra !== 'Comprado' ? (
+                                                                <select
+                                                                    value={detalle.id_grupo_recurso || ''}
+                                                                    disabled={updatingClasifId === detalle.id_pre_detalle}
+                                                                    onChange={(e) => updateDetalleClasificacion(detalle.id_pre_detalle, { id_grupo_recurso: e.target.value ? Number(e.target.value) : null })}
+                                                                    className="px-2 py-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer max-w-[160px] truncate disabled:opacity-50"
+                                                                    title={detalle.grupo_nombre || 'Sin línea'}
+                                                                >
+                                                                    <option value="">— Sin línea —</option>
+                                                                    {gruposRecurso.map(g => <option key={g.id_grupo_recurso} value={g.id_grupo_recurso}>{g.nombre}</option>)}
+                                                                </select>
+                                                            ) : (
+                                                                <span className="text-[11px] font-semibold text-gray-700">{detalle.grupo_nombre || '-'}</span>
+                                                            )}
+                                                        </td>}
 
                                                         {/* Subvención con select interactivo */}
-                                                        <td className="px-3.5 py-3.5 text-xs whitespace-nowrap">
+                                                        {columnas.subvencion && <td className="px-3.5 py-3.5 text-xs whitespace-nowrap">
                                                             <div className="flex items-center gap-1.5">
                                                                 {detalle.estado_aprobacion === 'Aprobado' || !canApprove ? (
                                                                     <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 text-[11px] font-bold border border-violet-200">
@@ -1436,10 +1591,10 @@ export default function DetalleSolicitudPage() {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                        </td>
+                                                        </td>}
 
                                                         {/* Estado (con select para gestión rápida) */}
-                                                        <td className="px-3.5 py-3.5 whitespace-nowrap">
+                                                        {columnas.estado && <td className="px-3.5 py-3.5 whitespace-nowrap">
                                                             {canApprove ? (
                                                                 <select
                                                                     value={detalle.estado_aprobacion === 'Aprobado con Ajustes' ? 'Con Ajustes' : (detalle.estado_aprobacion || 'Sin Revisar')}
@@ -1481,10 +1636,10 @@ export default function DetalleSolicitudPage() {
                                                                     <span className="font-bold text-indigo-900">Ajuste:</span> {detalle.comentario_revision}
                                                                 </p>
                                                             )}
-                                                        </td>
+                                                        </td>}
 
                                                         {/* Acciones Rápidas */}
-                                                        {canApprove && (
+                                                        {verAcciones && (
                                                             <td className="px-3.5 py-3.5 text-center whitespace-nowrap">
                                                                 <div className="flex items-center justify-center gap-1.5">
                                                                     <button

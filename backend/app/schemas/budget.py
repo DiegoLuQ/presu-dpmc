@@ -199,6 +199,12 @@ class BudgetDetailUpdate(BaseModel):
     estado_compra: Optional[str] = None
 
 
+class DetalleClasificacionUpdate(BaseModel):
+    """Categoría y línea asignadas directamente al ítem (Admin / Jefe de Compras)."""
+    id_cat_recurso: Optional[int] = None
+    id_grupo_recurso: Optional[int] = None
+
+
 class BudgetDetailResponse(BaseModel):
     id_pre_detalle: int
     id_presupuesto: int
@@ -207,6 +213,7 @@ class BudgetDetailResponse(BaseModel):
     id_recurso: Optional[int] = None
     recurso_nombre: Optional[str] = None
     recurso_estado: Optional[str] = None
+    id_cat_recurso: Optional[int] = None
     categoria_nombre: Optional[str] = None
     id_grupo_recurso: Optional[int] = None
     grupo_nombre: Optional[str] = None

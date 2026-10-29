@@ -94,6 +94,7 @@ export interface BudgetDetail {
   recurso_nombre?: string;
   // Estado del recurso del catálogo; 'PENDIENTE_APROBACION' = sugerido aún no aprobado por contralor
   recurso_estado?: string;
+  id_cat_recurso?: number;
   categoria_nombre?: string;
   id_grupo_recurso?: number;
   grupo_nombre?: string;

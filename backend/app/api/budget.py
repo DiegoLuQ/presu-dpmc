@@ -27,9 +27,10 @@ from app.schemas.budget import (
     ImportarSolicitudCreate, ImportarRecursosRequest, ImportarRecursosResponse,
     ImportarPresupuestoFilaOmitida,
     AnalizarPlanillaRequest, AnalizarPlanillaResponse, AnalisisFilaResultado, RecursoSugerido,
-    ActaEntregaCreate, ActaEntregaUpdate, ActaEntregaResponse, ActaEntregaDetalleResponse
+    ActaEntregaCreate, ActaEntregaUpdate, ActaEntregaResponse, ActaEntregaDetalleResponse,
+    DetalleClasificacionUpdate
 )
-from app.api.deps import verificar_permisos, verificar_permisos_recursos, verificar_seccion, verificar_revision_contralor
+from app.api.deps import get_current_user, verificar_permisos, verificar_permisos_recursos, verificar_seccion, verificar_revision_contralor
 from app.services.clasificacion_catalogo import aplicar_catalogo, codigo_catalogo
 from app.core.secciones import usuario_puede_seccion
 from sqlalchemy import func, or_, and_, case
@@ -510,10 +511,13 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
                 if g_obj:
                     grupo_nombre = g_obj.nombre
 
-    # Fallback: categoría asignada directamente al detalle (p.ej. sugerida por IA al importar)
-    if not categoria_nombre and detalle.categoria_directa:
+    # La categoría asignada directamente al detalle (IA al importar o edición de
+    # Admin/Jefe de Compras) prevalece sobre la del recurso.
+    id_cat_recurso = detalle.recurso.id_cat_recurso if detalle.recurso else None
+    if detalle.categoria_directa:
         categoria_nombre = detalle.categoria_directa.nombre
-    
+        id_cat_recurso = detalle.id_cat_recurso
+
     actividad_nombre = None
     actividad_dimension = None
     if detalle.id_actividad and detalle.actividad:
@@ -563,6 +567,7 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
         "id_recurso": detalle.id_recurso,
         "recurso_nombre": recurso_nombre,
         "recurso_estado": recurso_estado,
+        "id_cat_recurso": id_cat_recurso,
         "categoria_nombre": categoria_nombre,
         "id_grupo_recurso": id_grupo_recurso,
         "grupo_nombre": grupo_nombre,
@@ -706,8 +711,10 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
                 id_grupo_recurso = rec.id_grupo_recurso
                 grupo_nombre = grupos_map.get(id_grupo_recurso)
 
-        if not categoria_nombre and detalle.categoria_directa:
+        id_cat_recurso = rec.id_cat_recurso if rec else None
+        if detalle.categoria_directa:
             categoria_nombre = detalle.categoria_directa.nombre
+            id_cat_recurso = detalle.id_cat_recurso
 
         act_obj = detalle.actividad or (actividades_faltantes_map.get(detalle.id_actividad) if detalle.id_actividad else None)
         actividad_nombre = act_obj.nombre_actividad if act_obj else None
@@ -744,6 +751,7 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
             "id_recurso": detalle.id_recurso,
             "recurso_nombre": recurso_nombre,
             "recurso_estado": recurso_estado,
+            "id_cat_recurso": id_cat_recurso,
             "categoria_nombre": categoria_nombre,
             "id_grupo_recurso": id_grupo_recurso,
             "grupo_nombre": grupo_nombre,
@@ -2626,6 +2634,44 @@ def update_detalle(
     if obj.id_actividad:
         sync_recurso_actividad(db, obj.id_actividad, db_obj.nombre_producto)
         
+    db.commit()
+    db.refresh(db_obj)
+    return build_detalle_response(db_obj, db=db)
+
+
+@router.patch("/detalles/{id_detalle}/clasificacion", response_model=BudgetDetailResponse)
+def actualizar_clasificacion_detalle(
+    id_detalle: int,
+    payload: DetalleClasificacionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Cambia la categoría y/o la línea del ítem (no del recurso del catálogo).
+    Solo Admin o Jefe de Compras."""
+    es_admin = bool(current_user.rol and current_user.rol.codigo == "ADM")
+    if not (es_admin or _es_jefe_compras(current_user)):
+        raise HTTPException(status_code=403, detail="Solo Admin o Jefe de Compras pueden cambiar categoría y línea")
+
+    db_obj = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    solicitud = db.query(SolicitudPresupuesto).filter(
+        SolicitudPresupuesto.id_presupuesto == db_obj.id_presupuesto
+    ).first()
+    _exigir_mismo_colegio(current_user, solicitud)
+
+    data = payload.dict(exclude_unset=True)
+    if data.get("id_cat_recurso") and not db.query(CategoriaRecurso).filter(
+        CategoriaRecurso.id_cat_recurso == data["id_cat_recurso"]
+    ).first():
+        raise HTTPException(status_code=400, detail="Categoría no encontrada")
+    if data.get("id_grupo_recurso") and not db.query(GrupoRecurso).filter(
+        GrupoRecurso.id_grupo_recurso == data["id_grupo_recurso"]
+    ).first():
+        raise HTTPException(status_code=400, detail="Línea no encontrada")
+    for field, value in data.items():
+        setattr(db_obj, field, value)
+
     db.commit()
     db.refresh(db_obj)
     return build_detalle_response(db_obj, db=db)
