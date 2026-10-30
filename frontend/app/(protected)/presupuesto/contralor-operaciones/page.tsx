@@ -110,6 +110,26 @@ export default function ContabilidadPage() {
     const [asesoriaReview, setAsesoriaReview] = useState<{sugerencias: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; razon: string; subvenciones_habilitadas?: {codigo: string; critico: boolean}[]}[]; proveedor: string; modelo: string} | null>(null);
     const [mostrarAsesoria, setMostrarAsesoria] = useState(false);
     const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}[]>([]);
+    const [avisoCodigos, setAvisoCodigos] = useState<string | null>(null);
+
+    // Regla: un código puede repetirse en distintos destinos, pero cada destino tiene un solo código.
+    // Si el destino ya está en la lista, se reemplaza el código de esa fila.
+    const agregarCodigo = (nuevo: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}) => {
+        const existente = codigosSeleccionados.find(c => c.destino === nuevo.destino);
+        if (existente && existente.codigo_cuenta === nuevo.codigo_cuenta) {
+            setAvisoCodigos(null);
+            return;
+        }
+        setCodigosSeleccionados(prev => existente
+            ? prev.map(c => c.destino === nuevo.destino ? { ...nuevo, subvencion: c.subvencion } : c)
+            : [...prev, nuevo]
+        );
+        setAvisoCodigos(existente
+            ? `El destino ${nuevo.destino_label} ya tenía el código ${existente.codigo_cuenta}; se reemplazó por ${nuevo.codigo_cuenta}.`
+            : null
+        );
+    };
+    const destinosRepetidos = codigosSeleccionados.some((c, i, arr) => arr.findIndex(x => x.destino === c.destino) !== i);
     
     // States for PME and Activity Selection in Review Modal
     const [pmeActividades, setPmeActividades] = useState<any[]>([]);
@@ -1148,6 +1168,7 @@ export default function ContabilidadPage() {
                                                             setCatSearchReview(r.categoria_nombre || '');
                                                             setAccountSearchInModal('');
                                                             setCodigosSeleccionados([]);
+                                                            setAvisoCodigos(null);
                                                             setAsesoriaReview(null);
                                                             setMostrarAsesoria(false);
                                                             setGrupoSugerido(null);
@@ -2114,17 +2135,13 @@ export default function ContabilidadPage() {
                                                 <div key={acc.codigo} className={`border-b border-gray-50 last:border-none ${isSelected ? 'bg-blue-50' : ''}`}>
                                                     <div className="flex items-center pr-1">
                                                         <button type="button"
-                                                            onClick={() => setCodigosSeleccionados(prev =>
-                                                                prev.some(c => c.codigo_cuenta === acc.codigo && c.destino === reviewForm.destino_uso && c.subvencion === (reviewForm.subvenciones[0] || 'GENERAL'))
-                                                                    ? prev
-                                                                    : [...prev, {
-                                                                        destino: reviewForm.destino_uso,
-                                                                        destino_label: destinoUsoLabel(reviewForm.destino_uso),
-                                                                        codigo_cuenta: acc.codigo,
-                                                                        nombre_cuenta: acc.nombre,
-                                                                        subvencion: reviewForm.subvenciones[0] || 'GENERAL',
-                                                                    }]
-                                                            )}
+                                                            onClick={() => agregarCodigo({
+                                                                destino: reviewForm.destino_uso,
+                                                                destino_label: destinoUsoLabel(reviewForm.destino_uso),
+                                                                codigo_cuenta: acc.codigo,
+                                                                nombre_cuenta: acc.nombre,
+                                                                subvencion: reviewForm.subvenciones[0] || 'GENERAL',
+                                                            })}
                                                             className={`flex-1 text-left px-3 py-2 flex items-center gap-2 transition-colors ${isSelected ? 'text-blue-900' : 'hover:bg-gray-50 text-gray-700'}`}
                                                         >
                                                             <div className="flex flex-col">
@@ -2211,7 +2228,12 @@ export default function ContabilidadPage() {
                                                                         }}
                                                                         className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-violet-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                                                     >
-                                                                        {DESTINOS_USO.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                                                        {DESTINOS_USO.map(d => (
+                                                                            <option key={d.value} value={d.value}
+                                                                                disabled={d.value !== c.destino && codigosSeleccionados.some(x => x.destino === d.value)}>
+                                                                                {d.label}
+                                                                            </option>
+                                                                        ))}
                                                                     </select>
                                                                 </td>
                                                                 <td className="px-2 py-2">
@@ -2237,6 +2259,14 @@ export default function ContabilidadPage() {
                                                     </tbody>
                                                 </table>
                                             </div>
+                                            {avisoCodigos && (
+                                                <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">{avisoCodigos}</p>
+                                            )}
+                                            {destinosRepetidos && (
+                                                <p className="text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                                                    Cada destino puede tener un solo código contable. Quita o cambia el destino repetido.
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
                                         <p className="text-[11px] text-gray-400 italic">Aún no hay códigos agregados.</p>
@@ -2290,18 +2320,13 @@ export default function ContabilidadPage() {
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            const yaExiste = codigosSeleccionados.some(c => c.destino === sug.destino && c.codigo_cuenta === sug.codigo_cuenta && c.subvencion === (reviewForm.subvenciones[0] || 'GENERAL'));
-                                                            if (!yaExiste) {
-                                                                setCodigosSeleccionados(prev => [...prev, {
-                                                                    destino: sug.destino,
-                                                                    destino_label: sug.destino_label,
-                                                                    codigo_cuenta: sug.codigo_cuenta,
-                                                                    nombre_cuenta: sug.nombre_cuenta,
-                                                                    subvencion: reviewForm.subvenciones[0] || 'GENERAL',
-                                                                }]);
-                                                            }
-                                                        }}
+                                                        onClick={() => agregarCodigo({
+                                                            destino: sug.destino,
+                                                            destino_label: sug.destino_label,
+                                                            codigo_cuenta: sug.codigo_cuenta,
+                                                            nombre_cuenta: sug.nombre_cuenta,
+                                                            subvencion: reviewForm.subvenciones[0] || 'GENERAL',
+                                                        })}
                                                         className="shrink-0 w-8 h-8 rounded-xl bg-violet-600 text-white text-base font-black hover:bg-violet-700 transition-all active:scale-95 self-center flex items-center justify-center"
                                                         title="Agregar a la selección"
                                                     >+</button>
@@ -2406,7 +2431,7 @@ export default function ContabilidadPage() {
                                 </button>
                             )}
                             <button type="button"
-                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || codigosSeleccionados.length === 0}
+                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || codigosSeleccionados.length === 0 || destinosRepetidos}
                                 onClick={async () => {
                                     setIsSaving(true);
                                     try {
