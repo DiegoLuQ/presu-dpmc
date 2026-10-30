@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api/client';
 import {
@@ -67,6 +68,28 @@ export default function ContabilidadPage() {
     // States for Pending Resource Suggestions
     const [pendingResources, setPendingResources] = useState<any[]>([]);
     const [pendingLoading, setPendingLoading] = useState(false);
+
+    // Filtros de la tabla de sugerencias: colegio (de las solicitudes que usan el recurso) y solicitante
+    const [filtroColegios, setFiltroColegios] = useState<string[]>([]);
+    const [filtroSolicitantes, setFiltroSolicitantes] = useState<string[]>([]);
+    const opcionesColegios = useMemo(() => {
+        const conteo = new Map<string, number>();
+        pendingResources.forEach(r => (r.colegios || []).forEach((c: string) => conteo.set(c, (conteo.get(c) || 0) + 1)));
+        return Array.from(conteo, ([valor, count]) => ({ valor, label: valor, count })).sort((a, b) => a.label.localeCompare(b.label));
+    }, [pendingResources]);
+    const opcionesSolicitantes = useMemo(() => {
+        const conteo = new Map<string, number>();
+        pendingResources.forEach(r => {
+            const s = r.solicitante_nombre || 'Desconocido';
+            conteo.set(s, (conteo.get(s) || 0) + 1);
+        });
+        return Array.from(conteo, ([valor, count]) => ({ valor, label: valor, count })).sort((a, b) => a.label.localeCompare(b.label));
+    }, [pendingResources]);
+    const pendientesFiltrados = useMemo(() => pendingResources.filter(r =>
+        (filtroColegios.length === 0 || (r.colegios || []).some((c: string) => filtroColegios.includes(c))) &&
+        (filtroSolicitantes.length === 0 || filtroSolicitantes.includes(r.solicitante_nombre || 'Desconocido'))
+    ), [pendingResources, filtroColegios, filtroSolicitantes]);
+    const filtrosPendientesActivos = filtroColegios.length > 0 || filtroSolicitantes.length > 0;
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [selectedPendingResource, setSelectedPendingResource] = useState<any>(null);
@@ -110,26 +133,22 @@ export default function ContabilidadPage() {
     const [asesoriaReview, setAsesoriaReview] = useState<{sugerencias: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; razon: string; subvenciones_habilitadas?: {codigo: string; critico: boolean}[]}[]; proveedor: string; modelo: string} | null>(null);
     const [mostrarAsesoria, setMostrarAsesoria] = useState(false);
     const [codigosSeleccionados, setCodigosSeleccionados] = useState<{destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}[]>([]);
-    const [avisoCodigos, setAvisoCodigos] = useState<string | null>(null);
-
-    // Regla: un código puede repetirse en distintos destinos, pero cada destino tiene un solo código.
-    // Si el destino ya está en la lista, se reemplaza el código de esa fila.
+    // Los códigos se agregan siempre; la regla (un código puede repetirse en distintos
+    // destinos, pero cada destino tiene un solo código) se valida al aprobar.
     const agregarCodigo = (nuevo: {destino: string; destino_label: string; codigo_cuenta: string; nombre_cuenta: string; subvencion: string}) => {
-        const existente = codigosSeleccionados.find(c => c.destino === nuevo.destino);
-        if (existente && existente.codigo_cuenta === nuevo.codigo_cuenta) {
-            setAvisoCodigos(null);
-            return;
-        }
-        setCodigosSeleccionados(prev => existente
-            ? prev.map(c => c.destino === nuevo.destino ? { ...nuevo, subvencion: c.subvencion } : c)
-            : [...prev, nuevo]
-        );
-        setAvisoCodigos(existente
-            ? `El destino ${nuevo.destino_label} ya tenía el código ${existente.codigo_cuenta}; se reemplazó por ${nuevo.codigo_cuenta}.`
-            : null
-        );
+        setCodigosSeleccionados(prev => [...prev, nuevo]);
     };
-    const destinosRepetidos = codigosSeleccionados.some((c, i, arr) => arr.findIndex(x => x.destino === c.destino) !== i);
+    // Destinos con más de un código: { destino_label, filas (índice + código) }
+    const conflictosDestino = useMemo(() => {
+        const grupos = new Map<string, { destino_label: string; filas: { idx: number; codigo_cuenta: string; nombre_cuenta: string; subvencion: string }[] }>();
+        codigosSeleccionados.forEach((c, idx) => {
+            const g = grupos.get(c.destino) || { destino_label: c.destino_label, filas: [] };
+            g.filas.push({ idx, codigo_cuenta: c.codigo_cuenta, nombre_cuenta: c.nombre_cuenta, subvencion: c.subvencion });
+            grupos.set(c.destino, g);
+        });
+        return Array.from(grupos.values()).filter(g => g.filas.length > 1);
+    }, [codigosSeleccionados]);
+    const [mostrarConflictoDestino, setMostrarConflictoDestino] = useState(false);
     
     // States for PME and Activity Selection in Review Modal
     const [pmeActividades, setPmeActividades] = useState<any[]>([]);
@@ -910,7 +929,7 @@ export default function ContabilidadPage() {
                                         <option value={25}>Primeros 25</option>
                                         <option value={50}>Primeros 50</option>
                                         <option value={100}>Primeros 100</option>
-                                        <option value={pendingResources.length}>Todos ({pendingResources.length})</option>
+                                        <option value={pendientesFiltrados.length}>Todos ({pendientesFiltrados.length})</option>
                                     </select>
                                 </div>
 
@@ -923,7 +942,8 @@ export default function ContabilidadPage() {
                                         setMasivaDestSeleccionados({});
 
                                         // Limitar a la cantidad seleccionada
-                                        const recursosSeleccionados = pendingResources.slice(0, masivaBatchSize);
+                                        // Respeta los filtros de colegio / solicitante
+                                        const recursosSeleccionados = pendientesFiltrados.slice(0, masivaBatchSize);
                                         const totalAProcesar = recursosSeleccionados.length;
                                         
                                         // Dividir en mini-lotes de 10 para garantizar respuesta óptima sin que la IA se corte
@@ -1017,11 +1037,49 @@ export default function ContabilidadPage() {
                                     className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all active:scale-95 shrink-0"
                                 >
                                     <Sparkles size={16} />
-                                    Asesorar {Math.min(masivaBatchSize, pendingResources.length)} con IA
+                                    Asesorar {Math.min(masivaBatchSize, pendientesFiltrados.length)} con IA
                                 </button>
                             </div>
                         )}
                     </div>
+
+                    {/* Filtros: colegio y solicitado por */}
+                    {pendingResources.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <FiltroMultiSelectGenerico
+                                icono="🏫"
+                                tituloVacio="Todos los colegios"
+                                tituloPlural="colegios"
+                                seleccionados={filtroColegios}
+                                onChange={setFiltroColegios}
+                                opciones={opcionesColegios}
+                                placeholderBusqueda="Buscar colegio..."
+                                anchoMinimo="min-w-[240px]"
+                            />
+                            <FiltroMultiSelectGenerico
+                                icono="👤"
+                                tituloVacio="Todos los solicitantes"
+                                tituloPlural="solicitantes"
+                                seleccionados={filtroSolicitantes}
+                                onChange={setFiltroSolicitantes}
+                                opciones={opcionesSolicitantes}
+                                placeholderBusqueda="Buscar solicitante..."
+                                anchoMinimo="min-w-[260px]"
+                            />
+                            {filtrosPendientesActivos && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setFiltroColegios([]); setFiltroSolicitantes([]); }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 cursor-pointer"
+                                >
+                                    <X size={13} /> Limpiar filtros
+                                </button>
+                            )}
+                            <span className="ml-auto text-xs font-bold text-gray-500">
+                                {filtrosPendientesActivos ? `${pendientesFiltrados.length} de ${pendingResources.length}` : pendingResources.length} recursos
+                            </span>
+                        </div>
+                    )}
 
                     {/* Pending Resources Table */}
                     <div className="bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
@@ -1057,7 +1115,13 @@ export default function ContabilidadPage() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        pendingResources.map((r) => {
+                                        pendientesFiltrados.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-xs font-semibold">
+                                                Ningún recurso coincide con los filtros de colegio / solicitante.
+                                            </td>
+                                        </tr>
+                                        ) : pendientesFiltrados.map((r) => {
                                             const pptoCount: number = r.ppto_count ?? 0;
                                             const sinPpto = pptoCount === 0;
                                             return (
@@ -1116,6 +1180,9 @@ export default function ContabilidadPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">
                                                     {r.solicitante_nombre}
+                                                    {(r.colegios || []).length > 0 && (
+                                                        <span className="block text-[10px] font-medium text-gray-400 mt-0.5">{(r.colegios as string[]).join(', ')}</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
@@ -1168,7 +1235,6 @@ export default function ContabilidadPage() {
                                                             setCatSearchReview(r.categoria_nombre || '');
                                                             setAccountSearchInModal('');
                                                             setCodigosSeleccionados([]);
-                                                            setAvisoCodigos(null);
                                                             setAsesoriaReview(null);
                                                             setMostrarAsesoria(false);
                                                             setGrupoSugerido(null);
@@ -2228,12 +2294,7 @@ export default function ContabilidadPage() {
                                                                         }}
                                                                         className="w-full px-1.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-semibold text-violet-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                                                     >
-                                                                        {DESTINOS_USO.map(d => (
-                                                                            <option key={d.value} value={d.value}
-                                                                                disabled={d.value !== c.destino && codigosSeleccionados.some(x => x.destino === d.value)}>
-                                                                                {d.label}
-                                                                            </option>
-                                                                        ))}
+                                                                        {DESTINOS_USO.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                                                                     </select>
                                                                 </td>
                                                                 <td className="px-2 py-2">
@@ -2259,14 +2320,6 @@ export default function ContabilidadPage() {
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            {avisoCodigos && (
-                                                <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">{avisoCodigos}</p>
-                                            )}
-                                            {destinosRepetidos && (
-                                                <p className="text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
-                                                    Cada destino puede tener un solo código contable. Quita o cambia el destino repetido.
-                                                </p>
-                                            )}
                                         </div>
                                     ) : (
                                         <p className="text-[11px] text-gray-400 italic">Aún no hay códigos agregados.</p>
@@ -2274,6 +2327,50 @@ export default function ContabilidadPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Modal: destino con más de un código contable (se valida al aprobar) */}
+                        {mostrarConflictoDestino && (
+                            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-6 animate-in fade-in duration-150">
+                                <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col animate-in zoom-in-95 duration-150">
+                                    <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center gap-3">
+                                        <div className="p-2.5 rounded-2xl bg-red-50 text-red-600 shrink-0"><AlertCircle size={20} /></div>
+                                        <div>
+                                            <h3 className="text-base font-bold text-gray-900">Destino repetido</h3>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">Cada destino puede tener un solo código contable. Un mismo código sí puede usarse en distintos destinos.</p>
+                                        </div>
+                                    </div>
+                                    <div className="px-6 py-4 space-y-3 max-h-[50vh] overflow-y-auto">
+                                        {conflictosDestino.length === 0 ? (
+                                            <p className="text-xs font-semibold text-green-700">Conflicto resuelto. Ya puedes aprobar.</p>
+                                        ) : conflictosDestino.map(g => (
+                                            <div key={g.destino_label} className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+                                                <p className="text-[11px] font-bold text-red-700 mb-1.5">{g.destino_label} — {g.filas.length} códigos</p>
+                                                <ul className="space-y-1">
+                                                    {g.filas.map(f => (
+                                                        <li key={f.idx} className="flex items-center gap-2 text-[11px]">
+                                                            <span className="font-extrabold font-mono text-primary">{f.codigo_cuenta}</span>
+                                                            <span className="text-gray-600 truncate flex-1" title={f.nombre_cuenta}>{f.nombre_cuenta}</span>
+                                                            <span className="text-[10px] text-gray-400">{f.subvencion}</span>
+                                                            <button type="button"
+                                                                onClick={() => setCodigosSeleccionados(prev => prev.filter((_, j) => j !== f.idx))}
+                                                                className="px-2 py-0.5 rounded-md text-[10px] font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50">
+                                                                Quitar
+                                                            </button>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+                                        <button type="button" onClick={() => setMostrarConflictoDestino(false)}
+                                            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:opacity-90">
+                                            {conflictosDestino.length === 0 ? 'Continuar' : 'Volver a corregir'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Modal asesoría cuenta contable */}
                         {mostrarAsesoria && asesoriaReview && asesoriaReview.sugerencias.length > 0 && (
@@ -2431,8 +2528,13 @@ export default function ContabilidadPage() {
                                 </button>
                             )}
                             <button type="button"
-                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || codigosSeleccionados.length === 0 || destinosRepetidos}
+                                disabled={isSaving || !reviewForm.nombre.trim() || !reviewForm.id_cat_recurso || codigosSeleccionados.length === 0}
                                 onClick={async () => {
+                                    // Cada destino debe tener un solo código contable
+                                    if (conflictosDestino.length > 0) {
+                                        setMostrarConflictoDestino(true);
+                                        return;
+                                    }
                                     setIsSaving(true);
                                     try {
                                         // 1. Actualizar datos del recurso y del detalle de presupuesto (motivo, actividad PME)

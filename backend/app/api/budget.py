@@ -5069,6 +5069,7 @@ def list_recursos_pendientes(
     recursos = db.query(Recurso).options(
         sl(Recurso.solicitante).selectinload(User.cargo).selectinload(Cargo.area),
         sl(Recurso.solicitante).selectinload(User.rol),
+        sl(Recurso.solicitante).selectinload(User.colegio),
         sl(Recurso.categoria),
         sl(Recurso.grupo)
     ).filter(Recurso.estado == "PENDIENTE_APROBACION").all()
@@ -5082,15 +5083,19 @@ def list_recursos_pendientes(
     presupuestos_por_recurso: dict = {}
     # Nombres con que las solicitudes activas usan cada recurso: (código, nombre_producto)
     usos_por_recurso: dict = {}
+    # Colegios de las solicitudes que usan cada recurso (filtro por colegio)
+    colegios_por_recurso: dict = {}
     if ids:
         detalles = db.query(PresupuestoDetalle).options(
             sl(PresupuestoDetalle.subvencion),
             sl(PresupuestoDetalle.actividad),
-            sl(PresupuestoDetalle.solicitud)
+            sl(PresupuestoDetalle.solicitud).selectinload(SolicitudPresupuesto.colegio)
         ).filter(
             PresupuestoDetalle.id_recurso.in_(ids)
         ).order_by(PresupuestoDetalle.id_pre_detalle.asc()).all()
         for d in detalles:
+            if d.solicitud and d.solicitud.colegio and d.solicitud.colegio.nombre:
+                colegios_por_recurso.setdefault(d.id_recurso, set()).add(d.solicitud.colegio.nombre)
             if d.solicitud and d.solicitud.activo:
                 codigo = d.solicitud.codigo or f"#{d.id_presupuesto}"
                 presupuestos_por_recurso.setdefault(d.id_recurso, {})[d.id_presupuesto] = codigo
@@ -5148,6 +5153,15 @@ def list_recursos_pendientes(
         candidatos.sort(key=lambda e: e.estado == "PENDIENTE_APROBACION")
         return {"id_recurso": candidatos[0].id_recurso, "nombre": candidatos[0].nombre, "estado": candidatos[0].estado} if candidatos else None
 
+    def _colegios(r: Recurso):
+        """Colegios de las solicitudes que usan el recurso; si no hay, el del solicitante."""
+        colegios = colegios_por_recurso.get(r.id_recurso)
+        if colegios:
+            return sorted(colegios)
+        if r.solicitante and r.solicitante.colegio and r.solicitante.colegio.nombre:
+            return [r.solicitante.colegio.nombre]
+        return []
+
     return [{
         "id_recurso": r.id_recurso,
         "id_pre_detalle": info_por_recurso.get(r.id_recurso, {}).get("id_pre_detalle"),
@@ -5179,6 +5193,7 @@ def list_recursos_pendientes(
         "presupuestos": list(presupuestos_por_recurso.get(r.id_recurso, {}).values()),
         "nombre_distinto": nombres[r.id_recurso][2],
         "recurso_existente": _existente(r),
+        "colegios": _colegios(r),
     } for r in recursos]
 
 
