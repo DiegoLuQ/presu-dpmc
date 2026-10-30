@@ -5243,11 +5243,6 @@ def aprobar_y_clasificar_recurso(
     # 1. Cambiar estado a ACTIVO
     recurso.estado = "ACTIVO"
     
-    # 2. Crear mapeo en la tabla MapeoRecursoSubcategoria
-    subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.codigo_cuenta == req.codigo_cuenta).first()
-    if not subcat:
-        raise HTTPException(status_code=400, detail="El código contable no existe en las subcategorías.")
-
     id_subvencion = None
     if req.subvencion:
         subv = db.query(Subvencion).filter(func.lower(Subvencion.nombre_corto) == req.subvencion.lower()).first()
@@ -5257,6 +5252,11 @@ def aprobar_y_clasificar_recurso(
     destino_gasto = _DESTINO_USO_A_GASTO.get(req.destino_uso, 'clases(alumno)')
     if req.destino_uso in CATEGORIA_PILAR_VALUES:
         destino_gasto = req.destino_uso
+
+    # 2. Asignar el código a la categoría (lo crea si falta) y mapear el recurso
+    subcat = _asignar_codigo_a_categoria(db, recurso, req.codigo_cuenta, destino_gasto, req.subvencion)
+    if not subcat:
+        raise HTTPException(status_code=400, detail=f"El código {req.codigo_cuenta} no existe en el plan de cuentas.")
 
     existe = db.query(MapeoRecursoSubcategoria).filter(
         MapeoRecursoSubcategoria.id_recurso == recurso.id_recurso,
@@ -5389,10 +5389,6 @@ def aprobar_clasificar_recursos_lote(
             if primer_codigo is None:
                 primer_codigo = codigo_cuenta
 
-            subcat = db.query(SubcategoriaRecurso).filter(SubcategoriaRecurso.codigo_cuenta == codigo_cuenta).first()
-            if not subcat:
-                continue
-
             id_subvencion = None
             if subvencion:
                 subv = db.query(Subvencion).filter(func.lower(Subvencion.nombre_corto) == subvencion.lower()).first()
@@ -5400,6 +5396,11 @@ def aprobar_clasificar_recursos_lote(
                     id_subvencion = subv.id_subvencion
 
             destino_gasto = destino_map.get(destino, 'clases(alumno)')
+
+            # Asigna el código a la categoría del recurso (lo crea si falta)
+            subcat = _asignar_codigo_a_categoria(db, recurso, codigo_cuenta, destino_gasto, subvencion)
+            if not subcat:
+                continue
 
             existe = db.query(MapeoRecursoSubcategoria).filter(
                 MapeoRecursoSubcategoria.id_recurso == recurso.id_recurso,
@@ -5546,6 +5547,45 @@ def _subcategoria_para_codigo(db: Session, codigo_cuenta: str, recurso: Recurso,
     db.add(subcat)
     db.flush()
     return subcat
+
+
+def _asignar_codigo_a_categoria(db: Session, recurso: Recurso, codigo_cuenta: str, destino_gasto: str, subvencion: Optional[str]):
+    """Al aprobar un recurso sugerido: deja el código contable asignado a la categoría del
+    recurso (subcategoría + código por destino de la categoría), creándolo si falta.
+    Devuelve la subcategoría, o None si el código no existe en el plan de cuentas."""
+    subcat = None
+    if recurso.id_cat_recurso:
+        subcat = db.query(SubcategoriaRecurso).filter(
+            SubcategoriaRecurso.id_cat_recurso == recurso.id_cat_recurso,
+            SubcategoriaRecurso.codigo_cuenta == codigo_cuenta,
+        ).first()
+        if not subcat:
+            matriz = db.query(CuentaMatrizReglas).filter(CuentaMatrizReglas.codigo == codigo_cuenta).first()
+            if not matriz:
+                return None
+            subcat = SubcategoriaRecurso(
+                id_cat_recurso=recurso.id_cat_recurso,
+                nombre=matriz.nombre,
+                codigo_cuenta=matriz.codigo,
+                destino_gasto=destino_gasto,
+            )
+            db.add(subcat)
+            db.flush()
+        if not db.query(CategoriaCodigoContable).filter(
+            CategoriaCodigoContable.id_cat_recurso == recurso.id_cat_recurso,
+            CategoriaCodigoContable.categoria_pilar == destino_gasto,
+            CategoriaCodigoContable.codigo_cuenta == codigo_cuenta,
+        ).first():
+            db.add(CategoriaCodigoContable(
+                id_cat_recurso=recurso.id_cat_recurso,
+                categoria_pilar=destino_gasto,
+                codigo_cuenta=codigo_cuenta,
+                subvencion=subvencion or 'GENERAL',
+            ))
+            db.flush()
+        return subcat
+    # Recurso sin categoría: se usa (o crea) la subcategoría genérica del código
+    return _subcategoria_para_codigo(db, codigo_cuenta, recurso, destino_gasto)
 
 
 @router.post("/recursos/{id_recurso}/mapeos", response_model=MapeoRecursoSubcategoriaResponse, status_code=201)
