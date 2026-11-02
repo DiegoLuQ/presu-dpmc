@@ -9,7 +9,7 @@ import {
     Download, User, Calendar, DollarSign, Check, X, AlertCircle, AlertTriangle, Package, Building2, SlidersHorizontal, RotateCcw, Users,
     Search, FileDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Edit3, HelpCircle, Copy
 } from 'lucide-react';
-import { BudgetRequest, BudgetDetail, FORMATOS_UNIDAD } from '@/lib/types';
+import { BudgetRequest, BudgetDetail, Cargo, FORMATOS_UNIDAD } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { DESTINOS, destinoCanonico, etiquetaDestino, etiquetaDestinoCorta } from '@/lib/destinos';
@@ -284,8 +284,19 @@ export default function DetalleSolicitudPage() {
     const [editForm, setEditForm] = useState({
         nombre_producto: '', descripcion: '', codigo_cuenta: '', formato_unidad: '',
         cantidad: '' as number | string, valor_unitario_iva: '' as number | string, mes: '', motivo: '',
+        id_cargo: '',
     });
     const [savingEdit, setSavingEdit] = useState(false);
+    // Subáreas (cargos) del área de la solicitud, para elegir el área solicitante del ítem.
+    // Se cargan la primera vez que se abre el modal.
+    const [cargosCatalogo, setCargosCatalogo] = useState<Cargo[] | null>(null);
+    const cargosDelArea = useMemo(() => {
+        const idArea = solicitud?.id_area;
+        if (!cargosCatalogo || !idArea) return [];
+        return cargosCatalogo
+            .filter(c => c.id_area === idArea || (c.areas_adicionales || []).some(a => a.id_area === idArea))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    }, [cargosCatalogo, solicitud?.id_area]);
     // 'copiar': el modal parte del ítem original y la copia solo se crea al confirmar
     const [editModo, setEditModo] = useState<'editar' | 'copiar'>('editar');
 
@@ -301,7 +312,13 @@ export default function DetalleSolicitudPage() {
             valor_unitario_iva: det.valor_unitario_iva ?? '',
             mes: (det.fecha_ejecucion || '').substring(5, 7),
             motivo: det.motivo || '',
+            id_cargo: String(det.id_cargo ?? solicitud?.id_cargo ?? ''),
         });
+        if (cargosCatalogo === null) {
+            api.get('/catalogos/cargos')
+                .then(res => setCargosCatalogo(res.data || []))
+                .catch(() => setCargosCatalogo([]));
+        }
     };
 
     const guardarEdicion = async () => {
@@ -319,6 +336,8 @@ export default function DetalleSolicitudPage() {
         if (editForm.descripcion !== (editDetalle.descripcion || '')) payload.descripcion = editForm.descripcion;
         if (editForm.codigo_cuenta.trim() !== (editDetalle.codigo_cuenta || '')) payload.codigo_cuenta = editForm.codigo_cuenta.trim();
         if (editForm.motivo !== (editDetalle.motivo || '')) payload.motivo = editForm.motivo;
+        const cargoActual = editDetalle.id_cargo ?? solicitud?.id_cargo;
+        if (editForm.id_cargo && Number(editForm.id_cargo) !== cargoActual) payload.id_cargo = Number(editForm.id_cargo);
         if (editForm.formato_unidad && editForm.formato_unidad !== (editDetalle.formato_unidad || '')) payload.formato_unidad = editForm.formato_unidad;
         if (cantidad !== Number(editDetalle.cantidad) || valorIva !== Number(editDetalle.valor_unitario_iva)) {
             payload.cantidad = cantidad;
@@ -2090,6 +2109,23 @@ export default function DetalleSolicitudPage() {
                                 <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Insumo *</label>
                                 <input value={editForm.nombre_producto} onChange={(e) => setEditForm(f => ({ ...f, nombre_producto: e.target.value }))}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">
+                                    Área solicitante{solicitud?.area_nombre ? ` (${solicitud.area_nombre})` : ''}
+                                </label>
+                                <select value={editForm.id_cargo} onChange={(e) => setEditForm(f => ({ ...f, id_cargo: e.target.value }))}
+                                    disabled={cargosCatalogo === null}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
+                                    {cargosCatalogo === null && <option value={editForm.id_cargo}>Cargando…</option>}
+                                    {cargosCatalogo !== null && editForm.id_cargo && !cargosDelArea.some(c => String(c.id_cargo) === editForm.id_cargo) && (
+                                        <option value={editForm.id_cargo}>
+                                            {editDetalle.cargo_nombre || editDetalle.subarea_nombre || solicitud?.subarea_nombre || 'Actual'}
+                                        </option>
+                                    )}
+                                    {cargosCatalogo !== null && !editForm.id_cargo && <option value="">Sin subárea</option>}
+                                    {cargosDelArea.map(c => <option key={c.id_cargo} value={String(c.id_cargo)}>{c.nombre}</option>)}
+                                </select>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block">Descripción</label>
