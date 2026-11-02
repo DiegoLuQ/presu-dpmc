@@ -472,6 +472,11 @@ class PresupuestoDetalle(Base):
     revisado_contralor = Column(Boolean, nullable=False, default=False, server_default="0")
     fecha_revision_contralor = Column(DateTime, nullable=True)
     id_user_revision_contralor = Column(Integer, ForeignKey("auth_usuario.id_user"), nullable=True)
+    # Nota libre del contralor sobre el ítem y marca de activo fijo (no bloquean la edición)
+    nota_contralor = Column(Text, nullable=True)
+    activo_fijo = Column(Boolean, nullable=False, default=False, server_default="0")
+    fecha_nota_contralor = Column(DateTime, nullable=True)
+    id_user_nota_contralor = Column(Integer, ForeignKey("auth_usuario.id_user"), nullable=True)
 
     solicitud = relationship("SolicitudPresupuesto", back_populates="detalles")
     recurso = relationship("Recurso", back_populates="presupuesto_detalles")

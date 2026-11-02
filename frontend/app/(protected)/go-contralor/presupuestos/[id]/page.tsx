@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api/client';
 import { BudgetRequest, PresupuestoAnual } from '@/lib/types';
 import {
-    ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardList, Edit3, Eye, Loader2, Package, Search, X,
+    ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardList, Edit3, Eye, Landmark, Loader2, Package, Search, StickyNote, X,
 } from 'lucide-react';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import EditarContralorModal, { DetalleEditable, ModoEdicionContralor } from '@/components/presupuesto/EditarContralorModal';
@@ -76,6 +76,9 @@ interface Item {
     destino: string;       // etiqueta corta ("Estudiantes", "Funcionarios"…)
     revisado: boolean;
     fecha_revision: string | null;
+    nota: string;
+    activo_fijo: boolean;
+    fecha_nota: string | null;
 }
 
 /** Descripción recortada a 2 líneas; si no cabe completa, muestra un ojo para verla entera. */
@@ -118,6 +121,9 @@ export default function RevisionPresupuestoDetallePage() {
     const [productoVer, setProductoVer] = useState<Item | null>(null);
     const [marcando, setMarcando] = useState<Set<number>>(new Set());
     const [errorRevision, setErrorRevision] = useState('');
+    const [notaEdit, setNotaEdit] = useState<{ item: Item; nota: string; activo_fijo: boolean } | null>(null);
+    const [guardandoNota, setGuardandoNota] = useState(false);
+    const [errorNota, setErrorNota] = useState('');
 
     // Filtros de solicitudes
     const [busquedaSol, setBusquedaSol] = useState('');
@@ -194,6 +200,9 @@ export default function RevisionPresupuestoDetallePage() {
             destino: etiquetaDestinoCorta(d.destino_gasto) || (d.destino_gasto || '').trim() || SIN_DESTINO,
             revisado: !!d.revisado_contralor,
             fecha_revision: d.fecha_revision_contralor ?? null,
+            nota: d.nota_contralor || '',
+            activo_fijo: !!d.activo_fijo,
+            fecha_nota: d.fecha_nota_contralor ?? null,
         };
     })), [solicitudes]);
 
@@ -220,7 +229,7 @@ export default function RevisionPresupuestoDetallePage() {
     const base = useMemo(() => {
         const q = texto.toLowerCase().trim();
         return items.filter(i =>
-            (!q || [i.codigo_solicitud, i.nombre_producto, i.descripcion, i.motivo, i.categoria_nombre, i.area_nombre, i.solicitante, i.user_nombre, i.codigo_cuenta, i.destino]
+            (!q || [i.codigo_solicitud, i.nombre_producto, i.descripcion, i.motivo, i.categoria_nombre, i.area_nombre, i.solicitante, i.user_nombre, i.codigo_cuenta, i.destino, i.nota, i.activo_fijo ? 'activo fijo' : '']
                 .some(v => v.toLowerCase().includes(q))) &&
             (actividad === 'todos' || i.actividad_nombre === actividad) &&
             (categoria === 'todos' || i.categoria_nombre === categoria) &&
@@ -315,6 +324,26 @@ export default function RevisionPresupuestoDetallePage() {
             setErrorRevision(e?.response?.data?.detail || 'No se pudo guardar la revisión.');
         } finally {
             setMarcando(prev => { const n = new Set(prev); n.delete(i.id_pre_detalle); return n; });
+        }
+    };
+
+    const abrirNota = (i: Item) => { setErrorNota(''); setNotaEdit({ item: i, nota: i.nota, activo_fijo: i.activo_fijo }); };
+
+    const guardarNota = async () => {
+        if (!notaEdit) return;
+        setGuardandoNota(true);
+        setErrorNota('');
+        try {
+            const { data } = await api.patch(`/presupuesto/detalles/${notaEdit.item.id_pre_detalle}/contralor/nota`, {
+                nota: notaEdit.nota.trim() || null,
+                activo_fijo: notaEdit.activo_fijo,
+            });
+            aplicarDetalle(data);
+            setNotaEdit(null);
+        } catch (e: any) {
+            setErrorNota(e?.response?.data?.detail || 'No se pudo guardar la nota.');
+        } finally {
+            setGuardandoNota(false);
         }
     };
 
@@ -519,6 +548,7 @@ export default function RevisionPresupuestoDetallePage() {
                                     <th className="px-3.5 py-3">Subvención</th>
                                     <th className="px-3.5 py-3">Código Contable</th>
                                     <th className="px-3.5 py-3">Estado</th>
+                                    <th className="px-3.5 py-3">Nota</th>
                                     <th className="px-3.5 py-3 text-center">Revisado</th>
                                 </tr>
                             </thead>
@@ -614,6 +644,31 @@ export default function RevisionPresupuestoDetallePage() {
                                         <td className="px-3.5 py-3.5 whitespace-nowrap">
                                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${ESTILO_ESTADO[i.estado] || 'bg-gray-100 text-gray-700'}`}>{i.estado}</span>
                                         </td>
+                                        <td className="px-3.5 py-3.5 max-w-[200px]">
+                                            <div className="flex items-start gap-1.5">
+                                                <div className="flex-1 min-w-0">
+                                                    {i.activo_fijo && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-50 text-orange-700 text-[10px] font-bold border border-orange-200 whitespace-nowrap">
+                                                            <Landmark size={11} /> Activo fijo
+                                                        </span>
+                                                    )}
+                                                    {i.nota && (
+                                                        <div className="text-[11px] text-gray-700 line-clamp-2 break-words mt-0.5" title={i.nota}>{i.nota}</div>
+                                                    )}
+                                                    {!i.nota && !i.activo_fijo && !puedeEditar && <span className="text-[11px] text-gray-300">—</span>}
+                                                </div>
+                                                {puedeEditar && (
+                                                    <button
+                                                        onClick={() => abrirNota(i)}
+                                                        className={`shrink-0 p-1 rounded-md cursor-pointer ${i.nota || i.activo_fijo ? 'text-amber-600 hover:bg-amber-50' : 'text-gray-300 hover:text-amber-600 hover:bg-amber-50'}`}
+                                                        title={i.nota || i.activo_fijo ? 'Editar nota' : 'Agregar nota'}
+                                                        aria-label={i.nota || i.activo_fijo ? 'Editar nota' : 'Agregar nota'}
+                                                    >
+                                                        <StickyNote size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-3.5 py-3.5 whitespace-nowrap text-center">
                                             {puedeEditar ? (
                                                 <button
@@ -637,7 +692,7 @@ export default function RevisionPresupuestoDetallePage() {
                                     );
                                 })}
                                 {visibles.length === 0 && (
-                                    <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400 italic">No hay recursos con estos filtros.</td></tr>
+                                    <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400 italic">No hay recursos con estos filtros.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -688,6 +743,46 @@ export default function RevisionPresupuestoDetallePage() {
                         </div>
                         <div className="p-4 bg-gray-50 flex justify-end">
                             <button onClick={() => setProductoVer(null)} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl text-sm font-medium cursor-pointer">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {notaEdit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => !guardandoNota && setNotaEdit(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 bg-slate-50 flex items-start gap-3 border-b border-gray-100">
+                            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600"><StickyNote size={20} /></div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-gray-900 break-words">Nota del contralor</h3>
+                                <p className="text-[11px] text-gray-400 break-words">{notaEdit.item.nombre_producto} · {notaEdit.item.codigo_solicitud}</p>
+                            </div>
+                            <button onClick={() => setNotaEdit(null)} disabled={guardandoNota} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer" aria-label="Cerrar"><X size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4 text-sm">
+                            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                <input type="checkbox" checked={notaEdit.activo_fijo}
+                                    onChange={e => setNotaEdit({ ...notaEdit, activo_fijo: e.target.checked })}
+                                    className="w-4 h-4 accent-orange-600 cursor-pointer" />
+                                <span className="font-semibold text-gray-800 inline-flex items-center gap-1.5"><Landmark size={14} className="text-orange-600" /> Activo fijo</span>
+                            </label>
+                            <div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Nota</div>
+                                <textarea autoFocus rows={4} maxLength={2000} value={notaEdit.nota}
+                                    onChange={e => setNotaEdit({ ...notaEdit, nota: e.target.value })}
+                                    placeholder="Ej.: se registrará como activo fijo, requiere cotización, etc."
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 resize-y" />
+                                {notaEdit.item.fecha_nota && (
+                                    <div className="text-[10px] text-gray-400 mt-1">Última modificación: {fechaRevision(notaEdit.item.fecha_nota)}</div>
+                                )}
+                            </div>
+                            {errorNota && <div className="p-2.5 bg-red-50 border border-red-100 text-red-700 rounded-lg text-xs">{errorNota}</div>}
+                        </div>
+                        <div className="p-4 bg-gray-50 flex justify-end gap-2">
+                            <button onClick={() => setNotaEdit(null)} disabled={guardandoNota} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 rounded-xl text-sm font-medium cursor-pointer">Cancelar</button>
+                            <button onClick={guardarNota} disabled={guardandoNota} className="px-4 py-2 bg-primary text-white hover:opacity-90 rounded-xl text-sm font-bold cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-60">
+                                {guardandoNota && <Loader2 size={14} className="animate-spin" />} Guardar
+                            </button>
                         </div>
                     </div>
                 </div>

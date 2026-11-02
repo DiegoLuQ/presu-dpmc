@@ -131,6 +131,9 @@ export interface BudgetDetail {
   observacion?: string | null;
   revisado_contralor?: boolean;
   fecha_revision_contralor?: string | null;
+  nota_contralor?: string | null;
+  activo_fijo?: boolean;
+  fecha_nota_contralor?: string | null;
 }
 
 export interface BudgetRequest {

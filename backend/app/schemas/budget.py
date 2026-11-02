@@ -248,6 +248,9 @@ class BudgetDetailResponse(BaseModel):
     cantidad_original: Optional[float] = None
     revisado_contralor: bool = False
     fecha_revision_contralor: Optional[datetime] = None
+    nota_contralor: Optional[str] = None
+    activo_fijo: bool = False
+    fecha_nota_contralor: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -466,6 +469,11 @@ class EditarDetalleContralorRequest(BaseModel):
 
 class RevisadoContralorRequest(BaseModel):
     revisado: bool
+
+
+class NotaContralorRequest(BaseModel):
+    nota: Optional[str] = Field(None, max_length=2000)
+    activo_fijo: bool = False
 
 
 class AjusteCantidadRequest(BaseModel):

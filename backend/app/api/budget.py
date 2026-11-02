@@ -21,7 +21,7 @@ from app.schemas.budget import (
     GrupoRecursoCreate, GrupoRecursoResponse,
     MotivoRecursoCreate, MotivoRecursoUpdate, MotivoRecursoResponse,
     ActividadCodigoContableUpsert, ActividadCodigoContableResponse, ActividadCodigosBatchUpsert,
-    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest, RevisadoContralorRequest, AjusteCantidadRequest,
+    AsignarCodigoDetalleRequest, EditarDetalleContralorRequest, RevisadoContralorRequest, NotaContralorRequest, AjusteCantidadRequest,
     PresupuestoAnualCreate, PresupuestoAnualUpdate, PresupuestoAnualResponse,
     AsignarPresupuestoAnualRequest,
     ImportarSolicitudCreate, ImportarRecursosRequest, ImportarRecursosResponse,
@@ -602,6 +602,9 @@ def build_detalle_response(detalle: PresupuestoDetalle, db: Optional[Session] = 
         "subarea_nombre": detalle.cargo_detalle.nombre if detalle.cargo_detalle else (detalle.subarea_detalle.nombre if detalle.subarea_detalle else None),
         "revisado_contralor": bool(detalle.revisado_contralor),
         "fecha_revision_contralor": detalle.fecha_revision_contralor,
+        "nota_contralor": detalle.nota_contralor,
+        "activo_fijo": bool(detalle.activo_fijo),
+        "fecha_nota_contralor": detalle.fecha_nota_contralor,
     }
 
 
@@ -787,6 +790,9 @@ def build_solicitudes_batch_response(solicitudes: List[SolicitudPresupuesto], db
             "subarea_nombre": cargo_nombre,
             "revisado_contralor": bool(detalle.revisado_contralor),
             "fecha_revision_contralor": detalle.fecha_revision_contralor,
+            "nota_contralor": detalle.nota_contralor,
+            "activo_fijo": bool(detalle.activo_fijo),
+            "fecha_nota_contralor": detalle.fecha_nota_contralor,
         }
 
     def _build_solicitud(solicitud: SolicitudPresupuesto) -> dict:
@@ -2644,6 +2650,7 @@ _CAMPOS_NO_COPIABLES = {
     "id_pre_detalle", "cantidad_real", "cantidad_original", "valor_real_iva",
     "estado_aprobacion", "estado_compra", "comentario_revision",
     "revisado_contralor", "fecha_revision_contralor", "id_user_revision_contralor",
+    "nota_contralor", "activo_fijo", "fecha_nota_contralor", "id_user_nota_contralor",
 }
 
 
@@ -3018,6 +3025,31 @@ def marcar_revisado_contralor(
     db_obj.revisado_contralor = payload.revisado
     db_obj.fecha_revision_contralor = datetime.utcnow() if payload.revisado else None
     db_obj.id_user_revision_contralor = current_user.id_user if payload.revisado else None
+    db.commit()
+    db.refresh(db_obj)
+    return build_detalle_response(db_obj, db=db)
+
+
+@router.patch("/detalles/{id_detalle}/contralor/nota", response_model=BudgetDetailResponse)
+def guardar_nota_contralor(
+    id_detalle: int,
+    payload: NotaContralorRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_revision_contralor("editar"))
+):
+    """El contralor deja una nota en el ítem y/o lo marca como activo fijo.
+    Se permite aunque el ítem esté revisado: no altera montos ni clasificación."""
+    db_obj = db.query(PresupuestoDetalle).filter(PresupuestoDetalle.id_pre_detalle == id_detalle).first()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="Detalle no encontrado")
+    _exigir_mismo_colegio(current_user, db_obj.solicitud)
+
+    nota = (payload.nota or "").strip() or None
+    db_obj.nota_contralor = nota
+    db_obj.activo_fijo = payload.activo_fijo
+    hay_dato = bool(nota) or payload.activo_fijo
+    db_obj.fecha_nota_contralor = datetime.utcnow() if hay_dato else None
+    db_obj.id_user_nota_contralor = current_user.id_user if hay_dato else None
     db.commit()
     db.refresh(db_obj)
     return build_detalle_response(db_obj, db=db)
