@@ -1003,7 +1003,7 @@ export default function SolicitudesPage() {
         }
     };
 
-    const exportToExcel = () => {
+    const exportToExcel = async () => {
         if (vistaModo === 'solicitudes') {
             const data = filteredSolicitudes.map(req => ({
                 'ID': req.id_presupuesto,
@@ -1022,7 +1022,17 @@ export default function SolicitudesPage() {
             XLSX.utils.book_append_sheet(wb, ws, 'Solicitudes');
             XLSX.writeFile(wb, `solicitudes_presupuesto_${new Date().toISOString().split('T')[0]}.xlsx`);
         } else {
-            const data = filteredItems.map(item => ({
+            // Nombre de cada cuenta contable para la columna "Descripción Cuenta"
+            let nombresCuenta: Record<string, string> = {};
+            try {
+                const res = await api.get('/catalogos/cuentas');
+                nombresCuenta = Object.fromEntries((res.data || []).map((c: any) => [c.codigo, c.nombre]));
+            } catch (e) {
+                console.error('No se pudo cargar el catálogo de cuentas para exportar:', e);
+            }
+            const data = filteredItems.map(item => {
+                const codigoCuenta = (item.raw_detalle as any)?.codigo_cuenta || '';
+                return {
                 'ID Insumo': item.id_pre_detalle,
                 'Solicitud': item.codigo_solicitud,
                 'Área': item.area_nombre || '',
@@ -1040,9 +1050,12 @@ export default function SolicitudesPage() {
                 'Actividad PME': item.actividad_nombre || '',
                 'Línea': item.grupo_nombre || '',
                 'Subvención': item.subvencion_nombre || 'GENERAL',
+                'Código Contable': codigoCuenta,
+                'Descripción Cuenta': nombresCuenta[codigoCuenta] || '',
                 'Estado Aprobación': item.estado_aprobacion,
                 'Comentario Revisión': item.comentario_revision || ''
-            }));
+                };
+            });
 
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
