@@ -12,6 +12,7 @@ import {
     ChevronDown, ChevronUp, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Save, Upload
 } from 'lucide-react';
 import ImportarCambiosModal from '@/components/presupuesto/ImportarCambiosModal';
+import { etiquetaDestino } from '@/lib/destinos';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import { primeraRutaAccesible } from '@/lib/permissions/registry';
@@ -1050,6 +1051,7 @@ export default function SolicitudesPage() {
                 'Actividad PME': item.actividad_nombre || '',
                 'Línea': item.grupo_nombre || '',
                 'Subvención': item.subvencion_nombre || 'GENERAL',
+                'Destino': etiquetaDestino((item.raw_detalle as any)?.destino_gasto),
                 'Código Contable': codigoCuenta,
                 'Descripción Cuenta': nombresCuenta[codigoCuenta] || '',
                 'Estado Aprobación': item.estado_aprobacion,
