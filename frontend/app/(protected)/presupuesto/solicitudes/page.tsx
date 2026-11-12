@@ -9,8 +9,9 @@ import {
     Search, TrendingDown, DollarSign, FileText, CheckCircle, Clock, 
     Loader2, Check, Download, Eye, AlertTriangle, RotateCcw, Info, 
     Trash2, Send, ListFilter, Layers, Package, ExternalLink, XCircle, Tag, Calendar, Edit3, X, MessageSquare, AlertCircle,
-    ChevronDown, ChevronUp, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Save
+    ChevronDown, ChevronUp, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Save, Upload
 } from 'lucide-react';
+import ImportarCambiosModal from '@/components/presupuesto/ImportarCambiosModal';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
 import { primeraRutaAccesible } from '@/lib/permissions/registry';
@@ -276,6 +277,7 @@ export default function SolicitudesPage() {
 
     // Modo de vista: 'solicitudes' o 'recursos' (Todos los Recursos)
     const [vistaModo, setVistaModo] = useState<'solicitudes' | 'recursos'>('solicitudes');
+    const [importarCambiosOpen, setImportarCambiosOpen] = useState(false);
 
     // Colapsar automáticamente el sidebar al ver Todos los Recursos para ganar ancho
     useEffect(() => {
@@ -1021,6 +1023,7 @@ export default function SolicitudesPage() {
             XLSX.writeFile(wb, `solicitudes_presupuesto_${new Date().toISOString().split('T')[0]}.xlsx`);
         } else {
             const data = filteredItems.map(item => ({
+                'ID Insumo': item.id_pre_detalle,
                 'Solicitud': item.codigo_solicitud,
                 'Área': item.area_nombre || '',
                 'Solicitante': item.user_nombre || '',
@@ -1035,6 +1038,7 @@ export default function SolicitudesPage() {
                 'Mes / Fecha': labelFecha(item.fecha_ejecucion, item.tipo_fecha),
                 'Motivo': item.motivo,
                 'Actividad PME': item.actividad_nombre || '',
+                'Línea': item.grupo_nombre || '',
                 'Subvención': item.subvencion_nombre || 'GENERAL',
                 'Estado Aprobación': item.estado_aprobacion,
                 'Comentario Revisión': item.comentario_revision || ''
@@ -1121,7 +1125,26 @@ export default function SolicitudesPage() {
                         <Download size={15} />
                         <span>Exportar Excel</span>
                     </button>
+
+                    {vistaModo === 'recursos' && (
+                        <button
+                            onClick={() => setImportarCambiosOpen(true)}
+                            title="Sube el Excel exportado de esta vista con los insumos modificados"
+                            className={`bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl font-bold border flex items-center gap-2 transition-all text-xs shadow-xs ${
+                                isMacaya ? 'border-emerald-200 hover:border-emerald-300 text-emerald-800' : 'border-blue-200 hover:border-blue-300 text-blue-800'
+                            }`}
+                        >
+                            <Upload size={15} />
+                            <span>Importar cambios</span>
+                        </button>
+                    )}
                 </div>
+
+                <ImportarCambiosModal
+                    open={importarCambiosOpen}
+                    onClose={() => setImportarCambiosOpen(false)}
+                    onAplicado={() => fetchSolicitudes(true)}
+                />
             </div>
 
             {/* Barra de Filtros Unificada */}
