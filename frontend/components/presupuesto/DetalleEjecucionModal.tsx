@@ -21,6 +21,10 @@ export interface FilaEjecucion {
     solicitado: number;
     ejecutado: number;
     n_oc: number;
+    /** Fuera del análisis (check desmarcado) */
+    excluido?: boolean;
+    /** Parte de sus montos quedó fuera por otra exclusión (p. ej. un área excluida dentro de este centro) */
+    parcial?: boolean;
 }
 
 interface OrdenCompra {

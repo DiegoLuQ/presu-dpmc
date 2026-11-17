@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import axios from 'axios';
 import {
     AlertTriangle, ArrowLeftRight, CalendarClock, Download, Info, Layers, ListFilter, Loader2,
-    RefreshCw, Receipt, Scale, School, Calendar,
+    EyeOff, RefreshCw, Receipt, Scale, School, Calendar, X,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { useAuth } from '@/context/AuthContext';
@@ -36,6 +36,7 @@ interface Resumen {
     anios_oc: number[];
     estados: string[];
     por_estado: { estado: string; monto: number; incluido: boolean }[];
+    excluidos: { key: string; label: string }[];
     filas: FilaEjecucion[];
     totales: Totales;
     mensual: { mes: number; presupuestado: number; ejecutado: number }[];
@@ -49,7 +50,22 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const ESTADOS_INSUMO = ['Sin Revisar', 'Pendiente', 'Con Ajustes', 'Aprobado', 'Rechazado'];
 const ESTADOS_DEFAULT = ESTADOS_INSUMO.filter(e => e !== 'Rechazado');
+const LS_EXCLUIDOS = 'ejecucion.excluidos';
 const COLOR_PPTO = '#6366f1';
+
+function leerExcluidos(): string[] {
+    try {
+        if (typeof window === 'undefined') return [];
+        const v = JSON.parse(window.localStorage.getItem(LS_EXCLUIDOS) || '[]');
+        return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+    } catch { return []; }
+}
+
+/** ¿La exclusión `k` ("area|centro", parte vacía = cualquiera) cubre esta fila? */
+function cubre(k: string, f: FilaEjecucion): boolean {
+    const [a, c] = k.split('|');
+    return (!a || a === f.area_key) && (!c || c === f.cc_key);
+}
 const COLOR_EJEC = '#059669';
 
 const formatCLP = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v || 0)).toLocaleString('es-CL')}`;
@@ -158,6 +174,8 @@ export default function EjecucionPage() {
     const [filtroMesesPpto, setFiltroMesesPpto] = useState<string[]>([]);
     const [filtroMesesOc, setFiltroMesesOc] = useState<string[]>([]);
     const [filtroEstados, setFiltroEstados] = useState<string[]>(ESTADOS_DEFAULT);
+    /** Filas sacadas del análisis (por usuario, en este navegador) */
+    const [excluidos, setExcluidos] = useState<string[]>(leerExcluidos);
     const [filtroAreas, setFiltroAreas] = useState<string[]>([]);
     const [filtroCentros, setFiltroCentros] = useState<string[]>([]);
 
@@ -192,6 +210,7 @@ export default function EjecucionPage() {
             mesesPpto.forEach(m => p.append('meses_ppto', String(m)));
             mesesOc.forEach(m => p.append('meses_oc', String(m)));
             filtroEstados.forEach(e => p.append('estados', e));
+            excluidos.forEach(k => p.append('excluir', k));
             filtroAreas.forEach(a => p.append('areas', a));
             filtroCentros.forEach(c => p.append('centros', c));
             const res = await api.get(`/presupuesto/ejecucion/resumen?${p.toString()}`);
@@ -201,9 +220,16 @@ export default function EjecucionPage() {
         } finally {
             setLoading(false);
         }
-    }, [puedeVer, anioPpto, agrupar, colegioId, anioOcSel, mesesPpto, mesesOc, filtroEstados, filtroAreas, filtroCentros]);
+    }, [puedeVer, anioPpto, agrupar, colegioId, anioOcSel, mesesPpto, mesesOc, filtroEstados, excluidos, filtroAreas, filtroCentros]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => {
+        try { window.localStorage.setItem(LS_EXCLUIDOS, JSON.stringify(excluidos)); } catch { /* sin almacenamiento */ }
+    }, [excluidos]);
+
+    /** Check de una fila: desmarcar la saca del análisis; marcarla quita las exclusiones que la cubren. */
+    const alternarFila = (f: FilaEjecucion) => setExcluidos(prev =>
+        f.excluido ? prev.filter(k => !cubre(k, f)) : [...prev.filter(k => k !== f.key), f.key]);
 
     const umbral = data?.umbral_alerta ?? 150;
     const hoy = new Date().getFullYear();
@@ -222,7 +248,7 @@ export default function EjecucionPage() {
     const filas = data?.filas || [];
     const totales = data?.totales || { presupuestado: 0, solicitado: 0, ejecutado: 0, n_oc: 0 };
     const pctTotal = pctEjecucion(totales);
-    const nAlertas = filas.filter(f => tieneAlerta(f, umbral)).length;
+    const nAlertas = filas.filter(f => !f.excluido && tieneAlerta(f, umbral)).length;
     const ocEnCurso = anioOc === hoy;
     const nombreMeses = (m: number[]) => m.length === 0 ? 'todo el año' : m.map(x => MESES_CORTO[x - 1]).join(', ');
 
@@ -240,7 +266,8 @@ export default function EjecucionPage() {
             o['N° OC'] = f.n_oc;
             o['Saldo'] = f.presupuestado - f.ejecutado;
             o['% Ejecución'] = pct === null ? '' : Math.round(pct * 10) / 10;
-            o['Aviso'] = tieneAlerta(f, umbral) ? 'Revisar' : '';
+            o['Aviso'] = !f.excluido && tieneAlerta(f, umbral) ? 'Revisar' : '';
+            o['En el análisis'] = f.excluido ? 'No (excluida)' : f.parcial ? 'Parcial' : 'Sí';
             return o;
         });
         const wb = XLSX.utils.book_new();
@@ -256,6 +283,7 @@ export default function EjecucionPage() {
             { Filtro: 'Año presupuesto', Valor: data.anio_ppto },
             { Filtro: 'Meses presupuesto', Valor: nombreMeses(mesesPpto) },
             { Filtro: 'Estados de insumos', Valor: data.estados.join(', ') },
+            { Filtro: 'Excluido del análisis', Valor: data.excluidos.map(e => e.label).join('; ') || 'Nada' },
             { Filtro: 'Año OC', Valor: data.anio_oc },
             { Filtro: 'Meses OC', Valor: nombreMeses(mesesOc) },
             { Filtro: 'OC actualizadas al', Valor: data.ultima_sync ? new Date(data.ultima_sync).toLocaleString('es-CL') : '' },
@@ -395,6 +423,21 @@ export default function EjecucionPage() {
                     <Link href="/configuracion?tab=Ejecuci%C3%B3n%20OC" className="ml-auto text-xs font-bold underline">Configuración › Ejecución OC</Link>
                 </div>
             )}
+            {data && data.excluidos.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-gray-50 border border-gray-200 text-sm text-gray-700">
+                    <EyeOff size={16} className="shrink-0 text-gray-500" />
+                    <span className="font-semibold">{data.excluidos.length} excluido(s) del análisis:</span>
+                    {data.excluidos.map(e => (
+                        <button key={e.key} type="button" onClick={() => setExcluidos(prev => prev.filter(k => k !== e.key))}
+                            title="Volver a incluir"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold hover:bg-gray-100">
+                            {e.label} <X size={12} />
+                        </button>
+                    ))}
+                    <span className="text-xs text-gray-500">Los totales, el gráfico y el histórico no los consideran.</span>
+                    <button type="button" onClick={() => setExcluidos([])} className="ml-auto text-xs font-bold underline">Restaurar todas</button>
+                </div>
+            )}
             {data && planificacion && (
                 <div className="flex gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-800">
                     <Info size={18} className="shrink-0" />
@@ -446,6 +489,7 @@ export default function EjecucionPage() {
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50 text-xs text-gray-500">
                                     <tr>
+                                        <th className="pl-4 py-3 w-8" title="Incluir en el análisis" />
                                         {colArea && <th className="px-4 py-3 text-left font-semibold">Área</th>}
                                         {colCC && <th className="px-4 py-3 text-left font-semibold">Centro de costo · Subvención</th>}
                                         <th className="px-4 py-3 text-right font-semibold">Presupuestado {anioPpto}</th>
@@ -458,19 +502,33 @@ export default function EjecucionPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {filas.length === 0 && (
-                                        <tr><td colSpan={12} className="px-4 py-12 text-center text-gray-400">Sin datos para los filtros seleccionados.</td></tr>
+                                        <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400">Sin datos para los filtros seleccionados.</td></tr>
                                     )}
                                     {filas.map(f => {
                                         const pct = pctEjecucion(f);
-                                        const alerta = tieneAlerta(f, umbral);
+                                        const alerta = !f.excluido && tieneAlerta(f, umbral);
                                         const saldo = f.presupuestado - f.ejecutado;
                                         const pendiente = f.area_key?.startsWith('oc') || f.cc_key?.startsWith('cc');
                                         return (
-                                            <tr key={f.key} className={`hover:bg-gray-50/60 ${alerta ? 'bg-amber-50/30' : ''}`}>
+                                            <tr key={f.key} className={`hover:bg-gray-50/60 ${f.excluido ? 'opacity-45 bg-gray-50/50' : alerta ? 'bg-amber-50/30' : ''}`}>
+                                                <td className="pl-4 py-2.5">
+                                                    <input type="checkbox" checked={!f.excluido} onChange={() => alternarFila(f)}
+                                                        title={f.excluido ? 'Volver a incluir en el análisis' : 'Quitar del análisis'}
+                                                        aria-label={`Incluir ${[f.area, f.cc].filter(Boolean).join(' · ')} en el análisis`}
+                                                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" />
+                                                </td>
                                                 {colArea && (
-                                                    <td className={`px-4 py-2.5 font-semibold ${pendiente || f.area_key === 'sin' ? 'text-gray-500 italic' : 'text-gray-800'}`}>{f.area}</td>
+                                                    <td className={`px-4 py-2.5 font-semibold ${pendiente || f.area_key === 'sin' ? 'text-gray-500 italic' : 'text-gray-800'}`}>
+                                                        {f.area}
+                                                        {f.parcial && <span className="ml-2 text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded" title="Parte de esta fila está excluida del análisis">parcial</span>}
+                                                    </td>
                                                 )}
-                                                {colCC && <td className={`px-4 py-2.5 ${f.cc_key?.startsWith('cc') ? 'text-gray-500 italic' : 'text-gray-700'}`}>{f.cc}</td>}
+                                                {colCC && (
+                                                    <td className={`px-4 py-2.5 ${f.cc_key?.startsWith('cc') ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+                                                        {f.cc}
+                                                        {f.parcial && !colArea && <span className="ml-2 text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded" title="Parte de esta fila está excluida del análisis">parcial</span>}
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-2.5 text-right text-gray-800">{formatCLP(f.presupuestado)}</td>
                                                 <td className="px-4 py-2.5 text-right font-bold text-gray-900">{formatCLP(f.ejecutado)}</td>
                                                 <td className="px-4 py-2.5 text-right text-gray-500">{f.n_oc}</td>
@@ -494,7 +552,7 @@ export default function EjecucionPage() {
                                 {filas.length > 0 && (
                                     <tfoot className="bg-gray-50 text-sm font-bold text-gray-900 border-t border-gray-100">
                                         <tr>
-                                            <td className="px-4 py-3" colSpan={colArea && colCC ? 2 : 1}>Total</td>
+                                            <td className="px-4 py-3" colSpan={colArea && colCC ? 3 : 2}>Total{data.excluidos.length > 0 && <span className="ml-1 text-xs font-semibold text-gray-500">(sin excluidos)</span>}</td>
                                             <td className="px-4 py-3 text-right">{formatCLP(totales.presupuestado)}</td>
                                             <td className="px-4 py-3 text-right">{formatCLP(totales.ejecutado)}</td>
                                             <td className="px-4 py-3 text-right text-gray-500">{totales.n_oc}</td>

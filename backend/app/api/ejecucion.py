@@ -270,6 +270,7 @@ def resumen_ejecucion(
     areas: List[str] = Query([], description="Claves de área: a{id}, oc{id}, sin"),
     centros: List[str] = Query([], description="Claves de centro: s{id}, cc{COD}, sincc, sinsub"),
     estados: List[str] = Query([], description="Estados de insumo que cuentan como presupuesto (vacío = todos)"),
+    excluir: List[str] = Query([], description="Filas excluidas del análisis: 'area|centro' (una parte vacía = cualquiera)"),
 ):
     """Presupuesto de `anio_ppto` contra OC de `anio_oc`. Iguales = control de ejecución;
     distintos (p. ej. presupuesto 2027 vs OC 2026) = planificación contra el gasto real."""
@@ -321,16 +322,40 @@ def resumen_ejecucion(
     else:
         clave = lambda r: (r["area"], r["cc"])  # noqa: E731
 
+    # Exclusiones del análisis: "A|" = toda el área A, "|C" = todo el centro C, "A|C" = esa combinación
+    exclusiones = []
+    for e in dict.fromkeys(excluir):
+        a_x, _, c_x = e.partition("|")
+        if a_x or c_x:
+            exclusiones.append((e, a_x or None, c_x or None))
+
+    def excluido(area: Optional[str], cc: Optional[str]) -> bool:
+        return any((a_x is None or a_x == area) and (c_x is None or c_x == cc) for _, a_x, c_x in exclusiones)
+
+    # Totales, mensual, histórico y desglose por estado solo con lo incluido
+    periodo_todo = periodo
+    if exclusiones:
+        periodo = [r for r in periodo if not excluido(r["area"], r["cc"])]
+        filtrados = [r for r in filtrados if not excluido(r["area"], r["cc"])]
+
+    vacio = {m: 0 for m in _METRICAS}
+    agg_inc = _sumar(periodo, clave)
     filas = []
-    for (a_key, c_key), v in _sumar(periodo, clave).items():
+    for (a_key, c_key), v_todo in _sumar(periodo_todo, clave).items():
+        # Fila excluida entera: muestra sus montos (en gris). Si no, solo la parte incluida
+        # (p. ej. agrupando por centro con un área excluida, la fila del centro queda "parcial").
+        fuera = excluido(a_key, c_key)
+        v = v_todo if fuera else agg_inc.get((a_key, c_key), vacio)
         filas.append({
             "key": f"{a_key or ''}|{c_key or ''}",
             "area_key": a_key, "area": ctx.area_label(a_key) if a_key else None,
             "cc_key": c_key, "cc": ctx.cc_label(c_key) if c_key else None,
             "centros": ctx.centros_de(c_key) if c_key else [],
+            "excluido": fuera,
+            "parcial": not fuera and any(round(v[m]) != round(v_todo[m]) for m in _METRICAS),
             **_redondear(v),
         })
-    filas.sort(key=lambda f: -(max(f["presupuestado"], f["ejecutado"])))
+    filas.sort(key=lambda f: (f["excluido"], -(max(f["presupuestado"], f["ejecutado"]))))
 
     tot = _sumar(periodo, lambda r: 0).get(0, {m: 0 for m in _METRICAS})
     # Desglose por estado del presupuesto elegido (con filtros de meses/área/centro, sin filtro de estado)
@@ -367,6 +392,11 @@ def resumen_ejecucion(
         "agrupar": agrupar,
         "estados": sorted(sel_estados, key=lambda e: estados_lista.index(e) if e in estados_lista else 99),
         "por_estado": por_estado,
+        "excluidos": [
+            {"key": k, "label": " · ".join(x for x in (ctx.area_label(a_x) if a_x else None,
+                                                     ctx.cc_label(c_x) if c_x else None) if x)}
+            for k, a_x, c_x in exclusiones
+        ],
         "filas": filas,
         "totales": _redondear(tot),
         "mensual": mensual,
