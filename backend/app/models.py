@@ -753,3 +753,29 @@ class ActaEntregaDetalle(Base):
 
 
 
+# ── Integración con Órdenes de Compra (Softland, BD `ordenes_compra`, solo lectura) ──
+# Las OC traen su propio id_area y centro de costo; estas tablas (propias) permiten
+# reasignarlos a las áreas y subvenciones de este sistema para comparar
+# presupuestado vs ejecutado. Ver INTEGRACION_PRESUPUESTO.md.
+
+class MapeoAreaOC(Base):
+    """id_area de una OC que no existe en org_area (p.ej. 18 'UTP Media', 19 'Convivencia')
+    → área de este sistema a la que se suma. id_area NULL = aún sin asignar."""
+    __tablename__ = "pre_mapeo_area_oc"
+    id_area_oc = Column(Integer, primary_key=True, autoincrement=False)
+    nombre_oc = Column(String(100), nullable=True)  # nombre del grupo en ordenes_compra (referencial)
+    id_area = Column(Integer, ForeignKey("org_area.id_area", ondelete="SET NULL"), nullable=True)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    area = relationship("Area")
+
+
+class MapeoCentroCostoSubvencion(Base):
+    """Centro de costo Softland (CodiCC: COL, SEP, PIE, ...) → subvención de este sistema.
+    id_subvencion NULL = sin equivalencia (solo se muestra lo ejecutado)."""
+    __tablename__ = "pre_mapeo_cc_subvencion"
+    centro_costo = Column(String(20), primary_key=True)
+    id_subvencion = Column(Integer, ForeignKey("pre_subvencion.id_subvencion", ondelete="SET NULL"), nullable=True)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subvencion = relationship("Subvencion")

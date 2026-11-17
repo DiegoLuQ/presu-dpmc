@@ -14,6 +14,7 @@ from app.core.roles_seeder import seed_roles
 from app.core.budget_seeder import seed_budget
 from app.core.contexto_seeder import seed_contextos_rol
 from app.core.cuentas_pilar_seeder import seed_cuentas_pilar
+from app.core.ejecucion_seeder import seed_mapeo_cc_subvencion
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ def run_startup_tasks() -> None:
     seed_roles()
     seed_contextos_rol()
     seed_cuentas_pilar()
+    seed_mapeo_cc_subvencion()
     # Seed de presupuesto solo si hay datos mínimos (no sobrescribe datos existentes)
     try:
         seed_budget()

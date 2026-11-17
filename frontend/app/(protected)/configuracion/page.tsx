@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { UploadCloud, Building2, UserCircle, KeyRound, Sparkles, BarChart2, ShieldAlert, Lock, SlidersHorizontal } from 'lucide-react';
+import { UploadCloud, Building2, UserCircle, KeyRound, Sparkles, BarChart2, ShieldAlert, Lock, SlidersHorizontal, Scale } from 'lucide-react';
 import RolesConfig from './RolesConfig';
 import ColegioConfig from './ColegioConfig';
 import AreasConfig from './AreasConfig';
@@ -10,10 +11,13 @@ import AiConfig from './AiConfig';
 import AiUsoTokens from './AiUsoTokens';
 import ColumnasConfig from './ColumnasConfig';
 import SeccionesAccesoConfig from './SeccionesAccesoConfig';
+import EjecucionOCConfig from './EjecucionOCConfig';
 
 export default function ConfiguracionPage() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('Colegio');
+    // ?tab=<nombre> abre una pestaña directamente (p.ej. desde Presupuesto vs Ejecutado)
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'Colegio');
 
     const tabs = [
         { name: 'Perfil', icon: UserCircle },
@@ -22,6 +26,7 @@ export default function ConfiguracionPage() {
         { name: 'Roles y Permisos', icon: KeyRound },
         { name: 'Acceso Restringido', icon: Lock },
         { name: 'Columnas y Motivos', icon: SlidersHorizontal },
+        { name: 'Ejecución OC', icon: Scale },
         { name: 'API Key AI', icon: Sparkles },
         { name: 'Uso de IA', icon: BarChart2 },
     ];
@@ -75,13 +80,16 @@ export default function ConfiguracionPage() {
             {/* Tab Content: Columnas y Motivos */}
             {activeTab === 'Columnas y Motivos' && <ColumnasConfig />}
 
+            {/* Tab Content: Ejecución OC (mapeos con órdenes de compra Softland) */}
+            {activeTab === 'Ejecución OC' && <EjecucionOCConfig />}
+
             {/* Tab Content: API Key AI */}
             {activeTab === 'API Key AI' && <AiConfig />}
 
             {/* Tab Content: Uso de IA */}
             {activeTab === 'Uso de IA' && <AiUsoTokens />}
 
-            {activeTab !== 'Colegio' && activeTab !== 'Roles y Permisos' && activeTab !== 'Acceso Restringido' && activeTab !== 'Áreas' && activeTab !== 'Columnas y Motivos' && activeTab !== 'API Key AI' && activeTab !== 'Uso de IA' && (
+            {activeTab !== 'Colegio' && activeTab !== 'Roles y Permisos' && activeTab !== 'Acceso Restringido' && activeTab !== 'Áreas' && activeTab !== 'Columnas y Motivos' && activeTab !== 'Ejecución OC' && activeTab !== 'API Key AI' && activeTab !== 'Uso de IA' && (
                 <div className="bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 p-16 text-center animate-in fade-in duration-300">
                     <p className="text-gray-500 font-medium">Esta sección ({activeTab}) está en desarrollo.</p>
                 </div>

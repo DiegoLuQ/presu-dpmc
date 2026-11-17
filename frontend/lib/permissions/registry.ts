@@ -16,6 +16,7 @@ import {
     BarChart3,
     Wallet,
     Upload,
+    Scale,
 } from 'lucide-react';
 import { Accion } from '@/app/(protected)/configuracion/PermissionConstants';
 
@@ -43,6 +44,7 @@ export interface SeccionDef {
     permisoOverride?: string;  // si la visibilidad usa otro permiso (ej. 'presupuesto.aprobar')
     restringido?: boolean;     // acceso por lista blanca de usuarios (Configuración › Accesos)
     soloAdmin?: boolean;       // visible/accesible únicamente para el rol Administrador (ADM), sin depender de permisos configurables por rol
+    seccionAcceso?: string;    // reutiliza la lista blanca de otra sección (ej. 'presupuesto.solicitudes')
 }
 
 export interface ModuloDef {
@@ -108,6 +110,8 @@ export const MODULOS: ModuloDef[] = [
             { slug: 'contralor-operaciones', label: 'Contralor Operaciones', href: '/presupuesto/contralor-operaciones', icon: Calculator },
             // Revisión por presupuesto anual: corrige código contable, subvención y actividad PME de los ítems
             { slug: 'revision-presupuestos', label: 'Revisión de Presupuestos', href: '/go-contralor/presupuestos', icon: Wallet },
+            // Presupuesto vs órdenes de compra Softland: mismo acceso que Presupuesto › Solicitudes
+            { slug: 'ejecucion', label: 'Presupuesto vs Ejecutado', href: '/go-contralor/ejecucion', icon: Scale, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
             { slug: 'recursos', label: 'Recursos', href: '/presupuesto/recursos', icon: Package },
             { slug: 'categorias', label: 'Categorías de Recursos', href: '/presupuesto/categorias', icon: Tag },
         ],
@@ -150,7 +154,7 @@ export function permisoSeccion(modKey: string, sec: SeccionDef): string {
 
 /** Clave de sección para la lista blanca de accesos (independiente del override). */
 export function seccionKey(modKey: string, sec: SeccionDef): string {
-    return `${modKey}.${sec.slug}`;
+    return sec.seccionAcceso || `${modKey}.${sec.slug}`;
 }
 
 /**

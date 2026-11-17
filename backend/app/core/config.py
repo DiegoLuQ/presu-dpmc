@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     SENTRY_ENVIRONMENT: str = "production"
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
 
+    # Órdenes de compra Softland (otra BD en la misma instancia MySQL, solo lectura).
+    # Ver INTEGRACION_PRESUPUESTO.md. Si la BD no existe, la vista de ejecución muestra "sin datos de OC".
+    OC_DB_NAME: str = "ordenes_compra"
+
     # CORS origins
     ALLOW_ORIGINS: List[str] = [
         "http://localhost:3000",
