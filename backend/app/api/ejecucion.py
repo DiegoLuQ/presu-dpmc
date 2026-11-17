@@ -16,6 +16,7 @@ Claves de dimensión (las usa también el frontend para filtrar):
 """
 import logging
 import re
+import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -83,6 +84,11 @@ def _colegio_efectivo(id_colegio: Optional[int], user: User) -> Optional[int]:
 
 # ── Resolución de claves ────────────────────────────────────────────────────────
 
+def _normalizar(t: str) -> str:
+    t = unicodedata.normalize("NFKD", t or "").encode("ascii", "ignore").decode()
+    return " ".join(t.lower().split())
+
+
 class _Contexto:
     """Catálogos y mapeos necesarios para traducir filas a claves y etiquetas."""
 
@@ -95,15 +101,32 @@ class _Contexto:
         self.mapa_cc: Dict[str, Optional[int]] = {
             m.centro_costo.upper(): m.id_subvencion for m in db.query(MapeoCentroCostoSubvencion).all()
         }
-        self.nombre_grupo_oc: Dict[int, str] = {}
+        # Nombres de los grupos de OC por id_area (puede haber varios grupos por área)
+        self.grupos_oc: Dict[int, List[str]] = defaultdict(list)
         if schema:
             try:
                 for id_area, nombre in db.execute(text(
-                    f"SELECT id_area, nombre FROM `{schema}`.grupos WHERE id_area IS NOT NULL"
+                    f"SELECT id_area, nombre FROM `{schema}`.grupos WHERE id_area IS NOT NULL ORDER BY nombre"
                 )).all():
-                    self.nombre_grupo_oc.setdefault(int(id_area), nombre)
+                    if nombre and nombre not in self.grupos_oc[int(id_area)]:
+                        self.grupos_oc[int(id_area)].append(nombre)
             except Exception:
                 db.rollback()
+
+    def nombre_oc(self, id_area: int) -> Optional[str]:
+        return " / ".join(self.grupos_oc.get(id_area, [])) or None
+
+    def requiere_revision(self, id_area_oc: int) -> bool:
+        """El id existe en la plataforma, no se ha configurado y ningún grupo de OC se llama como el área
+        (p. ej. OC "UTP 2" con id 18 = "UTP Media" en la plataforma)."""
+        if id_area_oc not in self.areas or id_area_oc in self.mapa_area:
+            return False
+        grupos = self.grupos_oc.get(id_area_oc)
+        if not grupos:
+            return False
+        n = _normalizar(self.areas[id_area_oc])
+        # Coincide si algún grupo se llama igual o un nombre contiene al otro ("Orientacion" ⊂ "Orientacion y Convivencia")
+        return not any(g == n or g in n or n in g for g in (_normalizar(x) for x in grupos) if g)
 
     # Área
     def area_key_oc(self, id_area: Optional[int]) -> str:
@@ -125,7 +148,7 @@ class _Contexto:
             return "Sin área"
         if key.startswith("oc"):
             n = int(key[2:])
-            return f"{self.nombre_grupo_oc.get(n, 'Área OC')} (OC área {n}, sin asignar)"
+            return f"{self.nombre_oc(n) or 'Área OC'} (OC área {n}, sin asignar)"
         return self.areas.get(int(key[1:]), f"Área {key[1:]}")
 
     # Centro de costo / subvención
@@ -222,6 +245,7 @@ def _registros_oc(db: Session, ctx: _Contexto, schema: str, id_colegio: Optional
             "cc": ctx.cc_key_oc(r.centro_costo),
             "presupuestado": 0.0, "solicitado": 0.0,
             "ejecutado": float(r.total or 0), "n_oc": int(r.n or 0),
+            "id_area_oc": int(r.id_area) if r.id_area is not None else None,
         })
     return out
 
@@ -295,6 +319,7 @@ def resumen_ejecucion(
         if r["src"] == "p":
             r["presupuestado"] = r["monto"] if r["estado"] in sel_estados else 0.0
 
+    ids_area_oc = {r["id_area_oc"] for r in regs if r["src"] == "o" and r["id_area_oc"] is not None}
     anios_ppto = sorted({r["anio"] for r in regs if r["src"] == "p"}, reverse=True)
     anios_oc = sorted({r["anio"] for r in regs if r["src"] == "o"}, reverse=True)
     anio_oc_auto = anio_oc is None
@@ -407,6 +432,7 @@ def resumen_ejecucion(
         },
         "pendientes_mapeo": {
             "areas": sum(1 for k in opciones_areas if k.startswith("oc")),
+            "areas_revisar": sum(1 for i in ids_area_oc if ctx.requiere_revision(i)),
             "centros": sum(1 for k in opciones_cc if k.startswith("cc")),
         },
     }
@@ -483,9 +509,7 @@ def obtener_mapeos(
                 f"SELECT id_area, COUNT(*), SUM(total) FROM `{schema}`.v_ordenes_area WHERE id_area IS NOT NULL GROUP BY id_area"
             )).all():
                 id_area = int(id_area)
-                if id_area in ctx.areas and id_area not in ctx.mapa_area:
-                    continue  # existe en org_area y no fue reasignada: no requiere configuración
-                areas_oc[id_area] = {"id_area_oc": id_area, "nombre_oc": ctx.nombre_grupo_oc.get(id_area),
+                areas_oc[id_area] = {"id_area_oc": id_area, "nombre_oc": ctx.nombre_oc(id_area),
                                      "n_oc": int(n), "total": float(total or 0)}
             for cc, n, total in db.execute(text(
                 f"SELECT centro_costo, COUNT(*), SUM(total) FROM `{schema}`.v_ordenes_area "
@@ -498,20 +522,24 @@ def obtener_mapeos(
 
     # Filas ya configuradas aunque hoy no tengan OC
     for id_oc in ctx.mapa_area:
-        areas_oc.setdefault(id_oc, {"id_area_oc": id_oc, "nombre_oc": ctx.nombre_grupo_oc.get(id_oc), "n_oc": 0, "total": 0.0})
+        areas_oc.setdefault(id_oc, {"id_area_oc": id_oc, "nombre_oc": ctx.nombre_oc(id_oc), "n_oc": 0, "total": 0.0})
     for cc in ctx.mapa_cc:
         centros.setdefault(cc, {"centro_costo": cc, "n_oc": 0, "total": 0.0})
 
     for a in areas_oc.values():
         a["id_area"] = ctx.mapa_area.get(a["id_area_oc"])
         a["existe_en_sistema"] = a["id_area_oc"] in ctx.areas
+        a["nombre_sistema"] = ctx.areas.get(a["id_area_oc"])
+        a["revisar"] = ctx.requiere_revision(a["id_area_oc"])
     for c in centros.values():
         c["id_subvencion"] = ctx.mapa_cc.get(c["centro_costo"])
 
     return {
         "oc_disponible": bool(schema),
         "ultima_sync": _ultima_sync(db, schema) if schema else None,
-        "areas_oc": sorted(areas_oc.values(), key=lambda a: a["id_area_oc"]),
+        # Primero lo que requiere atención: sin asignar / nombre distinto
+        "areas_oc": sorted(areas_oc.values(), key=lambda a: (
+            not (a["revisar"] or (not a["existe_en_sistema"] and not a["id_area"])), a["id_area_oc"])),
         "centros": sorted(centros.values(), key=lambda c: -c["n_oc"]),
         "areas": [{"id_area": i, "nombre": n} for i, n in sorted(ctx.areas.items(), key=lambda x: x[1])],
         "subvenciones": [

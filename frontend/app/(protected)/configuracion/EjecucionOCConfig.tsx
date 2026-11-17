@@ -7,11 +7,14 @@ import api from '@/lib/api/client';
 
 /**
  * Configuración de la integración con órdenes de compra Softland (Presupuesto vs Ejecutado):
- * - Áreas de OC que no existen en este sistema → área a la que se suman.
+ * - Áreas de OC → área de la plataforma a la que se suman (por defecto la del mismo id).
  * - Centros de costo Softland → subvención equivalente.
  */
 
-interface AreaOC { id_area_oc: number; nombre_oc: string | null; n_oc: number; total: number; id_area: number | null }
+interface AreaOC {
+    id_area_oc: number; nombre_oc: string | null; n_oc: number; total: number; id_area: number | null;
+    existe_en_sistema: boolean; nombre_sistema: string | null; revisar: boolean;
+}
 interface CentroOC { centro_costo: string; n_oc: number; total: number; id_subvencion: number | null }
 interface Mapeos {
     oc_disponible: boolean;
@@ -54,7 +57,7 @@ export default function EjecucionOCConfig() {
         setGuardando(k); setError('');
         try {
             await api.put(`/presupuesto/ejecucion/mapeos/area/${a.id_area_oc}`, { id_area, nombre_oc: a.nombre_oc });
-            setData(d => d && { ...d, areas_oc: d.areas_oc.map(x => x.id_area_oc === a.id_area_oc ? { ...x, id_area } : x) });
+            setData(d => d && { ...d, areas_oc: d.areas_oc.map(x => x.id_area_oc === a.id_area_oc ? { ...x, id_area, revisar: false } : x) });
             marcarGuardado(k);
         } catch (e) {
             setError((axios.isAxiosError(e) && e.response?.data?.detail) || 'No se pudo guardar.');
@@ -112,38 +115,58 @@ export default function EjecucionOCConfig() {
 
             {/* Áreas */}
             <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_2px_20px_rgba(0,0,0,0.04)] p-6">
-                <h4 className="font-bold text-gray-900">Áreas de OC que no existen en el sistema</h4>
-                <p className="text-xs text-gray-500 mt-1 mb-4">Elige el área a la que se suman. Mientras no se asignen, aparecen aparte como “sin asignar”.</p>
+                <h4 className="font-bold text-gray-900">Áreas de las OC → área de la plataforma</h4>
+                <p className="text-xs text-gray-500 mt-1 mb-4">
+                    Elige a qué área se suman las OC de cada área de Softland (p. ej. “UTP 2” → UTP). Por defecto se usa el área con el mismo id.
+                    Se marca <b>revisar</b> cuando el nombre en las OC no coincide con el de la plataforma: confírmala o reasígnala.
+                </p>
                 {data.areas_oc.length === 0 ? (
-                    <p className="flex items-center gap-2 text-sm text-gray-500"><Info size={15} /> Todas las áreas de las OC existen en el sistema.</p>
+                    <p className="flex items-center gap-2 text-sm text-gray-500"><Info size={15} /> No hay áreas en las OC.</p>
                 ) : (
                     <table className="w-full text-sm">
                         <thead className="text-xs text-gray-500">
                             <tr>
                                 <th className="py-2 text-left font-semibold">Área en OC</th>
+                                <th className="py-2 text-left font-semibold">Mismo id en la plataforma</th>
                                 <th className="py-2 text-right font-semibold">N° OC</th>
                                 <th className="py-2 text-right font-semibold">Total histórico</th>
                                 <th className="py-2 pl-6 text-left font-semibold">Sumar a</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {data.areas_oc.map(a => (
-                                <tr key={a.id_area_oc}>
-                                    <td className="py-2.5 font-semibold text-gray-800">{a.nombre_oc || 'Sin nombre'} <span className="text-xs font-normal text-gray-400">(id {a.id_area_oc})</span></td>
-                                    <td className="py-2.5 text-right text-gray-600">{a.n_oc}</td>
-                                    <td className="py-2.5 text-right text-gray-600">{formatCLP(a.total)}</td>
-                                    <td className="py-2.5 pl-6">
-                                        <div className="flex items-center gap-2">
-                                            <select className={selectCls} value={a.id_area ?? ''} disabled={guardando !== null}
-                                                onChange={e => guardarArea(a, e.target.value ? Number(e.target.value) : null)}>
-                                                <option value="">— Sin asignar —</option>
-                                                {data.areas.map(x => <option key={x.id_area} value={x.id_area}>{x.nombre}</option>)}
-                                            </select>
-                                            {estado(`a${a.id_area_oc}`)}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {data.areas_oc.map(a => {
+                                const sinAsignar = !a.existe_en_sistema && !a.id_area;
+                                const valor = a.id_area ?? (a.existe_en_sistema ? a.id_area_oc : '');
+                                return (
+                                    <tr key={a.id_area_oc} className={a.revisar || sinAsignar ? 'bg-amber-50/40' : ''}>
+                                        <td className="py-2.5 font-semibold text-gray-800">
+                                            {a.nombre_oc || 'Sin nombre'} <span className="text-xs font-normal text-gray-400">(id {a.id_area_oc})</span>
+                                            {a.revisar && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">revisar</span>}
+                                            {sinAsignar && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">sin asignar</span>}
+                                        </td>
+                                        <td className="py-2.5 text-gray-600">{a.nombre_sistema || <span className="italic text-gray-400">no existe</span>}</td>
+                                        <td className="py-2.5 text-right text-gray-600">{a.n_oc}</td>
+                                        <td className="py-2.5 text-right text-gray-600">{formatCLP(a.total)}</td>
+                                        <td className="py-2.5 pl-6">
+                                            <div className="flex items-center gap-2">
+                                                <select className={selectCls} value={valor} disabled={guardando !== null}
+                                                    onChange={e => guardarArea(a, e.target.value ? Number(e.target.value) : null)}>
+                                                    {!a.existe_en_sistema && <option value="">— Sin asignar —</option>}
+                                                    {data.areas.map(x => <option key={x.id_area} value={x.id_area}>{x.nombre}</option>)}
+                                                </select>
+                                                {a.revisar && (
+                                                    <button type="button" disabled={guardando !== null} onClick={() => guardarArea(a, a.id_area_oc)}
+                                                        title={`Confirmar que ${a.nombre_oc} corresponde a ${a.nombre_sistema}`}
+                                                        className="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 whitespace-nowrap">
+                                                        Es correcta
+                                                    </button>
+                                                )}
+                                                {estado(`a${a.id_area_oc}`)}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 )}

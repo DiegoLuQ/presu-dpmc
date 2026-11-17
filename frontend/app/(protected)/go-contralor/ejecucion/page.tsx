@@ -42,7 +42,7 @@ interface Resumen {
     mensual: { mes: number; presupuestado: number; ejecutado: number }[];
     historico: ({ anio: number } & Totales)[];
     opciones: { areas: Opcion[]; centros: Opcion[] };
-    pendientes_mapeo: { areas: number; centros: number };
+    pendientes_mapeo: { areas: number; areas_revisar: number; centros: number };
 }
 interface Colegio { id_colegio: number; nombre: string }
 
@@ -250,6 +250,12 @@ export default function EjecucionPage() {
     const pctTotal = pctEjecucion(totales);
     const nAlertas = filas.filter(f => !f.excluido && tieneAlerta(f, umbral)).length;
     const ocEnCurso = anioOc === hoy;
+    const pm = data?.pendientes_mapeo;
+    const avisosMapeo = [
+        pm?.areas ? `${pm.areas} área(s) de OC sin asignar` : '',
+        pm?.areas_revisar ? `${pm.areas_revisar} área(s) de OC con nombre distinto al de la plataforma` : '',
+        pm?.centros ? `${pm.centros} centro(s) de costo sin subvención` : '',
+    ].filter(Boolean);
     const nombreMeses = (m: number[]) => m.length === 0 ? 'todo el año' : m.map(x => MESES_CORTO[x - 1]).join(', ');
 
     const exportarExcel = () => {
@@ -411,14 +417,13 @@ export default function EjecucionPage() {
                     <span>{data.oc_error || 'No hay datos de órdenes de compra en este servidor (no se encontró la base de OC). Solo se muestra el presupuesto.'}</span>
                 </div>
             )}
-            {data && (data.pendientes_mapeo.areas > 0 || data.pendientes_mapeo.centros > 0) && (
+            {data && avisosMapeo.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-sm text-amber-800">
                     <Info size={18} className="shrink-0" />
                     <span>
-                        Hay {data.pendientes_mapeo.areas > 0 && <b>{data.pendientes_mapeo.areas} área(s) de OC sin asignar</b>}
-                        {data.pendientes_mapeo.areas > 0 && data.pendientes_mapeo.centros > 0 && ' y '}
-                        {data.pendientes_mapeo.centros > 0 && <b>{data.pendientes_mapeo.centros} centro(s) de costo sin subvención</b>}.
-                        Se muestran aparte hasta que se configuren.
+                        Hay {avisosMapeo.map((t, i) => (
+                            <React.Fragment key={i}>{i > 0 && (i === avisosMapeo.length - 1 ? ' y ' : ', ')}<b>{t}</b></React.Fragment>
+                        ))}. Revísalo para que las OC se sumen a la fila correcta.
                     </span>
                     <Link href="/configuracion?tab=Ejecuci%C3%B3n%20OC" className="ml-auto text-xs font-bold underline">Configuración › Ejecución OC</Link>
                 </div>
