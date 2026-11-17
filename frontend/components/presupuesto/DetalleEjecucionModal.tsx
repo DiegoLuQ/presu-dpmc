@@ -21,9 +21,6 @@ export interface FilaEjecucion {
     solicitado: number;
     ejecutado: number;
     n_oc: number;
-    comp_presupuestado?: number;
-    comp_ejecutado?: number;
-    comp_n_oc?: number;
 }
 
 interface OrdenCompra {
@@ -43,8 +40,9 @@ interface Props {
     fila: FilaEjecucion;
     onClose: () => void;
     idColegio: string;
-    anio: number;
-    meses: number[];
+    anioPpto: number;
+    anioOc: number;
+    mesesOc: number[];
     umbral: number;
 }
 
@@ -60,7 +58,7 @@ export function tieneAlerta(f: FilaEjecucion, umbral: number): boolean {
     return f.ejecutado > 0;
 }
 
-function explicaciones(f: FilaEjecucion, umbral: number): { titulo: string; texto: React.ReactNode }[] {
+function explicaciones(f: FilaEjecucion, umbral: number, anioPpto: number, anioOc: number): { titulo: string; texto: React.ReactNode }[] {
     const out: { titulo: string; texto: React.ReactNode }[] = [];
     const pct = pctEjecucion(f);
 
@@ -84,7 +82,18 @@ function explicaciones(f: FilaEjecucion, umbral: number): { titulo: string; text
                 Puedes asociarlo en <Link href="/configuracion?tab=Ejecuci%C3%B3n%20OC" className="font-bold text-primary underline">Configuración › Ejecución OC</Link>.</>,
         });
     }
-    if (f.presupuestado === 0 && f.ejecutado > 0) {
+    const plan = anioPpto !== anioOc;
+    if (plan && f.presupuestado === 0 && f.ejecutado > 0) {
+        out.push({
+            titulo: `Gasto ${anioOc} sin presupuesto ${anioPpto}`,
+            texto: `En ${anioOc} hubo órdenes de compra para esta fila, pero el presupuesto ${anioPpto} no tiene recursos aprobados aquí. Si ese gasto se repetirá, conviene incluirlo en la planificación.`,
+        });
+    } else if (plan && pct !== null && pct > umbral) {
+        out.push({
+            titulo: `El gasto ${anioOc} supera en más de ${umbral}% al presupuesto ${anioPpto}`,
+            texto: `Lo presupuestado para ${anioPpto} es bastante menor que lo gastado en ${anioOc}. Puede ser gasto recurrente (contratos, servicios, mantención, consumos) que no se ingresó como solicitud, o compras puntuales de ${anioOc} que no se repetirán. Revisa las OC de mayor monto.`,
+        });
+    } else if (f.presupuestado === 0 && f.ejecutado > 0) {
         out.push({
             titulo: 'Gasto sin presupuesto aprobado',
             texto: 'Hay órdenes de compra, pero ninguna solicitud aprobada para esta fila. Suele tratarse de gasto que no se planificó como solicitud (servicios, reposiciones, urgencias) o de un área cuyo presupuesto quedó registrado en otra.',
@@ -104,7 +113,7 @@ function explicaciones(f: FilaEjecucion, umbral: number): { titulo: string; text
     return out;
 }
 
-export default function DetalleEjecucionModal({ fila, onClose, idColegio, anio, meses, umbral }: Props) {
+export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPpto, anioOc, mesesOc, umbral }: Props) {
     const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
     // El padre monta el modal con key={fila.key}: cada fila abre un estado nuevo
     const [loading, setLoading] = useState(true);
@@ -113,17 +122,17 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anio, 
 
     useEffect(() => {
         let cancelado = false;
-        const p = new URLSearchParams({ anio: String(anio) });
+        const p = new URLSearchParams({ anio: String(anioOc) });
         if (idColegio) p.append('id_colegio', idColegio);
         if (fila.area_key) p.append('area', fila.area_key);
         if (fila.cc_key) p.append('centro', fila.cc_key);
-        meses.forEach(m => p.append('meses', String(m)));
+        mesesOc.forEach(m => p.append('meses', String(m)));
         api.get(`/presupuesto/ejecucion/oc?${p.toString()}`)
             .then(res => { if (!cancelado) setOrdenes(res.data?.ordenes || []); })
             .catch(() => { if (!cancelado) { setOrdenes([]); setError('No se pudieron cargar las órdenes de compra.'); } })
             .finally(() => { if (!cancelado) setLoading(false); });
         return () => { cancelado = true; };
-    }, [fila, idColegio, anio, meses]);
+    }, [fila, idColegio, anioOc, mesesOc]);
 
     const porCentro = useMemo(() => {
         const acc: Record<string, { cc: string; total: number; n: number }> = {};
@@ -162,8 +171,8 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anio, 
                             {titulo}
                         </h3>
                         <p className="text-xs text-gray-500 mt-0.5">
-                            Año {anio} · Presupuestado {formatCLP(fila.presupuestado)} · Ejecutado {formatCLP(fila.ejecutado)}
-                            {pct !== null && <> · {pct.toLocaleString('es-CL', { maximumFractionDigits: 0 })}% ejecutado</>}
+                            Presupuestado {anioPpto}: {formatCLP(fila.presupuestado)} · Ejecutado OC {anioOc}: {formatCLP(fila.ejecutado)}
+                            {pct !== null && <> · {pct.toLocaleString('es-CL', { maximumFractionDigits: 0 })}%</>}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
@@ -173,7 +182,7 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anio, 
 
                 <div className="overflow-y-auto px-6 py-5 space-y-5">
                     <div className="space-y-2">
-                        {explicaciones(fila, umbral).map((e, i) => (
+                        {explicaciones(fila, umbral, anioPpto, anioOc).map((e, i) => (
                             <div key={i} className="flex gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-100">
                                 <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
                                 <div>

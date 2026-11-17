@@ -193,7 +193,7 @@ def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int
             continue
         m = float(r.monto or 0)
         out.append({
-            "anio": int(r.anio), "mes": int(r.mes) if r.mes else None,
+            "src": "p", "anio": int(r.anio), "mes": int(r.mes) if r.mes else None,
             "area": ctx.area_key_ppto(r.id_area), "cc": ctx.cc_key_ppto(r.id_subvencion),
             "presupuestado": m if r.aprobado else 0.0, "solicitado": m,
             "ejecutado": 0.0, "n_oc": 0,
@@ -214,7 +214,7 @@ def _registros_oc(db: Session, ctx: _Contexto, schema: str, id_colegio: Optional
         if r.anio is None:
             continue
         out.append({
-            "anio": int(r.anio), "mes": int(r.mes) if r.mes else None,
+            "src": "o", "anio": int(r.anio), "mes": int(r.mes) if r.mes else None,
             "area": ctx.area_key_oc(int(r.id_area) if r.id_area is not None else None),
             "cc": ctx.cc_key_oc(r.centro_costo),
             "presupuestado": 0.0, "solicitado": 0.0,
@@ -223,12 +223,16 @@ def _registros_oc(db: Session, ctx: _Contexto, schema: str, id_colegio: Optional
     return out
 
 
-def _filtrar(regs: List[dict], meses: List[int], areas: List[str], centros: List[str]) -> List[dict]:
-    sm, sa, sc = set(meses), set(areas), set(centros)
-    return [
-        r for r in regs
-        if (not sm or r["mes"] in sm) and (not sa or r["area"] in sa) and (not sc or r["cc"] in sc)
-    ]
+def _filtrar(regs: List[dict], meses_ppto: List[int], meses_oc: List[int],
+             areas: List[str], centros: List[str]) -> List[dict]:
+    """Filtra por área/centro y por mes; los meses se eligen por separado para presupuesto y OC."""
+    smp, smo, sa, sc = set(meses_ppto), set(meses_oc), set(areas), set(centros)
+
+    def ok_mes(r):
+        sm = smp if r["src"] == "p" else smo
+        return not sm or r["mes"] in sm
+
+    return [r for r in regs if ok_mes(r) and (not sa or r["area"] in sa) and (not sc or r["cc"] in sc)]
 
 
 _METRICAS = ("presupuestado", "solicitado", "ejecutado", "n_oc")
@@ -255,13 +259,16 @@ def resumen_ejecucion(
     current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
     _sec: User = Depends(verificar_seccion("presupuesto.solicitudes")),
     id_colegio: Optional[int] = Query(None),
-    anio: int = Query(..., description="Año de ejecución (= año del presupuesto anual)"),
-    anio_comp: Optional[int] = Query(None, description="Año con el que comparar cada fila"),
+    anio_ppto: int = Query(..., description="Año del presupuesto anual"),
+    anio_oc: Optional[int] = Query(None, description="Año de las OC (por defecto el del presupuesto, o el último con OC)"),
     agrupar: str = Query("area", pattern="^(area|cc|area_cc)$"),
-    meses: List[int] = Query([]),
+    meses_ppto: List[int] = Query([], description="Meses de ejecución del presupuesto"),
+    meses_oc: List[int] = Query([], description="Meses de fecha de OC"),
     areas: List[str] = Query([], description="Claves de área: a{id}, oc{id}, sin"),
     centros: List[str] = Query([], description="Claves de centro: s{id}, cc{COD}, sincc, sinsub"),
 ):
+    """Presupuesto de `anio_ppto` contra OC de `anio_oc`. Iguales = control de ejecución;
+    distintos (p. ej. presupuesto 2027 vs OC 2026) = planificación contra el gasto real."""
     id_col = _colegio_efectivo(id_colegio, current_user)
     schema = _oc_schema(db)
     ctx = _Contexto(db, schema)
@@ -276,12 +283,25 @@ def resumen_ejecucion(
             logger.exception("Error leyendo órdenes de compra: %s", e)
             oc_error = "No se pudieron leer las órdenes de compra (revisa permisos de lectura sobre la BD de OC)."
 
+    anios_ppto = sorted({r["anio"] for r in regs if r["src"] == "p"}, reverse=True)
+    anios_oc = sorted({r["anio"] for r in regs if r["src"] == "o"}, reverse=True)
+    anio_oc_auto = anio_oc is None
+    if anio_oc_auto:
+        # Mismo año del presupuesto; si aún no tiene OC (presupuesto futuro), el último año con OC anterior
+        previos = [y for y in anios_oc if y <= anio_ppto]
+        anio_oc = anio_ppto if anio_ppto in anios_oc or not previos else previos[0]
+
     # Opciones de filtro: todo lo que aparece en cualquier año (sin filtros aplicados)
     orden = lambda k: 0 if k.startswith("a") or (k.startswith("s") and k[1:].isdigit()) else 1 if k.startswith(("oc", "cc")) else 2  # noqa: E731
     opciones_areas = sorted({r["area"] for r in regs}, key=lambda k: (orden(k), ctx.area_label(k)))
     opciones_cc = sorted({r["cc"] for r in regs}, key=lambda k: (orden(k), ctx.cc_label(k)))
 
-    filtrados = _filtrar(regs, meses, areas, centros)
+    filtrados = _filtrar(regs, meses_ppto, meses_oc, areas, centros)
+    # Presupuesto del año elegido + OC del año elegido
+    periodo = [
+        r for r in filtrados
+        if (r["src"] == "p" and r["anio"] == anio_ppto) or (r["src"] == "o" and r["anio"] == anio_oc)
+    ]
 
     if agrupar == "area":
         clave = lambda r: (r["area"], None)  # noqa: E731
@@ -290,30 +310,20 @@ def resumen_ejecucion(
     else:
         clave = lambda r: (r["area"], r["cc"])  # noqa: E731
 
-    del_anio = _sumar([r for r in filtrados if r["anio"] == anio], clave)
-    del_comp = _sumar([r for r in filtrados if r["anio"] == anio_comp], clave) if anio_comp else {}
-
     filas = []
-    for k in set(del_anio) | set(del_comp):
-        a_key, c_key = k
-        base = del_anio.get(k, {m: 0 for m in _METRICAS})
-        fila = {
+    for (a_key, c_key), v in _sumar(periodo, clave).items():
+        filas.append({
             "key": f"{a_key or ''}|{c_key or ''}",
             "area_key": a_key, "area": ctx.area_label(a_key) if a_key else None,
             "cc_key": c_key, "cc": ctx.cc_label(c_key) if c_key else None,
             "centros": ctx.centros_de(c_key) if c_key else [],
-            **_redondear(base),
-        }
-        if anio_comp:
-            comp = del_comp.get(k, {m: 0 for m in _METRICAS})
-            fila["comp_presupuestado"] = round(comp["presupuestado"])
-            fila["comp_ejecutado"] = round(comp["ejecutado"])
-            fila["comp_n_oc"] = comp["n_oc"]
-        filas.append(fila)
+            **_redondear(v),
+        })
     filas.sort(key=lambda f: -(max(f["presupuestado"], f["ejecutado"])))
 
-    tot = _sumar([r for r in filtrados if r["anio"] == anio], lambda r: 0).get(0, {m: 0 for m in _METRICAS})
-    mensual_acc = _sumar([r for r in filtrados if r["anio"] == anio], lambda r: r["mes"])
+    tot = _sumar(periodo, lambda r: 0).get(0, {m: 0 for m in _METRICAS})
+    # Mensual: se alinea por número de mes (mes de ejecución del presupuesto vs mes de la OC)
+    mensual_acc = _sumar(periodo, lambda r: r["mes"])
     mensual = [
         {"mes": m, "presupuestado": round(mensual_acc[m]["presupuestado"]) if m in mensual_acc else 0,
          "ejecutado": round(mensual_acc[m]["ejecutado"]) if m in mensual_acc else 0}
@@ -328,8 +338,11 @@ def resumen_ejecucion(
         "ultima_sync": _ultima_sync(db, schema) if schema else None,
         "umbral_alerta": UMBRAL_ALERTA_PCT,
         "id_colegio": id_col,
-        "anio": anio,
-        "anio_comp": anio_comp,
+        "anio_ppto": anio_ppto,
+        "anio_oc": anio_oc,
+        "anio_oc_auto": anio_oc_auto,
+        "anios_ppto": anios_ppto,
+        "anios_oc": anios_oc,
         "agrupar": agrupar,
         "filas": filas,
         "totales": _redondear(tot),

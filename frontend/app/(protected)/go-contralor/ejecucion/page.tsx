@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import {
-    AlertTriangle, CalendarClock, Download, GitCompare, Info, Layers, ListFilter, Loader2,
-    RefreshCw, Scale, School, Calendar,
+    AlertTriangle, ArrowLeftRight, CalendarClock, Download, Info, Layers, ListFilter, Loader2,
+    RefreshCw, Receipt, Scale, School, Calendar,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { useAuth } from '@/context/AuthContext';
@@ -29,8 +29,11 @@ interface Resumen {
     oc_error: string | null;
     ultima_sync: string | null;
     umbral_alerta: number;
-    anio: number;
-    anio_comp: number | null;
+    anio_ppto: number;
+    anio_oc: number;
+    anio_oc_auto: boolean;
+    anios_ppto: number[];
+    anios_oc: number[];
     filas: FilaEjecucion[];
     totales: Totales;
     mensual: { mes: number; presupuestado: number; ejecutado: number }[];
@@ -82,7 +85,7 @@ function Tarjeta({ titulo, valor, detalle, color }: { titulo: string; valor: str
 }
 
 /** Barras agrupadas por mes (presupuestado vs ejecutado) con tooltip al pasar el cursor. */
-function GraficoMensual({ datos }: { datos: Resumen['mensual'] }) {
+function GraficoMensual({ datos, anioPpto, anioOc }: { datos: Resumen['mensual']; anioPpto: number; anioOc: number }) {
     const [hover, setHover] = useState<number | null>(null);
     const max = Math.max(1, ...datos.flatMap(d => [d.presupuestado, d.ejecutado]));
     const W = 720, H = 220, PADL = 52, PADB = 24, PADT = 10;
@@ -127,9 +130,9 @@ function GraficoMensual({ datos }: { datos: Resumen['mensual'] }) {
             {d && hover !== null && (
                 <div className="absolute top-2 pointer-events-none bg-white border border-gray-200 shadow-lg rounded-xl px-3 py-2 text-xs"
                     style={{ left: `${((PADL + hover * ancho + ancho / 2) / W) * 100}%`, transform: `translateX(${hover > 8 ? '-105%' : '5%'})` }}>
-                    <p className="font-bold text-gray-800 mb-1">{MESES[hover]}</p>
-                    <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-sm" style={{ background: COLOR_PPTO }} />Presupuestado <b className="ml-auto pl-3 text-gray-900">{formatCLP(d.presupuestado)}</b></p>
-                    <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-sm" style={{ background: COLOR_EJEC }} />Ejecutado <b className="ml-auto pl-3 text-gray-900">{formatCLP(d.ejecutado)}</b></p>
+                    <p className="font-bold text-gray-800 mb-1">{MESES[hover]}{anioPpto !== anioOc && <span className="font-normal text-gray-400"> · {anioPpto} vs {anioOc}</span>}</p>
+                    <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-sm" style={{ background: COLOR_PPTO }} />Presupuestado {anioPpto} <b className="ml-auto pl-3 text-gray-900">{formatCLP(d.presupuestado)}</b></p>
+                    <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-sm" style={{ background: COLOR_EJEC }} />Ejecutado OC {anioOc} <b className="ml-auto pl-3 text-gray-900">{formatCLP(d.ejecutado)}</b></p>
                 </div>
             )}
         </div>
@@ -144,10 +147,12 @@ export default function EjecucionPage() {
 
     const [colegios, setColegios] = useState<Colegio[]>([]);
     const [colegioId, setColegioId] = useState(() => String(colegioActivo || user?.id_colegio || ''));
-    const [anio, setAnio] = useState(new Date().getFullYear());
-    const [anioComp, setAnioComp] = useState<number | ''>('');
+    const [anioPpto, setAnioPpto] = useState(new Date().getFullYear());
+    /** null = automático (mismo año del presupuesto, o el último con OC si aún no hay) */
+    const [anioOcSel, setAnioOcSel] = useState<number | null>(null);
     const [agrupar, setAgrupar] = useState<Agrupar>('area');
-    const [filtroMeses, setFiltroMeses] = useState<string[]>([]);
+    const [filtroMesesPpto, setFiltroMesesPpto] = useState<string[]>([]);
+    const [filtroMesesOc, setFiltroMesesOc] = useState<string[]>([]);
     const [filtroAreas, setFiltroAreas] = useState<string[]>([]);
     const [filtroCentros, setFiltroCentros] = useState<string[]>([]);
 
@@ -168,17 +173,19 @@ export default function EjecucionPage() {
         api.get('/catalogos/colegios').then(r => setColegios(r.data || [])).catch(() => setColegios([]));
     }, []);
 
-    const mesesNum = useMemo(() => filtroMeses.map(Number).sort((a, b) => a - b), [filtroMeses]);
+    const mesesPpto = useMemo(() => filtroMesesPpto.map(Number).sort((a, b) => a - b), [filtroMesesPpto]);
+    const mesesOc = useMemo(() => filtroMesesOc.map(Number).sort((a, b) => a - b), [filtroMesesOc]);
 
     const fetchData = useCallback(async () => {
         if (!puedeVer) return;
         setLoading(true);
         setError('');
         try {
-            const p = new URLSearchParams({ anio: String(anio), agrupar });
+            const p = new URLSearchParams({ anio_ppto: String(anioPpto), agrupar });
             if (colegioId) p.append('id_colegio', colegioId);
-            if (anioComp) p.append('anio_comp', String(anioComp));
-            mesesNum.forEach(m => p.append('meses', String(m)));
+            if (anioOcSel !== null) p.append('anio_oc', String(anioOcSel));
+            mesesPpto.forEach(m => p.append('meses_ppto', String(m)));
+            mesesOc.forEach(m => p.append('meses_oc', String(m)));
             filtroAreas.forEach(a => p.append('areas', a));
             filtroCentros.forEach(c => p.append('centros', c));
             const res = await api.get(`/presupuesto/ejecucion/resumen?${p.toString()}`);
@@ -188,23 +195,30 @@ export default function EjecucionPage() {
         } finally {
             setLoading(false);
         }
-    }, [puedeVer, anio, agrupar, colegioId, anioComp, mesesNum, filtroAreas, filtroCentros]);
+    }, [puedeVer, anioPpto, agrupar, colegioId, anioOcSel, mesesPpto, mesesOc, filtroAreas, filtroCentros]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const umbral = data?.umbral_alerta ?? 150;
-    const aniosDisponibles = useMemo(() => {
-        const s = new Set<number>([new Date().getFullYear(), new Date().getFullYear() + 1, anio]);
-        (data?.historico || []).forEach(h => s.add(h.anio));
+    const hoy = new Date().getFullYear();
+    const aniosPpto = useMemo(() => {
+        const s = new Set<number>([hoy, hoy + 1, anioPpto, ...(data?.anios_ppto || [])]);
         return Array.from(s).sort((a, b) => b - a);
-    }, [data, anio]);
+    }, [data, anioPpto, hoy]);
+    const anioOc = data?.anio_oc ?? anioOcSel ?? anioPpto;
+    const aniosOc = useMemo(() => {
+        const s = new Set<number>([anioOc, ...(data?.anios_oc || [])]);
+        return Array.from(s).sort((a, b) => b - a);
+    }, [data, anioOc]);
+    const planificacion = anioOc !== anioPpto;
+    const cambiarAnioPpto = (y: number) => { setAnioPpto(y); setAnioOcSel(null); };
 
     const filas = data?.filas || [];
     const totales = data?.totales || { presupuestado: 0, solicitado: 0, ejecutado: 0, n_oc: 0 };
     const pctTotal = pctEjecucion(totales);
     const nAlertas = filas.filter(f => tieneAlerta(f, umbral)).length;
-    const conComp = !!data?.anio_comp;
-    const anioEnCurso = anio === new Date().getFullYear();
+    const ocEnCurso = anioOc === hoy;
+    const nombreMeses = (m: number[]) => m.length === 0 ? 'todo el año' : m.map(x => MESES_CORTO[x - 1]).join(', ');
 
     const exportarExcel = () => {
         if (!data) return;
@@ -214,28 +228,33 @@ export default function EjecucionPage() {
             const o: Record<string, string | number> = {};
             if (f.area !== null) o['Área'] = f.area;
             if (f.cc !== null) o['Centro de costo / Subvención'] = f.cc;
-            o['Presupuestado'] = f.presupuestado;
-            o['Solicitado'] = f.solicitado;
-            o['Ejecutado OC'] = f.ejecutado;
+            o[`Presupuestado ${data.anio_ppto}`] = f.presupuestado;
+            o[`Solicitado ${data.anio_ppto}`] = f.solicitado;
+            o[`Ejecutado OC ${data.anio_oc}`] = f.ejecutado;
             o['N° OC'] = f.n_oc;
             o['Saldo'] = f.presupuestado - f.ejecutado;
             o['% Ejecución'] = pct === null ? '' : Math.round(pct * 10) / 10;
-            if (conComp) {
-                o[`Presupuestado ${data.anio_comp}`] = f.comp_presupuestado || 0;
-                o[`Ejecutado ${data.anio_comp}`] = f.comp_ejecutado || 0;
-            }
             o['Aviso'] = tieneAlerta(f, umbral) ? 'Revisar' : '';
             return o;
         });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasXls), 'Comparación');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.mensual.map(m => ({
-            Mes: MESES[m.mes - 1], Presupuestado: m.presupuestado, 'Ejecutado OC': m.ejecutado,
+            Mes: MESES[m.mes - 1], [`Presupuestado ${data.anio_ppto}`]: m.presupuestado, [`Ejecutado OC ${data.anio_oc}`]: m.ejecutado,
         }))), 'Mensual');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.historico.map(h => ({
             Año: h.anio, Presupuestado: h.presupuestado, Solicitado: h.solicitado, 'Ejecutado OC': h.ejecutado, 'N° OC': h.n_oc,
         }))), 'Histórico');
-        XLSX.writeFile(wb, `Presupuesto_vs_Ejecutado_${colegioNombre.replace(/\s+/g, '_')}_${anio}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+            { Filtro: 'Colegio', Valor: colegioNombre },
+            { Filtro: 'Año presupuesto', Valor: data.anio_ppto },
+            { Filtro: 'Meses presupuesto', Valor: nombreMeses(mesesPpto) },
+            { Filtro: 'Año OC', Valor: data.anio_oc },
+            { Filtro: 'Meses OC', Valor: nombreMeses(mesesOc) },
+            { Filtro: 'OC actualizadas al', Valor: data.ultima_sync ? new Date(data.ultima_sync).toLocaleString('es-CL') : '' },
+        ]), 'Filtros');
+        const sufijo = data.anio_ppto === data.anio_oc ? `${data.anio_ppto}` : `P${data.anio_ppto}_OC${data.anio_oc}`;
+        XLSX.writeFile(wb, `Presupuesto_vs_Ejecutado_${colegioNombre.replace(/\s+/g, '_')}_${sufijo}.xlsx`);
     };
 
     if (authLoading || !puedeVer) {
@@ -281,27 +300,43 @@ export default function EjecucionPage() {
                         {colegios.map(c => <option key={c.id_colegio} value={c.id_colegio}>{c.nombre}</option>)}
                     </select>
                 </div>
-                <div className="relative">
-                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    <select value={anio} onChange={e => setAnio(Number(e.target.value))} title="Año de ejecución"
-                        className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
-                        {aniosDisponibles.map(y => <option key={y} value={y}>Año {y}</option>)}
-                    </select>
+                <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
+                    <span className="text-[11px] font-bold text-indigo-700 px-1.5">Presupuesto</span>
+                    <div className="relative">
+                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <select value={anioPpto} onChange={e => cambiarAnioPpto(Number(e.target.value))} title="Año del presupuesto anual"
+                            className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
+                            {aniosPpto.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
+                    <FiltroMultiSelectGenerico
+                        icono="📅" tituloVacio="Todos los meses" tituloPlural="meses"
+                        seleccionados={filtroMesesPpto} onChange={setFiltroMesesPpto}
+                        opciones={MESES.map((m, i) => ({ valor: String(i + 1), label: m }))}
+                        placeholderBusqueda="Buscar mes..." anchoMinimo="min-w-[180px]"
+                    />
                 </div>
-                <div className="relative">
-                    <GitCompare size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    <select value={anioComp} onChange={e => setAnioComp(e.target.value ? Number(e.target.value) : '')} title="Comparar con otro año"
-                        className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
-                        <option value="">Sin comparar</option>
-                        {aniosDisponibles.filter(y => y !== anio).map(y => <option key={y} value={y}>Comparar con {y}</option>)}
-                    </select>
+                <button type="button" title="Usar los mismos meses del presupuesto en las OC"
+                    onClick={() => setFiltroMesesOc(filtroMesesPpto)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <ArrowLeftRight size={16} />
+                </button>
+                <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                    <span className="text-[11px] font-bold text-emerald-700 px-1.5">Órdenes de compra</span>
+                    <div className="relative">
+                        <Receipt size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <select value={anioOc} onChange={e => setAnioOcSel(Number(e.target.value))} title="Año de las órdenes de compra"
+                            className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
+                            {aniosOc.map(y => <option key={y} value={y}>{y}{y === anioPpto ? ' (mismo año)' : y === anioPpto - 1 ? ' (año anterior)' : ''}</option>)}
+                        </select>
+                    </div>
+                    <FiltroMultiSelectGenerico
+                        icono="📅" tituloVacio="Todos los meses" tituloPlural="meses"
+                        seleccionados={filtroMesesOc} onChange={setFiltroMesesOc}
+                        opciones={MESES.map((m, i) => ({ valor: String(i + 1), label: m }))}
+                        placeholderBusqueda="Buscar mes..." anchoMinimo="min-w-[180px]"
+                    />
                 </div>
-                <FiltroMultiSelectGenerico
-                    icono="📅" tituloVacio="Todos los meses" tituloPlural="meses"
-                    seleccionados={filtroMeses} onChange={setFiltroMeses}
-                    opciones={MESES.map((m, i) => ({ valor: String(i + 1), label: m }))}
-                    placeholderBusqueda="Buscar mes..." anchoMinimo="min-w-[200px]"
-                />
                 <FiltroMultiSelectGenerico
                     icono="🏢" tituloVacio="Todas las áreas" tituloPlural="áreas"
                     seleccionados={filtroAreas} onChange={setFiltroAreas}
@@ -344,6 +379,16 @@ export default function EjecucionPage() {
                     <Link href="/configuracion?tab=Ejecuci%C3%B3n%20OC" className="ml-auto text-xs font-bold underline">Configuración › Ejecución OC</Link>
                 </div>
             )}
+            {data && planificacion && (
+                <div className="flex gap-3 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-800">
+                    <Info size={18} className="shrink-0" />
+                    <span>
+                        Comparando el <b>presupuesto {anioPpto}</b> ({nombreMeses(mesesPpto)}) con lo <b>ejecutado en OC {anioOc}</b> ({nombreMeses(mesesOc)}).
+                        El % indica cuánto representa el gasto real de {anioOc} sobre lo presupuestado para {anioPpto}.
+                        {data.anio_oc_auto && <> Se eligió {anioOc} porque {anioPpto} aún no tiene órdenes de compra.</>}
+                    </span>
+                </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             {loading && !data ? (
@@ -352,14 +397,16 @@ export default function EjecucionPage() {
                 <div className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
                     {/* KPIs */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Tarjeta titulo="Presupuestado (aprobado)" valor={formatCLP(totales.presupuestado)} color={COLOR_PPTO}
+                        <Tarjeta titulo={`Presupuestado ${anioPpto} (aprobado)`} valor={formatCLP(totales.presupuestado)} color={COLOR_PPTO}
                             detalle={`Solicitado: ${formatCLP(totales.solicitado)}`} />
-                        <Tarjeta titulo="Ejecutado en OC" valor={formatCLP(totales.ejecutado)} color={COLOR_EJEC}
-                            detalle={`${totales.n_oc.toLocaleString('es-CL')} órdenes de compra`} />
+                        <Tarjeta titulo={`Ejecutado en OC ${anioOc}`} valor={formatCLP(totales.ejecutado)} color={COLOR_EJEC}
+                            detalle={`${totales.n_oc.toLocaleString('es-CL')} órdenes de compra${ocEnCurso && data.ultima_sync ? ` · al ${new Date(data.ultima_sync).toLocaleDateString('es-CL')}` : ''}`} />
                         <Tarjeta titulo="Saldo" valor={formatCLP(totales.presupuestado - totales.ejecutado)}
-                            detalle={totales.presupuestado - totales.ejecutado < 0 ? 'Ejecutado supera lo presupuestado' : 'Presupuesto disponible'} />
-                        <Tarjeta titulo="% Ejecución" valor={formatPct(pctTotal)}
-                            detalle={nAlertas > 0 ? `${nAlertas} fila(s) para revisar` : anioEnCurso ? 'Año en curso: datos parciales' : undefined} />
+                            detalle={totales.presupuestado - totales.ejecutado < 0
+                                ? (planificacion ? `Se presupuestó menos que lo gastado en ${anioOc}` : 'Ejecutado supera lo presupuestado')
+                                : (planificacion ? `Se presupuestó más que lo gastado en ${anioOc}` : 'Presupuesto disponible')} />
+                        <Tarjeta titulo={planificacion ? `Gasto ${anioOc} / Ppto ${anioPpto}` : '% Ejecución'} valor={formatPct(pctTotal)}
+                            detalle={nAlertas > 0 ? `${nAlertas} fila(s) para revisar` : ocEnCurso ? `OC ${anioOc} en curso: datos parciales` : undefined} />
                     </div>
 
                     {/* Tabla principal */}
@@ -370,13 +417,11 @@ export default function EjecucionPage() {
                                     <tr>
                                         {colArea && <th className="px-4 py-3 text-left font-semibold">Área</th>}
                                         {colCC && <th className="px-4 py-3 text-left font-semibold">Centro de costo · Subvención</th>}
-                                        <th className="px-4 py-3 text-right font-semibold">Presupuestado</th>
-                                        <th className="px-4 py-3 text-right font-semibold">Ejecutado OC</th>
+                                        <th className="px-4 py-3 text-right font-semibold">Presupuestado {anioPpto}</th>
+                                        <th className="px-4 py-3 text-right font-semibold">Ejecutado OC {anioOc}</th>
                                         <th className="px-4 py-3 text-right font-semibold">N° OC</th>
                                         <th className="px-4 py-3 text-right font-semibold">Saldo</th>
-                                        <th className="px-4 py-3 text-right font-semibold">% Ejecución</th>
-                                        {conComp && <th className="px-4 py-3 text-right font-semibold">Ejecutado {data.anio_comp}</th>}
-                                        {conComp && <th className="px-4 py-3 text-right font-semibold">Var. ejecutado</th>}
+                                        <th className="px-4 py-3 text-right font-semibold">{planificacion ? 'Gasto / Ppto' : '% Ejecución'}</th>
                                         <th className="px-4 py-3 w-40" />
                                     </tr>
                                 </thead>
@@ -388,7 +433,6 @@ export default function EjecucionPage() {
                                         const pct = pctEjecucion(f);
                                         const alerta = tieneAlerta(f, umbral);
                                         const saldo = f.presupuestado - f.ejecutado;
-                                        const varEj = conComp ? f.ejecutado - (f.comp_ejecutado || 0) : 0;
                                         const pendiente = f.area_key?.startsWith('oc') || f.cc_key?.startsWith('cc');
                                         return (
                                             <tr key={f.key} className={`hover:bg-gray-50/60 ${alerta ? 'bg-amber-50/30' : ''}`}>
@@ -401,13 +445,6 @@ export default function EjecucionPage() {
                                                 <td className="px-4 py-2.5 text-right text-gray-500">{f.n_oc}</td>
                                                 <td className={`px-4 py-2.5 text-right font-semibold ${saldo < 0 ? 'text-red-600' : 'text-gray-700'}`}>{formatCLP(saldo)}</td>
                                                 <td className="px-4 py-2.5 text-right"><BarraPct pct={pct} umbral={umbral} /></td>
-                                                {conComp && <td className="px-4 py-2.5 text-right text-gray-600">{formatCLP(f.comp_ejecutado || 0)}</td>}
-                                                {conComp && (
-                                                    <td className={`px-4 py-2.5 text-right text-xs font-bold ${varEj > 0 ? 'text-amber-600' : varEj < 0 ? 'text-sky-600' : 'text-gray-400'}`}>
-                                                        {varEj === 0 ? '—' : `${varEj > 0 ? '+' : '−'}${formatCorto(Math.abs(varEj))}`}
-                                                        {f.comp_ejecutado ? <span className="font-semibold opacity-80"> ({varEj > 0 ? '+' : '−'}{Math.abs((varEj / f.comp_ejecutado) * 100).toLocaleString('es-CL', { maximumFractionDigits: 0 })}%)</span> : null}
-                                                    </td>
-                                                )}
                                                 <td className="px-4 py-2.5 text-right">
                                                     {alerta ? (
                                                         <button onClick={() => setDetalle(f)}
@@ -432,8 +469,6 @@ export default function EjecucionPage() {
                                             <td className="px-4 py-3 text-right text-gray-500">{totales.n_oc}</td>
                                             <td className={`px-4 py-3 text-right ${totales.presupuestado - totales.ejecutado < 0 ? 'text-red-600' : ''}`}>{formatCLP(totales.presupuestado - totales.ejecutado)}</td>
                                             <td className="px-4 py-3 text-right"><BarraPct pct={pctTotal} umbral={umbral} /></td>
-                                            {conComp && <td className="px-4 py-3 text-right">{formatCLP(filas.reduce((a, f) => a + (f.comp_ejecutado || 0), 0))}</td>}
-                                            {conComp && <td />}
                                             <td />
                                         </tr>
                                     </tfoot>
@@ -450,19 +485,19 @@ export default function EjecucionPage() {
                         {/* Mensual */}
                         <div className="xl:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_20px_rgba(0,0,0,0.02)]">
                             <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><CalendarClock size={16} className="text-gray-400" />Por mes · {anio}</h3>
+                                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><CalendarClock size={16} className="text-gray-400" />Por mes · {planificacion ? `${anioPpto} vs OC ${anioOc}` : anioPpto}</h3>
                                 <div className="flex items-center gap-4 text-xs text-gray-600">
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLOR_PPTO }} />Presupuestado (mes de ejecución)</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLOR_EJEC }} />Ejecutado (fecha OC)</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLOR_PPTO }} />Presupuestado {anioPpto} (mes de ejecución)</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLOR_EJEC }} />Ejecutado OC {anioOc} (fecha OC)</span>
                                 </div>
                             </div>
-                            <GraficoMensual datos={data.mensual} />
+                            <GraficoMensual datos={data.mensual} anioPpto={anioPpto} anioOc={anioOc} />
                         </div>
 
                         {/* Histórico */}
                         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_20px_rgba(0,0,0,0.02)]">
                             <h3 className="text-sm font-bold text-gray-800 mb-1">Histórico por año</h3>
-                            <p className="text-[11px] text-gray-400 mb-3">Con los mismos filtros. Antes de 2026 solo hay ejecutado (referencia histórica).</p>
+                            <p className="text-[11px] text-gray-400 mb-3">Presupuesto y OC de cada año, con los mismos filtros. Antes de 2026 solo hay ejecutado (referencia histórica). Clic para elegir el año del presupuesto.</p>
                             <table className="w-full text-xs">
                                 <thead className="text-gray-500">
                                     <tr>
@@ -474,8 +509,8 @@ export default function EjecucionPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {[...data.historico].reverse().map(h => (
-                                        <tr key={h.anio} onClick={() => setAnio(h.anio)}
-                                            className={`cursor-pointer hover:bg-gray-50 ${h.anio === anio ? 'bg-primary/5 font-bold' : ''}`}>
+                                        <tr key={h.anio} onClick={() => cambiarAnioPpto(h.anio)}
+                                            className={`cursor-pointer hover:bg-gray-50 ${h.anio === anioPpto || h.anio === anioOc ? 'bg-primary/5 font-bold' : ''}`}>
                                             <td className="py-1.5 text-gray-800">{h.anio}</td>
                                             <td className="py-1.5 text-right text-gray-600">{h.presupuestado ? formatCorto(h.presupuestado) : '—'}</td>
                                             <td className="py-1.5 text-right text-gray-800">{h.ejecutado ? formatCorto(h.ejecutado) : '—'}</td>
@@ -494,8 +529,9 @@ export default function EjecucionPage() {
                 fila={detalle}
                 onClose={() => setDetalle(null)}
                 idColegio={colegioId}
-                anio={anio}
-                meses={mesesNum}
+                anioPpto={anioPpto}
+                anioOc={anioOc}
+                mesesOc={mesesOc}
                 umbral={umbral}
             />}
         </div>
