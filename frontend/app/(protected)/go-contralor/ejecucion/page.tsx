@@ -34,6 +34,8 @@ interface Resumen {
     anio_oc_auto: boolean;
     anios_ppto: number[];
     anios_oc: number[];
+    estados: string[];
+    por_estado: { estado: string; monto: number; incluido: boolean }[];
     filas: FilaEjecucion[];
     totales: Totales;
     mensual: { mes: number; presupuestado: number; ejecutado: number }[];
@@ -45,6 +47,8 @@ interface Colegio { id_colegio: number; nombre: string }
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const ESTADOS_INSUMO = ['Sin Revisar', 'Pendiente', 'Con Ajustes', 'Aprobado', 'Rechazado'];
+const ESTADOS_DEFAULT = ESTADOS_INSUMO.filter(e => e !== 'Rechazado');
 const COLOR_PPTO = '#6366f1';
 const COLOR_EJEC = '#059669';
 
@@ -153,6 +157,7 @@ export default function EjecucionPage() {
     const [agrupar, setAgrupar] = useState<Agrupar>('area');
     const [filtroMesesPpto, setFiltroMesesPpto] = useState<string[]>([]);
     const [filtroMesesOc, setFiltroMesesOc] = useState<string[]>([]);
+    const [filtroEstados, setFiltroEstados] = useState<string[]>(ESTADOS_DEFAULT);
     const [filtroAreas, setFiltroAreas] = useState<string[]>([]);
     const [filtroCentros, setFiltroCentros] = useState<string[]>([]);
 
@@ -186,6 +191,7 @@ export default function EjecucionPage() {
             if (anioOcSel !== null) p.append('anio_oc', String(anioOcSel));
             mesesPpto.forEach(m => p.append('meses_ppto', String(m)));
             mesesOc.forEach(m => p.append('meses_oc', String(m)));
+            filtroEstados.forEach(e => p.append('estados', e));
             filtroAreas.forEach(a => p.append('areas', a));
             filtroCentros.forEach(c => p.append('centros', c));
             const res = await api.get(`/presupuesto/ejecucion/resumen?${p.toString()}`);
@@ -195,7 +201,7 @@ export default function EjecucionPage() {
         } finally {
             setLoading(false);
         }
-    }, [puedeVer, anioPpto, agrupar, colegioId, anioOcSel, mesesPpto, mesesOc, filtroAreas, filtroCentros]);
+    }, [puedeVer, anioPpto, agrupar, colegioId, anioOcSel, mesesPpto, mesesOc, filtroEstados, filtroAreas, filtroCentros]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -249,10 +255,14 @@ export default function EjecucionPage() {
             { Filtro: 'Colegio', Valor: colegioNombre },
             { Filtro: 'Año presupuesto', Valor: data.anio_ppto },
             { Filtro: 'Meses presupuesto', Valor: nombreMeses(mesesPpto) },
+            { Filtro: 'Estados de insumos', Valor: data.estados.join(', ') },
             { Filtro: 'Año OC', Valor: data.anio_oc },
             { Filtro: 'Meses OC', Valor: nombreMeses(mesesOc) },
             { Filtro: 'OC actualizadas al', Valor: data.ultima_sync ? new Date(data.ultima_sync).toLocaleString('es-CL') : '' },
         ]), 'Filtros');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.por_estado.map(e => ({
+            [`Estado insumo ${data.anio_ppto}`]: e.estado, Monto: e.monto, 'Incluido en presupuestado': e.incluido ? 'Sí' : 'No',
+        }))), 'Por estado');
         const sufijo = data.anio_ppto === data.anio_oc ? `${data.anio_ppto}` : `P${data.anio_ppto}_OC${data.anio_oc}`;
         XLSX.writeFile(wb, `Presupuesto_vs_Ejecutado_${colegioNombre.replace(/\s+/g, '_')}_${sufijo}.xlsx`);
     };
@@ -314,6 +324,12 @@ export default function EjecucionPage() {
                         seleccionados={filtroMesesPpto} onChange={setFiltroMesesPpto}
                         opciones={MESES.map((m, i) => ({ valor: String(i + 1), label: m }))}
                         placeholderBusqueda="Buscar mes..." anchoMinimo="min-w-[180px]"
+                    />
+                    <FiltroMultiSelectGenerico
+                        icono="✅" tituloVacio="Todos los estados" tituloPlural="estados"
+                        seleccionados={filtroEstados} onChange={setFiltroEstados}
+                        opciones={(data?.por_estado.map(e => e.estado) || ESTADOS_INSUMO).map(e => ({ valor: e, label: e }))}
+                        placeholderBusqueda="Buscar estado..." anchoMinimo="min-w-[190px]"
                     />
                 </div>
                 <button type="button" title="Usar los mismos meses del presupuesto en las OC"
@@ -397,8 +413,8 @@ export default function EjecucionPage() {
                 <div className={`space-y-6 transition-opacity ${loading ? 'opacity-60' : ''}`}>
                     {/* KPIs */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Tarjeta titulo={`Presupuestado ${anioPpto} (aprobado)`} valor={formatCLP(totales.presupuestado)} color={COLOR_PPTO}
-                            detalle={`Solicitado: ${formatCLP(totales.solicitado)}`} />
+                        <Tarjeta titulo={`Presupuestado ${anioPpto}`} valor={formatCLP(totales.presupuestado)} color={COLOR_PPTO}
+                            detalle={filtroEstados.length === 0 || filtroEstados.length === ESTADOS_INSUMO.length ? 'Todos los estados' : `Estados: ${data.estados.join(', ')}`} />
                         <Tarjeta titulo={`Ejecutado en OC ${anioOc}`} valor={formatCLP(totales.ejecutado)} color={COLOR_EJEC}
                             detalle={`${totales.n_oc.toLocaleString('es-CL')} órdenes de compra${ocEnCurso && data.ultima_sync ? ` · al ${new Date(data.ultima_sync).toLocaleDateString('es-CL')}` : ''}`} />
                         <Tarjeta titulo="Saldo" valor={formatCLP(totales.presupuestado - totales.ejecutado)}
@@ -407,6 +423,21 @@ export default function EjecucionPage() {
                                 : (planificacion ? `Se presupuestó más que lo gastado en ${anioOc}` : 'Presupuesto disponible')} />
                         <Tarjeta titulo={planificacion ? `Gasto ${anioOc} / Ppto ${anioPpto}` : '% Ejecución'} valor={formatPct(pctTotal)}
                             detalle={nAlertas > 0 ? `${nAlertas} fila(s) para revisar` : ocEnCurso ? `OC ${anioOc} en curso: datos parciales` : undefined} />
+                    </div>
+
+                    {/* Desglose del presupuesto por estado del insumo */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold text-gray-500">Insumos {anioPpto} por estado:</span>
+                        {data.por_estado.map(e => (
+                            <button key={e.estado} type="button" title={e.incluido ? 'Incluido en presupuestado (clic para quitar)' : 'No incluido (clic para sumar)'}
+                                onClick={() => setFiltroEstados(prev => {
+                                    const base = prev.length ? prev : ESTADOS_INSUMO;
+                                    return base.includes(e.estado) ? base.filter(x => x !== e.estado) : [...base, e.estado];
+                                })}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold transition-colors ${e.incluido ? 'bg-indigo-50 border-indigo-200 text-indigo-800' : 'bg-white border-gray-200 text-gray-400 line-through'}`}>
+                                {e.estado} <span className="font-bold">{formatCorto(e.monto)}</span>
+                            </button>
+                        ))}
                     </div>
 
                     {/* Tabla principal */}
@@ -476,7 +507,7 @@ export default function EjecucionPage() {
                             </table>
                         </div>
                         <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-50">
-                            Presupuestado = recursos aprobados de solicitudes aceptadas. Ejecutado = total con IVA de las OC aprobadas en Softland.
+                            Presupuestado = insumos de las solicitudes activas en los estados elegidos ({data.estados.join(', ')}), estén o no revisados. Ejecutado = total con IVA de las OC aprobadas en Softland.
                             Se marcan para revisar las filas sobre {umbral}% o con OC sin presupuesto.
                         </p>
                     </div>

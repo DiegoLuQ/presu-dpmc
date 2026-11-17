@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, case, func, text
+from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import verificar_permisos, verificar_seccion
@@ -161,23 +161,25 @@ class _Contexto:
         return f"{' / '.join(ccs)} · {nombre}" if ccs else nombre
 
 
+# Estados de cada insumo (pre_detalle.estado_aprobacion); vacío = Sin Revisar
+ESTADO_SIN_REVISAR = "Sin Revisar"
+ESTADOS_INSUMO = [ESTADO_SIN_REVISAR, "Pendiente", "Con Ajustes", "Aprobado", "Rechazado"]
+
+
 # ── Carga de datos agregados ────────────────────────────────────────────────────
 
 def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int]) -> List[dict]:
     col = func.coalesce(PresupuestoAnual.id_colegio, SolicitudPresupuesto.id_colegio)
     anio = func.coalesce(PresupuestoAnual.year, func.year(SolicitudPresupuesto.fecha))
     mes = func.month(PresupuestoDetalle.fecha_ejecucion)
-    aprobado = case(
-        (and_(PresupuestoDetalle.estado_aprobacion == "Aprobado", SolicitudPresupuesto.estado == "Aceptado"), 1),
-        else_=0,
-    )
+    estado = func.coalesce(func.nullif(func.trim(PresupuestoDetalle.estado_aprobacion), ""), ESTADO_SIN_REVISAR)
     monto = case(
         (PresupuestoDetalle.total_iva > 0, PresupuestoDetalle.total_iva),
         else_=PresupuestoDetalle.cantidad * PresupuestoDetalle.valor_unitario_iva,
     )
     q = (
         db.query(anio.label("anio"), mes.label("mes"), Cargo.id_area, PresupuestoDetalle.id_subvencion,
-                 aprobado.label("aprobado"), func.sum(monto).label("monto"))
+                 estado.label("estado"), func.sum(monto).label("monto"))
         .join(SolicitudPresupuesto, SolicitudPresupuesto.id_presupuesto == PresupuestoDetalle.id_presupuesto)
         .outerjoin(PresupuestoAnual, PresupuestoAnual.id_presupuesto_anual == SolicitudPresupuesto.id_presupuesto_anual)
         .outerjoin(Cargo, Cargo.id_cargo == SolicitudPresupuesto.id_cargo)
@@ -185,7 +187,7 @@ def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int
     )
     if id_colegio:
         q = q.filter(col == id_colegio)
-    q = q.group_by(anio, mes, Cargo.id_area, PresupuestoDetalle.id_subvencion, aprobado)
+    q = q.group_by(anio, mes, Cargo.id_area, PresupuestoDetalle.id_subvencion, estado)
 
     out = []
     for r in q.all():
@@ -195,7 +197,8 @@ def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int
         out.append({
             "src": "p", "anio": int(r.anio), "mes": int(r.mes) if r.mes else None,
             "area": ctx.area_key_ppto(r.id_area), "cc": ctx.cc_key_ppto(r.id_subvencion),
-            "presupuestado": m if r.aprobado else 0.0, "solicitado": m,
+            "estado": r.estado, "monto": m,
+            "presupuestado": 0.0, "solicitado": m,
             "ejecutado": 0.0, "n_oc": 0,
         })
     return out
@@ -266,6 +269,7 @@ def resumen_ejecucion(
     meses_oc: List[int] = Query([], description="Meses de fecha de OC"),
     areas: List[str] = Query([], description="Claves de área: a{id}, oc{id}, sin"),
     centros: List[str] = Query([], description="Claves de centro: s{id}, cc{COD}, sincc, sinsub"),
+    estados: List[str] = Query([], description="Estados de insumo que cuentan como presupuesto (vacío = todos)"),
 ):
     """Presupuesto de `anio_ppto` contra OC de `anio_oc`. Iguales = control de ejecución;
     distintos (p. ej. presupuesto 2027 vs OC 2026) = planificación contra el gasto real."""
@@ -282,6 +286,13 @@ def resumen_ejecucion(
             db.rollback()
             logger.exception("Error leyendo órdenes de compra: %s", e)
             oc_error = "No se pudieron leer las órdenes de compra (revisa permisos de lectura sobre la BD de OC)."
+
+    # Presupuesto = insumos de las solicitudes activas en los estados elegidos (aunque no estén revisados)
+    # Sin selección = todos los estados (la página envía por defecto todos menos Rechazado)
+    sel_estados = set(estados) if estados else set(ESTADOS_INSUMO) | {r["estado"] for r in regs if r["src"] == "p"}
+    for r in regs:
+        if r["src"] == "p":
+            r["presupuestado"] = r["monto"] if r["estado"] in sel_estados else 0.0
 
     anios_ppto = sorted({r["anio"] for r in regs if r["src"] == "p"}, reverse=True)
     anios_oc = sorted({r["anio"] for r in regs if r["src"] == "o"}, reverse=True)
@@ -322,6 +333,16 @@ def resumen_ejecucion(
     filas.sort(key=lambda f: -(max(f["presupuestado"], f["ejecutado"])))
 
     tot = _sumar(periodo, lambda r: 0).get(0, {m: 0 for m in _METRICAS})
+    # Desglose por estado del presupuesto elegido (con filtros de meses/área/centro, sin filtro de estado)
+    est_acc: Dict[str, float] = defaultdict(float)
+    for r in periodo:
+        if r["src"] == "p":
+            est_acc[r["estado"]] += r["monto"]
+    estados_lista = ESTADOS_INSUMO + sorted(e for e in est_acc if e not in ESTADOS_INSUMO)
+    por_estado = [
+        {"estado": e, "monto": round(est_acc.get(e, 0)), "incluido": e in sel_estados}
+        for e in estados_lista
+    ]
     # Mensual: se alinea por número de mes (mes de ejecución del presupuesto vs mes de la OC)
     mensual_acc = _sumar(periodo, lambda r: r["mes"])
     mensual = [
@@ -344,6 +365,8 @@ def resumen_ejecucion(
         "anios_ppto": anios_ppto,
         "anios_oc": anios_oc,
         "agrupar": agrupar,
+        "estados": sorted(sel_estados, key=lambda e: estados_lista.index(e) if e in estados_lista else 99),
+        "por_estado": por_estado,
         "filas": filas,
         "totales": _redondear(tot),
         "mensual": mensual,
