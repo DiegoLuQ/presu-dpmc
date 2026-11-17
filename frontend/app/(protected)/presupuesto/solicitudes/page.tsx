@@ -12,6 +12,7 @@ import {
     ChevronDown, ChevronUp, ArrowUp, ArrowDown, ArrowUpDown, SlidersHorizontal, Save, Upload
 } from 'lucide-react';
 import ImportarCambiosModal from '@/components/presupuesto/ImportarCambiosModal';
+import ComparativoAnualModal from '@/components/presupuesto/ComparativoAnualModal';
 import { etiquetaDestino } from '@/lib/destinos';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import { BudgetRequest, BudgetDetail } from '@/lib/types';
@@ -279,6 +280,7 @@ export default function SolicitudesPage() {
     // Modo de vista: 'solicitudes' o 'recursos' (Todos los Recursos)
     const [vistaModo, setVistaModo] = useState<'solicitudes' | 'recursos'>('solicitudes');
     const [importarCambiosOpen, setImportarCambiosOpen] = useState(false);
+    const [comparativoOpen, setComparativoOpen] = useState(false);
 
     // Colapsar automáticamente el sidebar al ver Todos los Recursos para ganar ancho
     useEffect(() => {
@@ -903,6 +905,14 @@ export default function SolicitudesPage() {
     const filtroActivoSolicitudes = searchTerm.trim() !== '' || filterEstado !== 'todos' || filtroSubvencionSolicitudes !== 'todos' || filtrosMultiplesActivos;
     const limpiarFiltrosMultiples = () => { setFiltroAreas([]); setFiltroMeses([]); setFiltroLineas([]); };
 
+    // Filtros que se trasladan al comparativo entre años
+    const filtrosComparativo = useMemo(() => ({
+        meses: filtroMeses,
+        areas: filtroAreas,
+        lineas: filtroLineas,
+        subvencion: vistaModo === 'solicitudes' ? filtroSubvencionSolicitudes : filtroSubvencionRecursos,
+    }), [filtroMeses, filtroAreas, filtroLineas, vistaModo, filtroSubvencionSolicitudes, filtroSubvencionRecursos]);
+
     // ── Orden (se aplica antes de paginar) ──
     const montoAprobadoSol = (req: BudgetRequest) => (req.detalles || []).reduce((acc, d) =>
         d.estado_aprobacion === 'Aprobado' ? acc + (d.total_iva || (d.cantidad * d.valor_unitario_iva)) : acc, 0);
@@ -1131,6 +1141,18 @@ export default function SolicitudesPage() {
                     </div>
 
                     <button
+                        onClick={() => setComparativoOpen(true)}
+                        disabled={!selectedYear}
+                        title={selectedYear ? 'Comparar los montos con otro año usando los filtros actuales' : 'Selecciona un año de presupuesto'}
+                        className={`bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl font-bold border flex items-center gap-2 transition-all text-xs shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isMacaya ? 'border-emerald-200 hover:border-emerald-300 text-emerald-800' : 'border-blue-200 hover:border-blue-300 text-blue-800'
+                        }`}
+                    >
+                        <ArrowUpDown size={15} />
+                        <span>Comparar años</span>
+                    </button>
+
+                    <button
                         onClick={exportToExcel}
                         disabled={vistaModo === 'solicitudes' ? filteredSolicitudes.length === 0 : filteredItems.length === 0}
                         className={`bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl font-bold border flex items-center gap-2 transition-all text-xs shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -1159,6 +1181,16 @@ export default function SolicitudesPage() {
                     open={importarCambiosOpen}
                     onClose={() => setImportarCambiosOpen(false)}
                     onAplicado={() => fetchSolicitudes(true)}
+                />
+
+                <ComparativoAnualModal
+                    open={comparativoOpen}
+                    onClose={() => setComparativoOpen(false)}
+                    colegioId={selectedColegio}
+                    yearBase={selectedYear}
+                    solicitudesBase={solicitudes}
+                    filtros={filtrosComparativo}
+                    isMacaya={isMacaya}
                 />
             </div>
 

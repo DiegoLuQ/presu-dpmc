@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session, selectinload, joinedload, contains_eager
-from typing import List, Optional
+from typing import Any, List, Optional
 from datetime import datetime, date
 import re
 import unicodedata
@@ -2579,6 +2579,26 @@ def get_detalle(
     return data
 
 
+def _renombrar_recurso_sugerido(db: Session, db_obj: PresupuestoDetalle) -> None:
+    """Si el ítem apunta a un recurso sugerido (pendiente de aprobación), renombrarlo
+    junto con el ítem: 'Recursos Sugeridos' del contralor muestra siempre el último
+    nombre escrito y conserva el primero en `nombre_original`. Si otro ítem usa el
+    mismo recurso con el nombre anterior, el contralor lo ve como "nombre distinto"."""
+    nuevo_nombre = (db_obj.nombre_producto or "").strip()
+    if not (db_obj.id_recurso and nuevo_nombre):
+        return
+    recurso = db.query(Recurso).filter(Recurso.id_recurso == db_obj.id_recurso).first()
+    if recurso and recurso.estado == "PENDIENTE_APROBACION" and recurso.nombre != nuevo_nombre:
+        duplicado = db.query(Recurso).filter(
+            func.lower(Recurso.nombre) == nuevo_nombre.lower(),
+            Recurso.id_recurso != recurso.id_recurso,
+        ).first()
+        if not duplicado:
+            if not recurso.nombre_original:
+                recurso.nombre_original = recurso.nombre
+            recurso.nombre = nuevo_nombre
+
+
 @router.put("/detalles/{id_detalle}", response_model=BudgetDetailResponse)
 def update_detalle(
     id_detalle: int,
@@ -2613,22 +2633,8 @@ def update_detalle(
     for field, value in update_data.items():
         setattr(db_obj, field, value)
 
-    # Si el ítem apunta a un recurso sugerido (pendiente de aprobación), renombrarlo
-    # junto con el ítem: 'Recursos Sugeridos' del contralor muestra siempre el último
-    # nombre escrito y conserva el primero en `nombre_original`. Si otro ítem usa el
-    # mismo recurso con el nombre anterior, el contralor lo ve como "nombre distinto".
-    nuevo_nombre = (db_obj.nombre_producto or "").strip()
-    if "nombre_producto" in update_data and db_obj.id_recurso and nuevo_nombre:
-        recurso = db.query(Recurso).filter(Recurso.id_recurso == db_obj.id_recurso).first()
-        if recurso and recurso.estado == "PENDIENTE_APROBACION" and recurso.nombre != nuevo_nombre:
-            duplicado = db.query(Recurso).filter(
-                func.lower(Recurso.nombre) == nuevo_nombre.lower(),
-                Recurso.id_recurso != recurso.id_recurso,
-            ).first()
-            if not duplicado:
-                if not recurso.nombre_original:
-                    recurso.nombre_original = recurso.nombre
-                recurso.nombre = nuevo_nombre
+    if "nombre_producto" in update_data:
+        _renombrar_recurso_sugerido(db, db_obj)
 
     # Si cambió el insumo o el destino, el código se vuelve a tomar del catálogo.
     # Otras ediciones (p.ej. compras) no tocan el código ya asignado, y un código
@@ -2788,6 +2794,280 @@ def update_detalle_subvencion(
     db.commit()
     db.refresh(db_obj)
     return build_detalle_response(db_obj, db=db)
+
+
+# ── Importar cambios desde el Excel exportado (vista "Todos los Recursos") ────
+
+_MESES_IMPORT = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+_NOMBRE_MES = {v: k.capitalize() for k, v in _MESES_IMPORT.items() if k != "setiembre"}
+
+
+def _norm_txt(v) -> str:
+    """Texto comparable: sin tildes, minúsculas y espacios colapsados."""
+    s = unicodedata.normalize("NFD", str(v or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def _txt(v) -> str:
+    return re.sub(r"\s+", " ", str(v if v is not None else "")).strip()
+
+
+def _parse_numero(v) -> Optional[float]:
+    """Acepta números de Excel o texto con formato chileno ($1.500, 2,5)."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = re.sub(r"[\s$]", "", str(v))
+    if not s:
+        return None
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(\.\d{3})+", s):
+        s = s.replace(".", "")
+    try:
+        return float(s)
+    except ValueError:
+        raise ValueError(f"'{v}' no es un número válido")
+
+
+def _parse_mes(v) -> int:
+    if isinstance(v, (int, float)) and 1 <= int(v) <= 12:
+        return int(v)
+    s = _norm_txt(v)
+    if s.isdigit() and 1 <= int(s) <= 12:
+        return int(s)
+    if s in _MESES_IMPORT:
+        return _MESES_IMPORT[s]
+    raise ValueError(f"'{v}' no es un mes válido (ej: Marzo)")
+
+
+class FilaCambioExcel(BaseModel):
+    """Una fila del Excel. Un campo en None significa que la columna no venía en
+    el archivo y no se toca; el texto vacío sí se interpreta (p.ej. borrar descripción)."""
+    fila: int
+    id_pre_detalle: Optional[Any] = None
+    nombre_producto: Optional[Any] = None
+    descripcion: Optional[Any] = None
+    cantidad: Optional[Any] = None
+    valor_unitario_iva: Optional[Any] = None
+    mes: Optional[Any] = None
+    motivo: Optional[Any] = None
+    linea: Optional[Any] = None
+    subvencion: Optional[Any] = None
+
+
+class ImportarCambiosRequest(BaseModel):
+    filas: List[FilaCambioExcel]
+    aplicar: bool = False
+
+
+def _num_igual(a, b) -> bool:
+    return abs(float(a or 0) - float(b or 0)) < 0.005
+
+
+@router.post("/detalles/importar-cambios")
+def importar_cambios_detalles(
+    payload: ImportarCambiosRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_seccion("presupuesto.solicitudes")),
+):
+    """Compara el Excel exportado desde /presupuesto/solicitudes con lo guardado,
+    cruzando por ID Insumo (id_pre_detalle). Con `aplicar=False` solo devuelve la
+    vista previa; con `aplicar=True` guarda en una transacción las filas sin errores."""
+    if len(payload.filas) > 5000:
+        raise HTTPException(status_code=422, detail="El archivo tiene demasiadas filas (máx. 5000)")
+
+    ids = []
+    for f in payload.filas:
+        try:
+            if f.id_pre_detalle not in (None, ""):
+                ids.append(int(float(str(f.id_pre_detalle).strip())))
+        except ValueError:
+            pass
+    detalles = {
+        d.id_pre_detalle: d
+        for d in db.query(PresupuestoDetalle).options(
+            joinedload(PresupuestoDetalle.solicitud),
+            joinedload(PresupuestoDetalle.recurso),
+            joinedload(PresupuestoDetalle.actividad),
+            joinedload(PresupuestoDetalle.subvencion),
+        ).filter(PresupuestoDetalle.id_pre_detalle.in_(ids or [-1])).all()
+    }
+    grupos = {_norm_txt(g.nombre): g for g in db.query(GrupoRecurso).all()}
+    subvenciones = {}
+    for s in db.query(Subvencion).all():
+        subvenciones.setdefault(_norm_txt(s.nombre_corto), s)
+        subvenciones.setdefault(_norm_txt(s.nombre_completo), s)
+
+    resultado = []
+    vistos = set()
+    for f in payload.filas:
+        item = {"fila": f.fila, "id_pre_detalle": None, "codigo_solicitud": None,
+                "producto": None, "cambios": [], "errores": []}
+        resultado.append(item)
+
+        if f.id_pre_detalle in (None, ""):
+            item["errores"].append("Fila sin ID Insumo: se omite (las filas nuevas no se crean desde aquí)")
+            continue
+        try:
+            id_det = int(float(str(f.id_pre_detalle).strip()))
+        except ValueError:
+            item["errores"].append(f"ID Insumo '{f.id_pre_detalle}' no es válido")
+            continue
+        item["id_pre_detalle"] = id_det
+        if id_det in vistos:
+            item["errores"].append("ID Insumo repetido en el archivo: solo se usa la primera fila")
+            continue
+        vistos.add(id_det)
+
+        d = detalles.get(id_det)
+        if not d:
+            item["errores"].append("No existe un insumo con ese ID")
+            continue
+        sol = d.solicitud
+        if not sol or not (_es_multicolegio(current_user) or _en_colegio_del_usuario(current_user, sol)):
+            item["errores"].append("El insumo pertenece a otro colegio")
+            continue
+        actual = build_detalle_response(d, db=db)
+        item["codigo_solicitud"] = f"REQ-{sol.fecha.year}-{str(sol.id_presupuesto).zfill(3)}" if sol.fecha else None
+        item["producto"] = actual.get("nombre_producto")
+
+        cambios = {}   # campo del modelo -> nuevo valor
+        def registrar(label, antes, despues):
+            item["cambios"].append({"campo": label, "antes": antes, "despues": despues})
+
+        # Textos
+        for campo, label, obligatorio in (
+            ("nombre_producto", "Recurso / Producto", True),
+            ("descripcion", "Descripción", False),
+            ("motivo", "Motivo", True),
+        ):
+            valor = getattr(f, campo)
+            if valor is None:
+                continue
+            nuevo = _txt(valor)
+            antes = _txt(actual.get(campo))
+            if nuevo == antes:
+                continue
+            if obligatorio and not nuevo:
+                item["errores"].append(f"{label} no puede quedar vacío")
+                continue
+            cambios[campo] = nuevo or None
+            registrar(label, antes, nuevo)
+
+        # Cantidad y valor unitario (el total siempre se recalcula)
+        cant = float(d.cantidad or 0)
+        vu_iva = float(d.valor_unitario_iva or 0)
+        for campo, label in (("cantidad", "Cantidad"), ("valor_unitario_iva", "Valor Unitario (IVA)")):
+            valor = getattr(f, campo)
+            if valor is None or (isinstance(valor, str) and not valor.strip()):
+                continue
+            try:
+                n = _parse_numero(valor)
+            except ValueError as e:
+                item["errores"].append(f"{label}: {e}")
+                continue
+            if n is None or n < 0 or (campo == "cantidad" and n <= 0):
+                item["errores"].append(f"{label} debe ser mayor que 0")
+                continue
+            antes = cant if campo == "cantidad" else vu_iva
+            if _num_igual(n, antes):
+                continue
+            cambios[campo] = n
+            registrar(label, antes, n)
+        if "cantidad" in cambios or "valor_unitario_iva" in cambios:
+            nueva_cant = cambios.get("cantidad", cant)
+            nuevo_vu = cambios.get("valor_unitario_iva", vu_iva)
+            if "valor_unitario_iva" in cambios:
+                # Conserva la proporción neto/IVA del ítem (ítems exentos quedan exentos)
+                neto_actual = float(d.valor_unitario or 0)
+                ratio = (neto_actual / vu_iva) if vu_iva and neto_actual else (1 / 1.19)
+                cambios["valor_unitario"] = round(nuevo_vu * ratio)
+            nuevo_total = nueva_cant * nuevo_vu
+            cambios["total_iva"] = nuevo_total
+            registrar("Total (IVA)", float(d.total_iva or 0), nuevo_total)
+
+        # Mes de ejecución: conserva el año del ítem
+        if f.mes is not None and _txt(f.mes):
+            try:
+                mes = _parse_mes(f.mes)
+                fecha_actual = d.fecha_ejecucion
+                if not fecha_actual or fecha_actual.month != mes:
+                    anio = fecha_actual.year if fecha_actual else (sol.fecha.year + 1 if sol.fecha else date.today().year)
+                    cambios["fecha_ejecucion"] = date(anio, mes, 1)
+                    cambios["tipo_fecha"] = "mensual"
+                    cambios["fecha_termino"] = None
+                    registrar("Mes", _NOMBRE_MES.get(fecha_actual.month) if fecha_actual else "", _NOMBRE_MES[mes])
+            except ValueError as e:
+                item["errores"].append(f"Mes: {e}")
+
+        # Línea (vacío = no se toca)
+        if f.linea is not None and _txt(f.linea):
+            antes = _txt(actual.get("grupo_nombre"))
+            if _norm_txt(f.linea) != _norm_txt(antes):
+                g = grupos.get(_norm_txt(f.linea))
+                if not g:
+                    item["errores"].append(f"Línea '{_txt(f.linea)}' no existe")
+                else:
+                    cambios["id_grupo_recurso"] = g.id_grupo_recurso
+                    registrar("Línea", antes, g.nombre)
+
+        # Subvención (vacío = no se toca; "GENERAL" = sin subvención propia)
+        if f.subvencion is not None and _txt(f.subvencion):
+            antes = _txt(actual.get("subvencion_nombre"))
+            if _norm_txt(f.subvencion) != _norm_txt(antes):
+                if _norm_txt(f.subvencion) == "general":
+                    cambios["id_subvencion"] = None
+                    registrar("Subvención", antes, "GENERAL")
+                else:
+                    s = subvenciones.get(_norm_txt(f.subvencion))
+                    if not s:
+                        item["errores"].append(f"Subvención '{_txt(f.subvencion)}' no existe")
+                    else:
+                        cambios["id_subvencion"] = s.id_subvencion
+                        registrar("Subvención", antes, s.nombre_corto)
+
+        # Una fila con errores no se aplica a medias
+        if item["errores"]:
+            item["cambios"] = []
+            continue
+        item["_cambios"] = cambios
+
+    aplicadas = 0
+    if payload.aplicar:
+        for item in resultado:
+            cambios = item.pop("_cambios", None)
+            if not cambios:
+                continue
+            d = detalles[item["id_pre_detalle"]]
+            for campo, valor in cambios.items():
+                setattr(d, campo, valor)
+            if "nombre_producto" in cambios:
+                # Igual que la edición individual: el código vuelve a tomarse del catálogo
+                _renombrar_recurso_sugerido(db, d)
+                aplicar_catalogo(db, d)
+            aplicadas += 1
+        db.commit()
+    else:
+        for item in resultado:
+            item.pop("_cambios", None)
+
+    return {
+        "aplicado": payload.aplicar,
+        "filas_aplicadas": aplicadas,
+        "resumen": {
+            "total_filas": len(resultado),
+            "con_cambios": sum(1 for r in resultado if r["cambios"]),
+            "sin_cambios": sum(1 for r in resultado if not r["cambios"] and not r["errores"]),
+            "con_errores": sum(1 for r in resultado if r["errores"]),
+        },
+        "filas": resultado,
+    }
 
 
 # ── GO-Contralor › Revisión de Presupuestos ──────────────────────────────────
