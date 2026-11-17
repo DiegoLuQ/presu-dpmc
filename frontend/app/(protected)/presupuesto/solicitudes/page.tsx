@@ -1201,113 +1201,7 @@ export default function SolicitudesPage() {
                     year={selectedYear}
                     onColegioChange={handleColegioChange}
                     onYearChange={handleYearChange}
-                >
-                    {vistaModo === 'solicitudes' && (
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                            <div className="relative w-64 min-w-[200px]">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Search className="h-4 w-4 text-gray-400" />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar solicitud o área..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-xs text-gray-900 shadow-xs"
-                                />
-                                {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1" title="Limpiar">
-                                        <X size={13} />
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Filtro Estado Solicitud */}
-                            <select
-                                value={filterEstado}
-                                onChange={(e) => setFilterEstado(e.target.value)}
-                                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-2xs cursor-pointer"
-                            >
-                                <option value="todos">Todos los Estados</option>
-                                <option value="Enviado">Por Revisar (Enviado)</option>
-                                <option value="Aceptado">Aceptado / Aprobado</option>
-                                <option value="Revisar">Para Revisión</option>
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="Rechazado">Rechazado</option>
-                            </select>
-
-                            {/* Filtro Subvención Solicitud */}
-                            <select
-                                value={filtroSubvencionSolicitudes}
-                                onChange={(e) => setFiltroSubvencionSolicitudes(e.target.value)}
-                                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-2xs cursor-pointer"
-                            >
-                                <option value="todos">Todas las Subvenciones</option>
-                                {opcionesSubvenciones.map(subv => (
-                                    <option key={subv} value={subv}>{subv}</option>
-                                ))}
-                            </select>
-
-                            {/* Filtros múltiples: Mes, Área y Línea (compartidos por ambas vistas) */}
-                            <FiltroMultiSelectGenerico
-                                icono="📅"
-                                tituloVacio="Todos los meses"
-                                tituloPlural="meses"
-                                seleccionados={filtroMeses}
-                                onChange={setFiltroMeses}
-                                opciones={(() => { const c = contarPor(d => labelFecha(d.fecha_ejecucion, d.tipo_fecha)); return opcionesMeses.map(m => ({ valor: m, label: m, count: c[m] || 0 })); })()}
-                                placeholderBusqueda="Buscar mes..."
-                                anchoMinimo="min-w-[220px]"
-                            />
-                            <FiltroMultiSelectGenerico
-                                icono="🏢"
-                                tituloVacio="Todas las áreas"
-                                tituloPlural="áreas"
-                                seleccionados={filtroAreas}
-                                onChange={setFiltroAreas}
-                                opciones={(() => { const c = contarPor(d => (d.area_nombre || '').trim()); return opcionesAreas.map(a => ({ valor: a, label: a, count: c[a] || 0 })); })()}
-                                placeholderBusqueda="Buscar área..."
-                                anchoMinimo="min-w-[240px]"
-                            />
-                            {opcionesLineas.length > 0 && (
-                                <FiltroMultiSelectGenerico
-                                    icono="🏷️"
-                                    tituloVacio="Todas las líneas"
-                                    tituloPlural="líneas"
-                                    seleccionados={filtroLineas}
-                                    onChange={setFiltroLineas}
-                                    opciones={(() => { const c = contarPor(d => (d.grupo_nombre || '').trim()); return opcionesLineas.map(l => ({ valor: l, label: l, count: c[l] || 0 })); })()}
-                                    placeholderBusqueda="Buscar línea..."
-                                    anchoMinimo="min-w-[260px]"
-                                />
-                            )}
-
-                            <ConfigColumnas
-                                defs={COLS_SOLICITUDES}
-                                visibles={colsSol}
-                                onChange={setColsSol}
-                                storageKey={COLS_STORAGE.solicitudes}
-                            />
-
-                            {/* Limpiar filtros en modo solicitudes */}
-                            {filtroActivoSolicitudes && (
-                                <button
-                                    onClick={() => {
-                                        setSearchTerm('');
-                                        setFilterEstado('todos');
-                                        setFiltroSubvencionSolicitudes('todos');
-                                        limpiarFiltrosMultiples();
-                                    }}
-                                    className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
-                                    title="Restablecer filtros de solicitudes"
-                                >
-                                    <X size={13} />
-                                    Limpiar filtros
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </ComprasFilters>
+                />
             </div>
 
             {/* SECCIÓN CARDS: Fila 1 (7 Métricas Clave) */}
@@ -1495,7 +1389,131 @@ export default function SolicitudesPage() {
 
             {/* TABLA 1: VISTA POR SOLICITUDES */}
             {vistaModo === 'solicitudes' && (
-                <div ref={tablaSolicitudesRef} className="scroll-mt-4 bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+                <div ref={tablaSolicitudesRef} className={`scroll-mt-4 bg-white rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border overflow-hidden mb-6 ${
+                    isMacaya ? 'border-emerald-200/80' : 'border-blue-200/80'
+                }`}>
+                    {/* Barra de Filtros Integrada */}
+                    <div className="p-4 border-b border-gray-100 bg-slate-50/50 space-y-3">
+                        {/* Fila 1: Buscador + Estado + Subvención + Columnas */}
+                        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+                            <div className="relative flex-1 min-w-[280px]">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por N° de solicitud, área, usuario o cargo..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all shadow-2xs"
+                                    />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-all" title="Limpiar">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Filtro Estado Solicitud */}
+                                <select
+                                    value={filterEstado}
+                                    onChange={(e) => setFilterEstado(e.target.value)}
+                                    className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-2xs cursor-pointer"
+                                >
+                                    <option value="todos">Todos los Estados</option>
+                                    <option value="Enviado">Por Revisar (Enviado)</option>
+                                    <option value="Aceptado">Aceptado / Aprobado</option>
+                                    <option value="Revisar">Para Revisión</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Rechazado">Rechazado</option>
+                                </select>
+
+                                {/* Filtro Subvención Solicitud */}
+                                <select
+                                    value={filtroSubvencionSolicitudes}
+                                    onChange={(e) => setFiltroSubvencionSolicitudes(e.target.value)}
+                                    className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-2xs cursor-pointer"
+                                >
+                                    <option value="todos">Todas las Subvenciones</option>
+                                    {opcionesSubvenciones.map(subv => (
+                                        <option key={subv} value={subv}>{subv}</option>
+                                    ))}
+                                </select>
+
+                                <ConfigColumnas
+                                    defs={COLS_SOLICITUDES}
+                                    visibles={colsSol}
+                                    onChange={setColsSol}
+                                    storageKey={COLS_STORAGE.solicitudes}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Fila 2: Mes, Área y Línea + Limpiar + contador */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-gray-200/60">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Filtros múltiples: Mes, Área y Línea (compartidos por ambas vistas) */}
+                                <FiltroMultiSelectGenerico
+                                    icono="📅"
+                                    tituloVacio="Todos los meses"
+                                    tituloPlural="meses"
+                                    seleccionados={filtroMeses}
+                                    onChange={setFiltroMeses}
+                                    opciones={(() => { const c = contarPor(d => labelFecha(d.fecha_ejecucion, d.tipo_fecha)); return opcionesMeses.map(m => ({ valor: m, label: m, count: c[m] || 0 })); })()}
+                                    placeholderBusqueda="Buscar mes..."
+                                    anchoMinimo="min-w-[220px]"
+                                />
+                                <FiltroMultiSelectGenerico
+                                    icono="🏢"
+                                    tituloVacio="Todas las áreas"
+                                    tituloPlural="áreas"
+                                    seleccionados={filtroAreas}
+                                    onChange={setFiltroAreas}
+                                    opciones={(() => { const c = contarPor(d => (d.area_nombre || '').trim()); return opcionesAreas.map(a => ({ valor: a, label: a, count: c[a] || 0 })); })()}
+                                    placeholderBusqueda="Buscar área..."
+                                    anchoMinimo="min-w-[240px]"
+                                />
+                                {opcionesLineas.length > 0 && (
+                                    <FiltroMultiSelectGenerico
+                                        icono="🏷️"
+                                        tituloVacio="Todas las líneas"
+                                        tituloPlural="líneas"
+                                        seleccionados={filtroLineas}
+                                        onChange={setFiltroLineas}
+                                        opciones={(() => { const c = contarPor(d => (d.grupo_nombre || '').trim()); return opcionesLineas.map(l => ({ valor: l, label: l, count: c[l] || 0 })); })()}
+                                        placeholderBusqueda="Buscar línea..."
+                                        anchoMinimo="min-w-[260px]"
+                                    />
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                                {/* Limpiar filtros en modo solicitudes */}
+                                {filtroActivoSolicitudes && (
+                                    <button
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setFilterEstado('todos');
+                                            setFiltroSubvencionSolicitudes('todos');
+                                            limpiarFiltrosMultiples();
+                                        }}
+                                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+                                        title="Restablecer filtros de solicitudes"
+                                    >
+                                        <X size={13} />
+                                        Limpiar filtros
+                                    </button>
+                                )}
+                                <div className={`px-3 py-1.5 rounded-xl border shadow-2xs font-extrabold text-xs shrink-0 ${
+                                    isMacaya
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                                }`}>
+                                    {filtroActivoSolicitudes ? `${filteredSolicitudes.length} de ${solicitudes.length}` : solicitudes.length} solicitudes
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-100">
                             <thead className="bg-gray-50/50">
