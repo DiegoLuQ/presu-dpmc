@@ -162,3 +162,6 @@ nul
 # Ejemplo de variables con valores sensibles: no versionar
 .env.example
 
+
+# Capturas de pantalla sueltas en la raíz
+/*.png
