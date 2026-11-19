@@ -7,12 +7,13 @@ import * as XLSX from 'xlsx';
 import axios from 'axios';
 import {
     AlertTriangle, ArrowLeftRight, CalendarClock, Download, Info, Layers, ListFilter, Loader2,
-    EyeOff, RefreshCw, Receipt, Scale, School, Calendar, X,
+    EyeOff, Receipt, Scale, School, Calendar, X,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { useAuth } from '@/context/AuthContext';
 import { primeraRutaAccesible } from '@/lib/permissions/registry';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
+import BotonRecargarOC from '@/components/go-contralor/BotonRecargarOC';
 import DetalleEjecucionModal, { FilaEjecucion, pctEjecucion, tieneAlerta } from '@/components/presupuesto/DetalleEjecucionModal';
 
 /**
@@ -320,12 +321,11 @@ export default function EjecucionPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {data?.ultima_sync && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2"
-                            title="Fecha de la última sincronización de órdenes de compra con Softland">
-                            <RefreshCw size={13} /> OC actualizadas al {new Date(data.ultima_sync).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                        </span>
-                    )}
+                    {data?.oc_disponible && <BotonRecargarOC ultimaSync={data.ultima_sync} onRecargar={fetchData} cargando={loading} />}
+                    <Link href="/go-contralor/ordenes-compra"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:border-primary hover:text-primary">
+                        <Receipt size={14} /> Ver órdenes de compra
+                    </Link>
                     <button onClick={exportarExcel} disabled={!data || loading}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50">
                         <Download size={14} /> Excel

@@ -17,6 +17,7 @@ import {
     Wallet,
     Upload,
     Scale,
+    Receipt,
 } from 'lucide-react';
 import { Accion } from '@/app/(protected)/configuracion/PermissionConstants';
 
@@ -112,6 +113,10 @@ export const MODULOS: ModuloDef[] = [
             { slug: 'revision-presupuestos', label: 'Revisión de Presupuestos', href: '/go-contralor/presupuestos', icon: Wallet },
             // Presupuesto vs órdenes de compra Softland: mismo acceso que Presupuesto › Solicitudes
             { slug: 'ejecucion', label: 'Presupuesto vs Ejecutado', href: '/go-contralor/ejecucion', icon: Scale, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
+            // Listado de OC Softland por colegio/área/fecha: mismo acceso que Presupuesto vs Ejecutado
+            { slug: 'ordenes-compra', label: 'Órdenes de Compra', href: '/go-contralor/ordenes-compra', icon: ShoppingCart, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
+            // Órdenes de Pago de Servicio: permiso de sección contabilidad.ops (o acciones del módulo)
+            { slug: 'ops', label: 'Órdenes de Pago', href: '/go-contralor/ops', icon: Receipt },
             { slug: 'recursos', label: 'Recursos', href: '/presupuesto/recursos', icon: Package },
             { slug: 'categorias', label: 'Categorías de Recursos', href: '/presupuesto/categorias', icon: Tag },
         ],

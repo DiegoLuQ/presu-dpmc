@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Float, JSON, Numeric, Date, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, DateTime, Text, Float, JSON, Numeric, Date, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime, date
 
@@ -753,7 +753,7 @@ class ActaEntregaDetalle(Base):
 
 
 
-# ── Integración con Órdenes de Compra (Softland, BD `ordenes_compra`, solo lectura) ──
+# ── Integración con Órdenes de Compra (BD `db_central`, vista `v_oc_area`, solo lectura) ──
 # Las OC traen su propio id_area y centro de costo; estas tablas (propias) permiten
 # reasignarlos a las áreas y subvenciones de este sistema para comparar
 # presupuestado vs ejecutado. Ver INTEGRACION_PRESUPUESTO.md.
@@ -763,7 +763,7 @@ class MapeoAreaOC(Base):
     → área de este sistema a la que se suma. id_area NULL = aún sin asignar."""
     __tablename__ = "pre_mapeo_area_oc"
     id_area_oc = Column(Integer, primary_key=True, autoincrement=False)
-    nombre_oc = Column(String(100), nullable=True)  # nombre del grupo en ordenes_compra (referencial)
+    nombre_oc = Column(String(100), nullable=True)  # nombre del grupo en db_central.oc_grupos (referencial)
     id_area = Column(Integer, ForeignKey("org_area.id_area", ondelete="SET NULL"), nullable=True)
     actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -779,3 +779,122 @@ class MapeoCentroCostoSubvencion(Base):
     actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     subvencion = relationship("Subvencion")
+
+
+# --- MÓDULO ÓRDENES DE PAGO DE SERVICIO (ops_) · GO-Contralor ---
+# Entidad emisora = org_colegio (Colegio Macaya = Fundación Educacional Macaya, etc.).
+# Área solicitante = org_area. Configuración (IVA %, retención %, siguiente N°, razón
+# social) en org_config con claves 'ops.*' por colegio. Montos en pesos enteros.
+
+class OpsProveedor(Base):
+    __tablename__ = "ops_proveedor"
+    id_proveedor = Column(Integer, primary_key=True, index=True)
+    rut = Column(String(12), nullable=False, unique=True)  # normalizado: 77287761-7
+    nombre = Column(String(200), nullable=False)
+    telefono = Column(String(30), nullable=True)
+    direccion = Column(String(250), nullable=True)
+    correo = Column(String(150), nullable=True)
+    activo = Column(Boolean, nullable=False, default=True)
+    creado_en = Column(DateTime, default=datetime.utcnow)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    cuentas = relationship("OpsProveedorCuenta", back_populates="proveedor",
+                           cascade="all, delete-orphan", order_by="OpsProveedorCuenta.id_cuenta")
+
+
+class OpsProveedorCuenta(Base):
+    """Cuentas bancarias de un proveedor (un proveedor puede tener varias)."""
+    __tablename__ = "ops_proveedor_cuenta"
+    id_cuenta = Column(Integer, primary_key=True, index=True)
+    id_proveedor = Column(Integer, ForeignKey("ops_proveedor.id_proveedor", ondelete="CASCADE"), nullable=False, index=True)
+    banco = Column(String(80), nullable=False)
+    tipo_cuenta = Column(String(40), nullable=False)  # Corriente, Vista, Ahorro, RUT
+    numero_cuenta = Column(String(40), nullable=False)
+    rut_titular = Column(String(12), nullable=False)
+    nombre_titular = Column(String(150), nullable=True)
+    correo = Column(String(150), nullable=True)
+    activo = Column(Boolean, nullable=False, default=True)
+
+    proveedor = relationship("OpsProveedor", back_populates="cuentas")
+
+
+class OpsOrdenPago(Base):
+    """Cabecera de la Orden de Pago de Servicio. N° correlativo por colegio que no se
+    reinicia con el año. Estados: BORRADOR -> EMITIDA -> ANULADA (no se borran)."""
+    __tablename__ = "ops_orden_pago"
+    id_ops = Column(Integer, primary_key=True, index=True)
+    id_colegio = Column(Integer, ForeignKey("org_colegio.id_colegio"), nullable=False)
+    numero_ops = Column(Integer, nullable=False)
+    fecha_emision = Column(Date, nullable=False, index=True)
+    id_proveedor = Column(Integer, ForeignKey("ops_proveedor.id_proveedor"), nullable=False, index=True)
+    id_area = Column(Integer, ForeignKey("org_area.id_area", ondelete="SET NULL"), nullable=True)
+    tipo_orden = Column(String(20), nullable=False, default="SERVICIO")      # SERVICIO | COMPRA
+    tipo_documento = Column(String(20), nullable=False)                      # FACTURA | BOLETA
+
+    # monto_base = TOTAL NETO (factura) o TOTAL BRUTO (boleta) = suma del detalle
+    monto_base = Column(BigInteger, nullable=False, default=0)
+    descuento_monto = Column(BigInteger, nullable=False, default=0)
+    iva_pct = Column(Numeric(5, 2), nullable=True)          # % vigente al guardar (factura)
+    iva_monto = Column(BigInteger, nullable=False, default=0)
+    retencion_pct = Column(Numeric(5, 2), nullable=True)    # % vigente al guardar (boleta)
+    retencion_monto = Column(BigInteger, nullable=False, default=0)
+    total_pagar = Column(BigInteger, nullable=False, default=0)
+
+    forma_pago = Column(String(20), nullable=True)          # CONTADO | ANTICIPO
+    observacion = Column(String(300), nullable=True)
+
+    # Cuenta de transferencia: se copia al guardar para que el documento no cambie
+    id_cuenta = Column(Integer, ForeignKey("ops_proveedor_cuenta.id_cuenta", ondelete="SET NULL"), nullable=True)
+    cta_titular = Column(String(150), nullable=True)
+    cta_rut = Column(String(12), nullable=True)
+    cta_banco = Column(String(80), nullable=True)
+    cta_tipo = Column(String(40), nullable=True)
+    cta_numero = Column(String(40), nullable=True)
+    cta_correo = Column(String(150), nullable=True)
+
+    estado = Column(String(20), nullable=False, default="BORRADOR")
+    motivo_anulacion = Column(String(300), nullable=True)
+    firmante_nombre = Column(String(150), nullable=True)
+    firmante_cargo = Column(String(100), nullable=True)
+    id_user_crea = Column(Integer, ForeignKey("auth_usuario.id_user", ondelete="SET NULL"), nullable=True)
+    id_user_emite = Column(Integer, ForeignKey("auth_usuario.id_user", ondelete="SET NULL"), nullable=True)
+    fecha_emitida = Column(DateTime, nullable=True)
+    fecha_anulada = Column(DateTime, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('id_colegio', 'numero_ops', name='uq_ops_colegio_numero'),)
+
+    colegio = relationship("Colegio")
+    proveedor = relationship("OpsProveedor")
+    area = relationship("Area")
+    items = relationship("OpsItem", back_populates="orden", cascade="all, delete-orphan", order_by="OpsItem.linea")
+    pagos = relationship("OpsPago", back_populates="orden", cascade="all, delete-orphan", order_by="OpsPago.nro_cuota")
+
+
+class OpsItem(Base):
+    __tablename__ = "ops_item"
+    id_item = Column(Integer, primary_key=True, index=True)
+    id_ops = Column(Integer, ForeignKey("ops_orden_pago.id_ops", ondelete="CASCADE"), nullable=False, index=True)
+    linea = Column(Integer, nullable=False)
+    cantidad = Column(Numeric(12, 2), nullable=True)
+    detalle = Column(Text, nullable=False)
+    valor_unitario = Column(BigInteger, nullable=False, default=0)
+    valor_total = Column(BigInteger, nullable=False, default=0)
+
+    orden = relationship("OpsOrdenPago", back_populates="items")
+
+
+class OpsPago(Base):
+    """Cuotas de pago (cheques / transferencias)."""
+    __tablename__ = "ops_pago"
+    id_pago = Column(Integer, primary_key=True, index=True)
+    id_ops = Column(Integer, ForeignKey("ops_orden_pago.id_ops", ondelete="CASCADE"), nullable=False, index=True)
+    nro_cuota = Column(Integer, nullable=False)
+    monto = Column(BigInteger, nullable=False)
+    fecha_pago = Column(Date, nullable=True)
+    porcentaje = Column(Numeric(5, 2), nullable=True)   # 50.00
+    medio = Column(String(20), nullable=False, default="CHEQUE")  # CHEQUE | TRANSFERENCIA | EFECTIVO | OTRO
+    nro_cheque = Column(String(20), nullable=True)
+
+    orden = relationship("OpsOrdenPago", back_populates="pagos")

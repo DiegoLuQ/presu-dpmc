@@ -2,7 +2,7 @@ import logging
 import time
 import uuid
 from app.core.logging_config import setup_logging, setup_sentry, request_id_ctx
-from app.api import auth, catalogos, roles, users, budget, requerimientos, pme, ai_config, convocatorias, ejecucion
+from app.api import auth, catalogos, roles, users, budget, requerimientos, pme, ai_config, convocatorias, ejecucion, ops
 from app.core.config import settings
 from app.core.startup_tasks import run_startup_tasks
 from fastapi import FastAPI
@@ -94,6 +94,7 @@ all_routers = [
     ai_config.router,
     convocatorias.router,
     ejecucion.router,
+    ops.router,
 ]
 
 for r in all_routers:

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Órdenes de compra Softland (otra BD en la misma instancia MySQL, solo lectura).
     # Ver INTEGRACION_PRESUPUESTO.md. Si la BD no existe, la vista de ejecución muestra "sin datos de OC".
-    OC_DB_NAME: str = "ordenes_compra"
+    OC_DB_NAME: str = "db_central"  # vista v_oc_area (solo lectura)
 
     # CORS origins
     ALLOW_ORIGINS: List[str] = [

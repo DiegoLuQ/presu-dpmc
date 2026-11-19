@@ -462,12 +462,16 @@ def construir_pdf(
     titulo: str = "Documento",
     autor: str = "Sistema de Control Presupuestario & Recepción de Compras",
     mensaje_vacio: str = "No hay documentos para generar.",
+    on_page=None,
 ) -> bytes:
     """Ensambla el PDF final: UNA HOJA POR DOCUMENTO.
 
     `documentos` es una lista donde cada elemento es la lista de flowables de
     un documento completo. Entre documento y documento se inserta un
     `PageBreak`, de modo que 2 documentos siempre producen 2 páginas.
+
+    `on_page(canvas, doc)` (opcional) se dibuja en cada hoja, p.ej. una marca de
+    agua "BORRADOR".
     """
     buffer = BytesIO()
     doc = BaseDocTemplate(
@@ -485,7 +489,7 @@ def construir_pdf(
         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
         id="documento",
     )
-    doc.addPageTemplates([PageTemplate(id="documento", frames=[frame])])
+    doc.addPageTemplates([PageTemplate(id="documento", frames=[frame], onPage=on_page or (lambda c, d: None))])
 
     story: List[Flowable] = []
     for indice, bloques in enumerate(documentos):

@@ -1,9 +1,10 @@
 """Presupuesto vs Ejecutado: cruza el presupuesto aprobado con las órdenes de compra
-aprobadas de Softland (BD `ordenes_compra`, vista `v_ordenes_area`, SOLO LECTURA).
+aprobadas (BD `db_central`, vista `v_oc_area`, SOLO LECTURA; la mantiene el extractor externo).
+Incluye OC de Softland (origen 'softland') y Órdenes de Pago de Servicio (origen 'OPS').
 
 - Presupuestado = ítems 'Aprobado' de solicitudes 'Aceptado' y activas.
 - Solicitado    = todos los ítems de las solicitudes activas.
-- Ejecutado     = SUM(v_ordenes_area.total) (pesos, con IVA).
+- Ejecutado     = SUM(v_oc_area.total) (pesos; factura con IVA, boleta bruta).
 - Año: pre_presupuesto_anual.year (año de ejecución) = YEAR(fecha_oc). Las solicitudes sin
   presupuesto anual usan YEAR(fecha), igual que /presupuesto/solicitudes.
 - Las áreas de OC que no existen en org_area se reasignan con pre_mapeo_area_oc y los
@@ -46,6 +47,12 @@ ROLES_MULTICOLEGIO = ["ADM", "SOS", "GERENTE"]
 
 # ── Acceso a la BD de órdenes de compra ─────────────────────────────────────────
 
+# Objetos de db_central (solo lectura)
+OC_VISTA = "v_oc_area"
+OC_TABLA = "oc_ordenes"
+OC_GRUPOS = "oc_grupos"
+OC_SYNC = "oc_sincronizaciones"
+
 def _oc_schema(db: Session) -> Optional[str]:
     """Nombre de la BD de OC si existe y tiene la vista; None si no está disponible."""
     nombre = settings.OC_DB_NAME
@@ -53,8 +60,8 @@ def _oc_schema(db: Session) -> Optional[str]:
         return None
     try:
         existe = db.execute(text(
-            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :s AND TABLE_NAME = 'v_ordenes_area'"
-        ), {"s": nombre}).first()
+            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :s AND TABLE_NAME = :v"
+        ), {"s": nombre, "v": OC_VISTA}).first()
     except Exception as e:
         logger.warning("No se pudo verificar la BD de OC '%s': %s", nombre, e)
         db.rollback()
@@ -64,7 +71,7 @@ def _oc_schema(db: Session) -> Optional[str]:
 
 def _ultima_sync(db: Session, schema: str) -> Optional[str]:
     try:
-        fin = db.execute(text(f"SELECT MAX(fin) FROM `{schema}`.sincronizaciones")).scalar()
+        fin = db.execute(text(f"SELECT MAX(fin) FROM `{schema}`.{OC_SYNC}")).scalar()
     except Exception:
         db.rollback()
         return None
@@ -106,7 +113,7 @@ class _Contexto:
         if schema:
             try:
                 for id_area, nombre in db.execute(text(
-                    f"SELECT id_area, nombre FROM `{schema}`.grupos WHERE id_area IS NOT NULL ORDER BY nombre"
+                    f"SELECT id_area, nombre FROM `{schema}`.{OC_GRUPOS} WHERE id_area IS NOT NULL ORDER BY nombre"
                 )).all():
                     if nombre and nombre not in self.grupos_oc[int(id_area)]:
                         self.grupos_oc[int(id_area)].append(nombre)
@@ -230,7 +237,7 @@ def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int
 def _registros_oc(db: Session, ctx: _Contexto, schema: str, id_colegio: Optional[int]) -> List[dict]:
     sql = (
         f"SELECT anio, MONTH(fecha_oc) AS mes, id_area, centro_costo, SUM(total) AS total, COUNT(*) AS n "
-        f"FROM `{schema}`.v_ordenes_area "
+        f"FROM `{schema}`.{OC_VISTA} "
         f"{'WHERE id_colegio = :col ' if id_colegio else ''}"
         f"GROUP BY anio, MONTH(fecha_oc), id_area, centro_costo"
     )
@@ -457,7 +464,7 @@ def listar_oc(
     ctx = _Contexto(db, schema)
     sql = (
         f"SELECT empresa, id_colegio, num_oc, fecha_oc, centro_costo, subtotal, total, solicitante, "
-        f"grupo, grupo_manual, id_area FROM `{schema}`.v_ordenes_area WHERE anio = :anio "
+        f"grupo, grupo_manual, id_area, origen, tipo_documento, proveedor FROM `{schema}`.{OC_VISTA} WHERE anio = :anio "
         f"{'AND id_colegio = :col ' if id_col else ''}ORDER BY fecha_oc DESC, num_oc DESC"
     )
     params = {"anio": anio}
@@ -486,9 +493,112 @@ def listar_oc(
             "fecha_oc": r.fecha_oc.isoformat() if r.fecha_oc else None,
             "centro_costo": r.centro_costo, "subtotal": float(r.subtotal or 0), "total": float(r.total or 0),
             "solicitante": r.solicitante, "grupo": r.grupo, "grupo_manual": bool(r.grupo_manual),
+            "origen": r.origen, "tipo_documento": r.tipo_documento, "proveedor": r.proveedor,
             "area_key": a_key, "area": ctx.area_label(a_key), "cc_key": c_key, "cc": ctx.cc_label(c_key),
         })
     return {"oc_disponible": True, "ordenes": ordenes}
+
+
+# ── Listado completo de OC (solo lectura; otro servicio sincroniza con Softland) ──
+
+@router.get("/ordenes")
+def listar_todas_oc(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
+    _sec: User = Depends(verificar_seccion("presupuesto.solicitudes")),
+    id_colegio: Optional[int] = Query(None),
+    desde: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    hasta: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    areas: List[str] = Query([], description="Claves de área: a{id}, oc{id}, sin"),
+    centros: List[str] = Query([], description="Claves de centro: s{id}, cc{COD}, sincc"),
+    origen: Optional[str] = Query(None, pattern=r"^(softland|OPS)$", description="softland | OPS"),
+    tipo: Optional[str] = Query(None, pattern=r"^(OC|Factura|Boleta)$", description="OC | Factura | Boleta"),
+    q: Optional[str] = Query(None, description="N°, solicitante, proveedor o RUT"),
+):
+    """Todas las órdenes (OC de Softland y OPS) de un colegio, con filtros de área, centro, fecha,
+    origen y tipo. Las opciones de área/centro salen de las órdenes del colegio y rango de fechas
+    (sin aplicar esos filtros)."""
+    schema = _oc_schema(db)
+    if not schema:
+        return {"oc_disponible": False, "ultima_sync": None, "ordenes": [], "opciones": {"areas": [], "centros": []},
+                "totales": {"n": 0, "subtotal": 0, "total": 0, "total_pagar": 0, "n_ops": 0}}
+    id_col = _colegio_efectivo(id_colegio, current_user)
+    ctx = _Contexto(db, schema)
+    where, params = [], {}
+    if id_col:
+        where.append("v.id_colegio = :col")
+        params["col"] = id_col
+    if desde:
+        where.append("v.fecha_oc >= :desde")
+        params["desde"] = desde
+    if hasta:
+        where.append("v.fecha_oc <= :hasta")
+        params["hasta"] = hasta
+    if origen:
+        where.append("v.origen = :origen")
+        params["origen"] = origen
+    if tipo:
+        where.append("v.tipo_documento = :tipo")
+        params["tipo"] = tipo
+    texto = (q or "").strip()
+    if texto:
+        cond = "v.solicitante LIKE :txt OR v.proveedor LIKE :txt OR v.rut_proveedor LIKE :txt"
+        if texto.isdigit():
+            cond = "v.num_oc = :num OR " + cond
+            params["num"] = int(texto)
+        where.append(f"({cond})")
+        params["txt"] = f"%{texto}%"
+    # IVA / retención / a pagar no están en la vista: se leen de oc_ordenes por id
+    sql = (
+        f"SELECT v.id, v.empresa, v.id_colegio, v.num_oc, v.fecha_oc, v.centro_costo, v.subtotal, v.total, "
+        f"v.solicitante, v.grupo, v.grupo_manual, v.id_area, v.origen, v.tipo_documento, v.rut_proveedor, "
+        f"v.proveedor, o.iva, o.retencion, o.total_pagar "
+        f"FROM `{schema}`.{OC_VISTA} v LEFT JOIN `{schema}`.{OC_TABLA} o ON o.id = v.id "
+        f"{('WHERE ' + ' AND '.join(where)) if where else ''} ORDER BY v.fecha_oc DESC, v.num_oc DESC"
+    )
+    try:
+        rows = db.execute(text(sql), params).all()
+    except Exception as e:
+        db.rollback()
+        logger.exception("Error leyendo órdenes de compra: %s", e)
+        raise HTTPException(status_code=502, detail="No se pudieron leer las órdenes de compra.")
+
+    sa, sc = set(areas), set(centros)
+    opciones_areas, opciones_cc = set(), set()
+    ordenes = []
+    for r in rows:
+        a_key = ctx.area_key_oc(int(r.id_area) if r.id_area is not None else None)
+        c_key = ctx.cc_key_oc(r.centro_costo)
+        opciones_areas.add(a_key)
+        opciones_cc.add(c_key)
+        if (sa and a_key not in sa) or (sc and c_key not in sc):
+            continue
+        total = float(r.total or 0)
+        ordenes.append({
+            "id": r.id, "empresa": r.empresa, "id_colegio": r.id_colegio, "num_oc": r.num_oc,
+            "fecha_oc": r.fecha_oc.isoformat() if r.fecha_oc else None,
+            "centro_costo": r.centro_costo, "subtotal": float(r.subtotal or 0), "total": total,
+            "iva": float(r.iva) if r.iva is not None else None,
+            "retencion": float(r.retencion) if r.retencion is not None else None,
+            "total_pagar": float(r.total_pagar) if r.total_pagar is not None else total,
+            "origen": r.origen, "tipo_documento": r.tipo_documento,
+            "rut_proveedor": r.rut_proveedor, "proveedor": r.proveedor,
+            "solicitante": r.solicitante, "grupo": r.grupo, "grupo_manual": bool(r.grupo_manual),
+            "area_key": a_key, "area": ctx.area_label(a_key), "cc_key": c_key, "cc": ctx.cc_label(c_key),
+        })
+    return {
+        "oc_disponible": True,
+        "ultima_sync": _ultima_sync(db, schema),
+        "ordenes": ordenes,
+        "totales": {"n": len(ordenes), "subtotal": round(sum(o["subtotal"] for o in ordenes)),
+                    "total": round(sum(o["total"] for o in ordenes)),
+                    "total_pagar": round(sum(o["total_pagar"] for o in ordenes)),
+                    "n_ops": sum(1 for o in ordenes if o["origen"] == "OPS")},
+        "opciones": {
+            "areas": sorted(({"key": k, "label": ctx.area_label(k)} for k in opciones_areas), key=lambda x: x["label"]),
+            "centros": sorted(({"key": k, "label": ctx.cc_label(k)} for k in opciones_cc), key=lambda x: x["label"]),
+        },
+    }
 
 
 # ── Configuración de mapeos ─────────────────────────────────────────────────────
@@ -506,13 +616,13 @@ def obtener_mapeos(
     if schema:
         try:
             for id_area, n, total in db.execute(text(
-                f"SELECT id_area, COUNT(*), SUM(total) FROM `{schema}`.v_ordenes_area WHERE id_area IS NOT NULL GROUP BY id_area"
+                f"SELECT id_area, COUNT(*), SUM(total) FROM `{schema}`.{OC_VISTA} WHERE id_area IS NOT NULL GROUP BY id_area"
             )).all():
                 id_area = int(id_area)
                 areas_oc[id_area] = {"id_area_oc": id_area, "nombre_oc": ctx.nombre_oc(id_area),
                                      "n_oc": int(n), "total": float(total or 0)}
             for cc, n, total in db.execute(text(
-                f"SELECT centro_costo, COUNT(*), SUM(total) FROM `{schema}`.v_ordenes_area "
+                f"SELECT centro_costo, COUNT(*), SUM(total) FROM `{schema}`.{OC_VISTA} "
                 f"WHERE centro_costo IS NOT NULL AND centro_costo <> '' GROUP BY centro_costo"
             )).all():
                 centros[cc.upper()] = {"centro_costo": cc.upper(), "n_oc": int(n), "total": float(total or 0)}
