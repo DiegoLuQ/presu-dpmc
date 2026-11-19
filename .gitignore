@@ -162,3 +162,6 @@ nul
 
 # Ejemplo de variables con valores sensibles: no versionar
 .env.example
+
+# Dumps de bases de datos (contienen datos personales)
+db_central.sql
