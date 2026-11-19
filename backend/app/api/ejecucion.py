@@ -1,5 +1,5 @@
 """Presupuesto vs Ejecutado: cruza el presupuesto aprobado con las órdenes de compra
-aprobadas (BD `db_central`, vista `v_oc_area`, SOLO LECTURA; la mantiene el extractor externo).
+aprobadas (BD central OC_DB_NAME del .env, vista `v_oc_area`, SOLO LECTURA; la mantiene el extractor externo).
 Incluye OC de Softland (origen 'softland') y Órdenes de Pago de Servicio (origen 'OPS').
 
 - Presupuestado = ítems 'Aprobado' de solicitudes 'Aceptado' y activas.
@@ -47,7 +47,7 @@ ROLES_MULTICOLEGIO = ["ADM", "SOS", "GERENTE"]
 
 # ── Acceso a la BD de órdenes de compra ─────────────────────────────────────────
 
-# Objetos de db_central (solo lectura)
+# Objetos de la BD central (OC_DB_NAME) (solo lectura)
 OC_VISTA = "v_oc_area"
 OC_TABLA = "oc_ordenes"
 OC_GRUPOS = "oc_grupos"

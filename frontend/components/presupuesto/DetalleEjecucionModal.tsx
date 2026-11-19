@@ -7,7 +7,7 @@ import api from '@/lib/api/client';
 
 /**
  * Detalle de una fila de "Presupuesto vs Ejecutado": explica por qué el ejecutado
- * (OC Softland) no cuadra con lo presupuestado y lista las OC que lo componen.
+ * (OC Softland + OPS) no cuadra con lo presupuestado y lista las órdenes que lo componen.
  */
 
 export interface FilaEjecucion {
@@ -37,6 +37,9 @@ interface OrdenCompra {
     solicitante: string | null;
     grupo: string | null;
     grupo_manual: boolean;
+    origen: 'softland' | 'OPS' | null;
+    tipo_documento: string | null;
+    proveedor: string | null;
     cc: string;
 }
 
@@ -52,19 +55,27 @@ interface Props {
 
 const formatCLP = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v || 0)).toLocaleString('es-CL')}`;
 
-export function pctEjecucion(f: { presupuestado: number; ejecutado: number }): number | null {
+/**
+ * Mismo año (ejecución clásica): ejecutado ÷ presupuestado.
+ * Años distintos (planificación): presupuestado ÷ ejecutado; la base es siempre el gasto en OC.
+ */
+export function pctEjecucion(f: { presupuestado: number; ejecutado: number }, planificacion = false): number | null {
+    if (planificacion) return f.ejecutado > 0 ? (f.presupuestado / f.ejecutado) * 100 : null;
     return f.presupuestado > 0 ? (f.ejecutado / f.presupuestado) * 100 : null;
 }
 
-export function tieneAlerta(f: FilaEjecucion, umbral: number): boolean {
-    const pct = pctEjecucion(f);
+/** Clásico: sobre el umbral o OC sin presupuesto. Planificación: presupuesto bajo el 100 % del gasto. */
+export function tieneAlerta(f: FilaEjecucion, umbral: number, planificacion = false): boolean {
+    const pct = pctEjecucion(f, planificacion);
+    if (planificacion) return pct !== null && pct < 100;
     if (pct !== null) return pct > umbral;
     return f.ejecutado > 0;
 }
 
 function explicaciones(f: FilaEjecucion, umbral: number, anioPpto: number, anioOc: number): { titulo: string; texto: React.ReactNode }[] {
     const out: { titulo: string; texto: React.ReactNode }[] = [];
-    const pct = pctEjecucion(f);
+    const plan = anioPpto !== anioOc;
+    const pct = pctEjecucion(f, plan);
 
     if (f.area_key?.startsWith('oc')) {
         out.push({
@@ -86,23 +97,22 @@ function explicaciones(f: FilaEjecucion, umbral: number, anioPpto: number, anioO
                 Puedes asociarlo en <Link href="/configuracion?tab=Ejecuci%C3%B3n%20OC" className="font-bold text-primary underline">Configuración › Ejecución OC</Link>.</>,
         });
     }
-    const plan = anioPpto !== anioOc;
     if (plan && f.presupuestado === 0 && f.ejecutado > 0) {
         out.push({
             titulo: `Gasto ${anioOc} sin presupuesto ${anioPpto}`,
             texto: `En ${anioOc} hubo órdenes de compra para esta fila, pero el presupuesto ${anioPpto} no tiene recursos aprobados aquí. Si ese gasto se repetirá, conviene incluirlo en la planificación.`,
         });
-    } else if (plan && pct !== null && pct > umbral) {
+    } else if (plan && pct !== null && pct < 100) {
         out.push({
-            titulo: `El gasto ${anioOc} supera en más de ${umbral}% al presupuesto ${anioPpto}`,
-            texto: `Lo presupuestado para ${anioPpto} es bastante menor que lo gastado en ${anioOc}. Puede ser gasto recurrente (contratos, servicios, mantención, consumos) que no se ingresó como solicitud, o compras puntuales de ${anioOc} que no se repetirán. Revisa las OC de mayor monto.`,
+            titulo: `El presupuesto ${anioPpto} cubre el ${Math.round(pct)}% del gasto ${anioOc}`,
+            texto: `Lo presupuestado para ${anioPpto} es menor que lo gastado en ${anioOc}. Puede ser gasto recurrente (contratos, servicios, mantención, consumos) que no se ingresó como solicitud, o compras puntuales de ${anioOc} que no se repetirán. Revisa las órdenes de mayor monto.`,
         });
-    } else if (f.presupuestado === 0 && f.ejecutado > 0) {
+    } else if (!plan && f.presupuestado === 0 && f.ejecutado > 0) {
         out.push({
             titulo: 'Gasto sin presupuesto aprobado',
             texto: 'Hay órdenes de compra, pero ninguna solicitud aprobada para esta fila. Suele tratarse de gasto que no se planificó como solicitud (servicios, reposiciones, urgencias) o de un área cuyo presupuesto quedó registrado en otra.',
         });
-    } else if (pct !== null && pct > umbral) {
+    } else if (!plan && pct !== null && pct > umbral) {
         out.push({
             titulo: `Ejecución sobre ${umbral}%`,
             texto: 'Las OC de Softland incluyen todo el gasto real del área: contratos y servicios recurrentes, mantención, consumos básicos y compras que nunca se ingresaron como solicitud de presupuesto. Por eso el ejecutado puede superar con creces lo presupuestado sin que haya un error en los datos. Revisa el desglose por centro de costo y las OC de mayor monto.',
@@ -111,7 +121,7 @@ function explicaciones(f: FilaEjecucion, umbral: number, anioPpto: number, anioO
     if (out.length === 0) {
         out.push({
             titulo: 'Detalle de órdenes de compra',
-            texto: 'Listado de las OC aprobadas en Softland que componen el ejecutado de esta fila.',
+            texto: 'Listado de las OC aprobadas en Softland y de las órdenes de pago (OPS) que componen el ejecutado de esta fila.',
         });
     }
     return out;
@@ -156,11 +166,14 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPp
             String(o.num_oc).includes(q) ||
             (o.solicitante || '').toLowerCase().includes(q) ||
             (o.grupo || '').toLowerCase().includes(q) ||
+            (o.proveedor || '').toLowerCase().includes(q) ||
+            (o.origen === 'OPS' ? 'ops' : 'oc').includes(q) ||
             (o.centro_costo || '').toLowerCase().includes(q));
     }, [ordenes, busqueda]);
 
-    const pct = pctEjecucion(fila);
-    const alerta = tieneAlerta(fila, umbral);
+    const plan = anioPpto !== anioOc;
+    const pct = pctEjecucion(fila, plan);
+    const alerta = tieneAlerta(fila, umbral, plan);
     const totalOC = ordenes.reduce((a, o) => a + o.total, 0);
     const titulo = [fila.area, fila.cc].filter(Boolean).join(' · ');
 
@@ -176,7 +189,7 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPp
                         </h3>
                         <p className="text-xs text-gray-500 mt-0.5">
                             Presupuestado {anioPpto}: {formatCLP(fila.presupuestado)} · Ejecutado OC {anioOc}: {formatCLP(fila.ejecutado)}
-                            {pct !== null && <> · {pct.toLocaleString('es-CL', { maximumFractionDigits: 0 })}%</>}
+                            {pct !== null && <> · {plan ? `Ppto / Gasto ${pct.toLocaleString('es-CL', { maximumFractionDigits: 0 })}%` : `${pct.toLocaleString('es-CL', { maximumFractionDigits: 0 })}%`}</>}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
@@ -233,7 +246,7 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPp
                                         <input
                                             value={busqueda}
                                             onChange={e => setBusqueda(e.target.value)}
-                                            placeholder="Buscar N°, solicitante…"
+                                            placeholder="Buscar N°, OPS, proveedor…"
                                             className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                                         />
                                     </div>
@@ -245,8 +258,10 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPp
                                         <table className="w-full text-xs">
                                             <thead className="bg-gray-50 text-gray-500">
                                                 <tr>
-                                                    <th className="px-3 py-2 text-left font-semibold">N° OC</th>
+                                                    <th className="px-3 py-2 text-left font-semibold">N°</th>
+                                                    <th className="px-3 py-2 text-left font-semibold">Origen</th>
                                                     <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                                                    <th className="px-3 py-2 text-left font-semibold">Proveedor</th>
                                                     <th className="px-3 py-2 text-left font-semibold">Solicitante</th>
                                                     <th className="px-3 py-2 text-left font-semibold">Grupo</th>
                                                     <th className="px-3 py-2 text-left font-semibold">C. costo</th>
@@ -255,9 +270,17 @@ export default function DetalleEjecucionModal({ fila, onClose, idColegio, anioPp
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
                                                 {[...filtradas].sort((a, b) => b.total - a.total).map(o => (
-                                                    <tr key={`${o.empresa}-${o.num_oc}`} className="hover:bg-gray-50/60">
+                                                    <tr key={`${o.empresa}-${o.origen ?? 'softland'}-${o.num_oc}`} className="hover:bg-gray-50/60">
                                                         <td className="px-3 py-1.5 font-semibold text-gray-800">{o.num_oc}</td>
+                                                        <td className="px-3 py-1.5 whitespace-nowrap">
+                                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${o.origen === 'OPS' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}
+                                                                title={o.origen === 'OPS' ? 'Orden de Pago de Servicio' : 'Orden de compra Softland'}>
+                                                                {o.origen === 'OPS' ? 'OPS' : 'OC Softland'}
+                                                            </span>
+                                                            {o.origen === 'OPS' && o.tipo_documento && <span className="ml-1 text-[10px] text-gray-400">{o.tipo_documento}</span>}
+                                                        </td>
                                                         <td className="px-3 py-1.5 text-gray-600">{o.fecha_oc ? o.fecha_oc.split('-').reverse().join('-') : '—'}</td>
+                                                        <td className="px-3 py-1.5 text-gray-600 max-w-[180px] truncate" title={o.proveedor || ''}>{o.proveedor || '—'}</td>
                                                         <td className="px-3 py-1.5 text-gray-600 max-w-[200px] truncate" title={o.solicitante || ''}>{o.solicitante || '—'}</td>
                                                         <td className="px-3 py-1.5 text-gray-600">{o.grupo || '—'}{o.grupo_manual && <span className="ml-1 text-[10px] text-gray-400">(manual)</span>}</td>
                                                         <td className="px-3 py-1.5 text-gray-600">{o.centro_costo || '—'}</td>

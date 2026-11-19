@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api/client';
+import { MODULOS } from '@/lib/permissions/registry';
 
 /**
  * Órdenes de Pago de Servicio (OPS) · GO-Contralor. Tipos, acceso y utilidades comunes.
@@ -173,11 +174,14 @@ export async function abrirPdf(idOps: number, numero: number, descargar: boolean
 }
 
 /** Mismo criterio que el backend (verificar_ops): sección `contabilidad.ops` o acción del módulo. */
+/** La sección OPS puede quedar inhabilitada desde el registro de permisos (deshabilitado: true). */
+export const OPS_HABILITADO = !MODULOS.some(m => m.secciones?.some(s => s.href === '/go-contralor/ops' && s.deshabilitado));
+
 export function useAccesoOps() {
     const { user, tienePermiso, isLoading } = useAuth();
     const superRol = ['ADM', 'SOS'].includes(user?.rol?.codigo || '');
     const seccion = tienePermiso('contabilidad', 'ops');
-    const puede = (accion: string) => superRol || seccion || tienePermiso('contabilidad', accion);
+    const puede = (accion: string) => OPS_HABILITADO && (superRol || seccion || tienePermiso('contabilidad', accion));
     return {
         isLoading,
         puedeVer: puede('ver'),
@@ -191,8 +195,17 @@ export function SinAccesoOps() {
     return (
         <div className="flex flex-col items-center justify-center py-24 text-center text-gray-500">
             <Lock size={28} className="text-gray-300 mb-3" />
-            <p className="text-lg font-semibold text-gray-700">No tienes acceso a esta sección</p>
-            <p className="text-sm mt-1">Solicita al administrador el permiso de Órdenes de Pago (GO-Contralor) en tu rol.</p>
+            {OPS_HABILITADO ? (
+                <>
+                    <p className="text-lg font-semibold text-gray-700">No tienes acceso a esta sección</p>
+                    <p className="text-sm mt-1">Solicita al administrador el permiso de Órdenes de Pago (GO-Contralor) en tu rol.</p>
+                </>
+            ) : (
+                <>
+                    <p className="text-lg font-semibold text-gray-700">Sección inhabilitada</p>
+                    <p className="text-sm mt-1">Órdenes de Pago (OPS) no está disponible por ahora.</p>
+                </>
+            )}
         </div>
     );
 }

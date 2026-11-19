@@ -46,6 +46,7 @@ export interface SeccionDef {
     restringido?: boolean;     // acceso por lista blanca de usuarios (Configuración › Accesos)
     soloAdmin?: boolean;       // visible/accesible únicamente para el rol Administrador (ADM), sin depender de permisos configurables por rol
     seccionAcceso?: string;    // reutiliza la lista blanca de otra sección (ej. 'presupuesto.solicitudes')
+    deshabilitado?: boolean;   // se muestra en gris en el sidebar, sin enlace, y sus páginas no se abren
 }
 
 export interface ModuloDef {
@@ -116,7 +117,7 @@ export const MODULOS: ModuloDef[] = [
             // Listado de OC Softland por colegio/área/fecha: mismo acceso que Presupuesto vs Ejecutado
             { slug: 'ordenes-compra', label: 'Órdenes de Compra', href: '/go-contralor/ordenes-compra', icon: ShoppingCart, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
             // Órdenes de Pago de Servicio: permiso de sección contabilidad.ops (o acciones del módulo)
-            { slug: 'ops', label: 'Órdenes de Pago', href: '/go-contralor/ops', icon: Receipt },
+            { slug: 'ops', label: 'Órdenes de Pago', href: '/go-contralor/ops', icon: Receipt, deshabilitado: true },
             { slug: 'recursos', label: 'Recursos', href: '/presupuesto/recursos', icon: Package },
             { slug: 'categorias', label: 'Categorías de Recursos', href: '/presupuesto/categorias', icon: Tag },
         ],
@@ -183,6 +184,7 @@ export function primeraRutaAccesible(
     for (const mod of MODULOS) {
         if (mod.secciones && mod.secciones.length > 0) {
             for (const sec of mod.secciones) {
+                if (sec.deshabilitado) continue;
                 if (sec.restringido) {
                     if (puedeSeccion(seccionKey(mod.key, sec))) return sec.href;
                     continue;

@@ -78,10 +78,13 @@ const formatCorto = (v: number) => {
 };
 const formatPct = (p: number | null) => p === null ? '—' : `${p.toLocaleString('es-CL', { maximumFractionDigits: p < 10 ? 1 : 0 })}%`;
 
-function BarraPct({ pct, umbral }: { pct: number | null; umbral: number }) {
+function BarraPct({ pct, umbral, planificacion = false }: { pct: number | null; umbral: number; planificacion?: boolean }) {
     if (pct === null) return <span className="text-gray-300">—</span>;
     const ancho = Math.min(pct, 100);
-    const color = pct > umbral ? 'bg-amber-500' : pct > 100 ? 'bg-orange-400' : 'bg-emerald-600';
+    // Planificación (Ppto ÷ Gasto): ámbar si el presupuesto no cubre el gasto de las OC
+    const color = planificacion
+        ? (pct < 100 ? 'bg-amber-500' : 'bg-emerald-600')
+        : (pct > umbral ? 'bg-amber-500' : pct > 100 ? 'bg-orange-400' : 'bg-emerald-600');
     return (
         <div className="flex items-center gap-2 justify-end">
             <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -248,8 +251,8 @@ export default function EjecucionPage() {
 
     const filas = data?.filas || [];
     const totales = data?.totales || { presupuestado: 0, solicitado: 0, ejecutado: 0, n_oc: 0 };
-    const pctTotal = pctEjecucion(totales);
-    const nAlertas = filas.filter(f => !f.excluido && tieneAlerta(f, umbral)).length;
+    const pctTotal = pctEjecucion(totales, planificacion);
+    const nAlertas = filas.filter(f => !f.excluido && tieneAlerta(f, umbral, planificacion)).length;
     const ocEnCurso = anioOc === hoy;
     const pm = data?.pendientes_mapeo;
     const avisosMapeo = [
@@ -263,7 +266,7 @@ export default function EjecucionPage() {
         if (!data) return;
         const colegioNombre = colegios.find(c => String(c.id_colegio) === colegioId)?.nombre || 'Todos los colegios';
         const filasXls = filas.map(f => {
-            const pct = pctEjecucion(f);
+            const pct = pctEjecucion(f, planificacion);
             const o: Record<string, string | number> = {};
             if (f.area !== null) o['Área'] = f.area;
             if (f.cc !== null) o['Centro de costo / Subvención'] = f.cc;
@@ -272,8 +275,8 @@ export default function EjecucionPage() {
             o[`Ejecutado OC ${data.anio_oc}`] = f.ejecutado;
             o['N° OC'] = f.n_oc;
             o['Saldo'] = f.presupuestado - f.ejecutado;
-            o['% Ejecución'] = pct === null ? '' : Math.round(pct * 10) / 10;
-            o['Aviso'] = !f.excluido && tieneAlerta(f, umbral) ? 'Revisar' : '';
+            o[planificacion ? `% Ppto ${data.anio_ppto} / Gasto ${data.anio_oc}` : '% Ejecución'] = pct === null ? '' : Math.round(pct * 10) / 10;
+            o['Aviso'] = !f.excluido && tieneAlerta(f, umbral, planificacion) ? 'Revisar' : '';
             o['En el análisis'] = f.excluido ? 'No (excluida)' : f.parcial ? 'Parcial' : 'Sí';
             return o;
         });
@@ -448,7 +451,7 @@ export default function EjecucionPage() {
                     <Info size={18} className="shrink-0" />
                     <span>
                         Comparando el <b>presupuesto {anioPpto}</b> ({nombreMeses(mesesPpto)}) con lo <b>ejecutado en OC {anioOc}</b> ({nombreMeses(mesesOc)}).
-                        El % indica cuánto representa el gasto real de {anioOc} sobre lo presupuestado para {anioPpto}.
+                        El % indica cuánto del gasto real de {anioOc} cubre lo presupuestado para {anioPpto} (presupuesto ÷ gasto OC): bajo 100 % se presupuestó menos de lo que se gastó.
                         {data.anio_oc_auto && <> Se eligió {anioOc} porque {anioPpto} aún no tiene órdenes de compra.</>}
                     </span>
                 </div>
@@ -469,7 +472,7 @@ export default function EjecucionPage() {
                             detalle={totales.presupuestado - totales.ejecutado < 0
                                 ? (planificacion ? `Se presupuestó menos que lo gastado en ${anioOc}` : 'Ejecutado supera lo presupuestado')
                                 : (planificacion ? `Se presupuestó más que lo gastado en ${anioOc}` : 'Presupuesto disponible')} />
-                        <Tarjeta titulo={planificacion ? `Gasto ${anioOc} / Ppto ${anioPpto}` : '% Ejecución'} valor={formatPct(pctTotal)}
+                        <Tarjeta titulo={planificacion ? `Ppto ${anioPpto} / Gasto ${anioOc}` : '% Ejecución'} valor={formatPct(pctTotal)}
                             detalle={nAlertas > 0 ? `${nAlertas} fila(s) para revisar` : ocEnCurso ? `OC ${anioOc} en curso: datos parciales` : undefined} />
                     </div>
 
@@ -501,7 +504,7 @@ export default function EjecucionPage() {
                                         <th className="px-4 py-3 text-right font-semibold">Ejecutado OC {anioOc}</th>
                                         <th className="px-4 py-3 text-right font-semibold">N° OC</th>
                                         <th className="px-4 py-3 text-right font-semibold">Saldo</th>
-                                        <th className="px-4 py-3 text-right font-semibold">{planificacion ? 'Gasto / Ppto' : '% Ejecución'}</th>
+                                        <th className="px-4 py-3 text-right font-semibold">{planificacion ? `Ppto ${anioPpto} / Gasto ${anioOc}` : '% Ejecución'}</th>
                                         <th className="px-4 py-3 w-40" />
                                     </tr>
                                 </thead>
@@ -510,8 +513,8 @@ export default function EjecucionPage() {
                                         <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400">Sin datos para los filtros seleccionados.</td></tr>
                                     )}
                                     {filas.map(f => {
-                                        const pct = pctEjecucion(f);
-                                        const alerta = !f.excluido && tieneAlerta(f, umbral);
+                                        const pct = pctEjecucion(f, planificacion);
+                                        const alerta = !f.excluido && tieneAlerta(f, umbral, planificacion);
                                         const saldo = f.presupuestado - f.ejecutado;
                                         const pendiente = f.area_key?.startsWith('oc') || f.cc_key?.startsWith('cc');
                                         return (
@@ -538,7 +541,7 @@ export default function EjecucionPage() {
                                                 <td className="px-4 py-2.5 text-right font-bold text-gray-900">{formatCLP(f.ejecutado)}</td>
                                                 <td className="px-4 py-2.5 text-right text-gray-500">{f.n_oc}</td>
                                                 <td className={`px-4 py-2.5 text-right font-semibold ${saldo < 0 ? 'text-red-600' : 'text-gray-700'}`}>{formatCLP(saldo)}</td>
-                                                <td className="px-4 py-2.5 text-right"><BarraPct pct={pct} umbral={umbral} /></td>
+                                                <td className="px-4 py-2.5 text-right"><BarraPct pct={pct} umbral={umbral} planificacion={planificacion} /></td>
                                                 <td className="px-4 py-2.5 text-right">
                                                     {alerta ? (
                                                         <button onClick={() => setDetalle(f)}
@@ -562,7 +565,7 @@ export default function EjecucionPage() {
                                             <td className="px-4 py-3 text-right">{formatCLP(totales.ejecutado)}</td>
                                             <td className="px-4 py-3 text-right text-gray-500">{totales.n_oc}</td>
                                             <td className={`px-4 py-3 text-right ${totales.presupuestado - totales.ejecutado < 0 ? 'text-red-600' : ''}`}>{formatCLP(totales.presupuestado - totales.ejecutado)}</td>
-                                            <td className="px-4 py-3 text-right"><BarraPct pct={pctTotal} umbral={umbral} /></td>
+                                            <td className="px-4 py-3 text-right"><BarraPct pct={pctTotal} umbral={umbral} planificacion={planificacion} /></td>
                                             <td />
                                         </tr>
                                     </tfoot>
@@ -570,8 +573,10 @@ export default function EjecucionPage() {
                             </table>
                         </div>
                         <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-50">
-                            Presupuestado = insumos de las solicitudes activas en los estados elegidos ({data.estados.join(', ')}), estén o no revisados. Ejecutado = total con IVA de las OC aprobadas en Softland.
-                            Se marcan para revisar las filas sobre {umbral}% o con OC sin presupuesto.
+                            Presupuestado = insumos de las solicitudes activas en los estados elegidos ({data.estados.join(', ')}), estén o no revisados. Ejecutado = gasto de las OC aprobadas en Softland (con IVA) y de las órdenes de pago (OPS).
+                            {planificacion
+                                ? <> % = presupuesto {anioPpto} ÷ gasto OC {anioOc}. Se marcan para revisar las filas donde el presupuesto no alcanza al gasto (bajo 100 %).</>
+                                : <> Se marcan para revisar las filas sobre {umbral}% o con OC sin presupuesto.</>}
                         </p>
                     </div>
 

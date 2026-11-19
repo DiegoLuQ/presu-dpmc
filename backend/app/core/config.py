@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     SENTRY_ENVIRONMENT: str = "production"
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
 
-    # Órdenes de compra Softland (otra BD en la misma instancia MySQL, solo lectura).
-    # Ver INTEGRACION_PRESUPUESTO.md. Si la BD no existe, la vista de ejecución muestra "sin datos de OC".
-    OC_DB_NAME: str = "db_central"  # vista v_oc_area (solo lectura)
+    # BD central de órdenes (OC Softland + OPS) en la misma instancia MySQL. Se define en el
+    # .env (OC_DB_NAME). Vacío = sin datos de OC y no se pueden emitir OPS.
+    OC_DB_NAME: str = ""
 
     # CORS origins
     ALLOW_ORIGINS: List[str] = [

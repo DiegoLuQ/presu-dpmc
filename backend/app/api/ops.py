@@ -9,8 +9,8 @@
   'ops.retencion_pct'). El % vigente se copia en la orden al guardarla.
 - Estados: BORRADOR (editable) -> EMITIDA (firmada por quien emite) -> ANULADA. No se borran.
 - Las validaciones (cuotas vs total, año de pago) no bloquean: vuelven como `alertas`.
-- db_central.oc_ordenes es la fuente única de OC + OPS: al EMITIR la OPS se inserta ahí
-  (softland = 'OPS') y al ANULAR queda estado 'UN'. El N° considera también las OPS de db_central.
+- <central>.oc_ordenes es la fuente única de OC + OPS: al EMITIR la OPS se inserta ahí
+  (softland = 'OPS') y al ANULAR queda estado 'UN'. El N° considera también las OPS de la BD central.
 """
 import json
 import re
@@ -156,12 +156,12 @@ def _cfg_guardar(db: Session, id_colegio: int, clave: str, valor) -> None:
         db.add(OrgConfig(id_colegio=id_colegio, clave=clave, valor=json.dumps(valor)))
 
 
-# Empresa de db_central.oc_ordenes según id_colegio de mcdp_db (igual que la vista v_oc_area)
+# Empresa de <central>.oc_ordenes según id_colegio de mcdp_db (igual que la vista v_oc_area)
 EMPRESA_OC = {1: "macaya", 2: "ptonuevo"}
 
 
 def _max_numero_central(db: Session, id_colegio: int) -> int:
-    """Último N° de OPS ya registrado en db_central.oc_ordenes (origen 'OPS', p. ej. las
+    """Último N° de OPS ya registrado en <central>.oc_ordenes (origen 'OPS', p. ej. las
     cargadas desde Excel). Solo lectura; 0 si la BD no está disponible."""
     empresa = EMPRESA_OC.get(id_colegio)
     schema = settings.OC_DB_NAME
@@ -175,21 +175,21 @@ def _max_numero_central(db: Session, id_colegio: int) -> int:
         return 0
 
 
-# ── Publicación en db_central.oc_ordenes (fuente única de OC + OPS) ────────────────
-# Al EMITIR, la OPS se inserta en db_central.oc_ordenes con softland = 'OPS' (misma forma
+# ── Publicación en <central>.oc_ordenes (fuente única de OC + OPS) ────────────────
+# Al EMITIR, la OPS se inserta en <central>.oc_ordenes con softland = 'OPS' (misma forma
 # que las cargadas desde Excel). Al ANULAR, su estado pasa a 'UN' (sale de v_oc_area).
 # Los borradores no se publican. Las filas de Softland (softland = 'softland') nunca se tocan.
-# mcdp_db y db_central están en la misma instancia MySQL: todo va en la misma transacción.
+# mcdp_db y la BD central están en la misma instancia MySQL: todo va en la misma transacción.
 
 def _schema_central() -> str:
     schema = settings.OC_DB_NAME
     if not schema or not re.fullmatch(r"[A-Za-z0-9_]+", schema):
-        raise HTTPException(status_code=503, detail="La base central de órdenes (db_central) no está configurada.")
+        raise HTTPException(status_code=503, detail="La base central de órdenes no está configurada (OC_DB_NAME).")
     return schema
 
 
 def rut_con_puntos(rut: Optional[str]) -> Optional[str]:
-    """'77287761-7' -> '77.287.761-7' (formato de db_central.oc_ordenes)."""
+    """'77287761-7' -> '77.287.761-7' (formato de <central>.oc_ordenes)."""
     r = normalizar_rut(rut)
     if not r:
         return None
@@ -198,10 +198,10 @@ def rut_con_puntos(rut: Optional[str]) -> Optional[str]:
 
 
 def _publicar_central(db: Session, o: OpsOrdenPago) -> None:
-    """Inserta la OPS emitida en db_central.oc_ordenes (no hace commit)."""
+    """Inserta la OPS emitida en <central>.oc_ordenes (no hace commit)."""
     empresa = EMPRESA_OC.get(o.id_colegio)
     if not empresa:
-        raise HTTPException(status_code=400, detail="El colegio no tiene empresa asociada en db_central.")
+        raise HTTPException(status_code=400, detail="El colegio no tiene empresa asociada en la base central de órdenes.")
     schema = _schema_central()
     afecto = int(o.monto_base or 0) - int(o.descuento_monto or 0)
     es_factura = o.tipo_documento == "FACTURA"
@@ -235,12 +235,12 @@ def _publicar_central(db: Session, o: OpsOrdenPago) -> None:
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail=(
-            f"La OPS N° {o.numero_ops} ya existe en db_central para {empresa}. "
+            f"La OPS N° {o.numero_ops} ya existe en la base central para {empresa}. "
             f"Revisa el siguiente N° en la configuración."))
 
 
 def _anular_central(db: Session, o: OpsOrdenPago) -> None:
-    """Marca la OPS como nula (estado 'UN') en db_central.oc_ordenes (no hace commit)."""
+    """Marca la OPS como nula (estado 'UN') en <central>.oc_ordenes (no hace commit)."""
     empresa = EMPRESA_OC.get(o.id_colegio)
     if not empresa:
         return
@@ -252,7 +252,7 @@ def _anular_central(db: Session, o: OpsOrdenPago) -> None:
 
 
 def _max_numero(db: Session, id_colegio: int) -> int:
-    """Último N° de OPS usado: el mayor entre las OPS de MCDP y las de db_central."""
+    """Último N° de OPS usado: el mayor entre las OPS de MCDP y las de la BD central."""
     local = db.query(func.coalesce(func.max(OpsOrdenPago.numero_ops), 0)).filter(
         OpsOrdenPago.id_colegio == id_colegio).scalar() or 0
     return max(int(local), _max_numero_central(db, id_colegio))

@@ -753,7 +753,7 @@ class ActaEntregaDetalle(Base):
 
 
 
-# ── Integración con Órdenes de Compra (BD `db_central`, vista `v_oc_area`, solo lectura) ──
+# ── Integración con Órdenes de Compra (BD central OC_DB_NAME del .env, vista `v_oc_area`, solo lectura) ──
 # Las OC traen su propio id_area y centro de costo; estas tablas (propias) permiten
 # reasignarlos a las áreas y subvenciones de este sistema para comparar
 # presupuestado vs ejecutado. Ver INTEGRACION_PRESUPUESTO.md.
@@ -763,7 +763,7 @@ class MapeoAreaOC(Base):
     → área de este sistema a la que se suma. id_area NULL = aún sin asignar."""
     __tablename__ = "pre_mapeo_area_oc"
     id_area_oc = Column(Integer, primary_key=True, autoincrement=False)
-    nombre_oc = Column(String(100), nullable=True)  # nombre del grupo en db_central.oc_grupos (referencial)
+    nombre_oc = Column(String(100), nullable=True)  # nombre del grupo en <central>.oc_grupos (referencial)
     id_area = Column(Integer, ForeignKey("org_area.id_area", ondelete="SET NULL"), nullable=True)
     actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

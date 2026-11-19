@@ -26,6 +26,8 @@ interface MenuSubItem {
   // Visible únicamente para el rol Administrador (ADM), sin importar los permisos
   // configurados en el editor de roles.
   soloAdmin?: boolean;
+  // Sección inhabilitada: se ve en gris, sin enlace.
+  deshabilitado?: boolean;
 }
 
 interface MenuItem {
@@ -51,6 +53,7 @@ const MENU_ITEMS: MenuItem[] = MODULOS.map((mod) => {
         permisoFallback: `${mod.key}.ver`,
         seccionRestringida: sec.restringido ? seccionKey(mod.key, sec) : undefined,
         soloAdmin: sec.soloAdmin,
+        deshabilitado: sec.deshabilitado,
       })),
     };
   }
@@ -195,6 +198,21 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
                     {visibleSubItems.map((sub) => {
                       const SubIcon = sub.icon;
                       const isSubActive = pathname === sub.href;
+
+                      if (sub.deshabilitado) {
+                        return (
+                          <span
+                            key={sub.href}
+                            title="Sección inhabilitada"
+                            aria-disabled="true"
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 cursor-not-allowed select-none"
+                          >
+                            <SubIcon size={16} className="text-gray-200" />
+                            <span className="text-xs">{sub.label}</span>
+                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-gray-300">Inhabilitado</span>
+                          </span>
+                        );
+                      }
 
                       return (
                         <Link

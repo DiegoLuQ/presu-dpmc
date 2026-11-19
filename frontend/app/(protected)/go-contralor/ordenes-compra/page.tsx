@@ -13,7 +13,7 @@ import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiS
 import BotonRecargarOC from '@/components/go-contralor/BotonRecargarOC';
 
 /**
- * Todas las órdenes aprobadas (BD db_central, vista v_oc_area, solo lectura): OC de Softland
+ * Todas las órdenes aprobadas (BD central OC_DB_NAME, vista v_oc_area, solo lectura): OC de Softland
  * y Órdenes de Pago de Servicio (OPS), por colegio, con filtros de área, centro de costo,
  * fecha, origen y tipo de documento. Mismo acceso que "Presupuesto vs Ejecutado"
  * (sección presupuesto.solicitudes).
