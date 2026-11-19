@@ -89,12 +89,11 @@ logs/
 *.pdf
 
 # ------------------------------------------------------------------------------
-# 5. Notas, Planes de Trabajo y Análisis Markdown (manteniendo READMEs y skills)
+# 5. Markdown y SQL: NUNCA se suben (notas, análisis, dumps y migraciones pueden
+#    contener datos sensibles). Se mantienen solo en local.
 # ------------------------------------------------------------------------------
 *.md
-!README.md
-!**/README.md
-!.agents/skills/**
+*.sql
 
 # Archivos de texto plano de notas personales / temporales
 *.txt
@@ -163,5 +162,3 @@ nul
 # Ejemplo de variables con valores sensibles: no versionar
 .env.example
 
-# Dumps de bases de datos (contienen datos personales)
-db_central.sql
