@@ -329,6 +329,17 @@ def resumen_ejecucion(
     ids_area_oc = {r["id_area_oc"] for r in regs if r["src"] == "o" and r["id_area_oc"] is not None}
     anios_ppto = sorted({r["anio"] for r in regs if r["src"] == "p"}, reverse=True)
     anios_oc = sorted({r["anio"] for r in regs if r["src"] == "o"}, reverse=True)
+    # Presupuestos anuales vigentes (estado activo) del colegio, para el filtro de año
+    q_pa = db.query(PresupuestoAnual.year, PresupuestoAnual.nombre).filter(PresupuestoAnual.estado == "activo")
+    if id_col:
+        q_pa = q_pa.filter(PresupuestoAnual.id_colegio == id_col)
+    presupuestos_vigentes: Dict[int, List[str]] = defaultdict(list)
+    for y, nom in q_pa.all():
+        presupuestos_vigentes[y].append(nom)
+    presupuestos = [
+        {"anio": y, "nombre": noms[0] if len(noms) == 1 else f"Presupuesto {y}"}
+        for y, noms in sorted(presupuestos_vigentes.items(), reverse=True)
+    ]
     anio_oc_auto = anio_oc is None
     if anio_oc_auto:
         # Mismo año del presupuesto; si aún no tiene OC (presupuesto futuro), el último año con OC anterior
@@ -420,6 +431,7 @@ def resumen_ejecucion(
         "anio_oc": anio_oc,
         "anio_oc_auto": anio_oc_auto,
         "anios_ppto": anios_ppto,
+        "presupuestos": presupuestos,
         "anios_oc": anios_oc,
         "agrupar": agrupar,
         "estados": sorted(sel_estados, key=lambda e: estados_lista.index(e) if e in estados_lista else 99),

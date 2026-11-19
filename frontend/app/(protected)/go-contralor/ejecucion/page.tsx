@@ -34,6 +34,8 @@ interface Resumen {
     anio_oc: number;
     anio_oc_auto: boolean;
     anios_ppto: number[];
+    /** Presupuestos anuales vigentes del colegio (filtro de año de presupuesto) */
+    presupuestos?: { anio: number; nombre: string }[];
     anios_oc: number[];
     estados: string[];
     por_estado: { estado: string; monto: number; incluido: boolean }[];
@@ -52,6 +54,8 @@ const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 const ESTADOS_INSUMO = ['Sin Revisar', 'Pendiente', 'Con Ajustes', 'Aprobado', 'Rechazado'];
 const ESTADOS_DEFAULT = ESTADOS_INSUMO.filter(e => e !== 'Rechazado');
 const LS_EXCLUIDOS = 'ejecucion.excluidos';
+const ANIO_OC_MIN = 2019;
+const ANIO_OC_MAX = 2030;
 const COLOR_PPTO = '#6366f1';
 
 function leerExcluidos(): string[] {
@@ -237,15 +241,27 @@ export default function EjecucionPage() {
 
     const umbral = data?.umbral_alerta ?? 150;
     const hoy = new Date().getFullYear();
-    const aniosPpto = useMemo(() => {
-        const s = new Set<number>([hoy, hoy + 1, anioPpto, ...(data?.anios_ppto || [])]);
-        return Array.from(s).sort((a, b) => b - a);
-    }, [data, anioPpto, hoy]);
+    /** Solo los presupuestos anuales vigentes del colegio elegido */
+    const presupuestos = useMemo(() => {
+        const lista = data?.presupuestos || [];
+        return lista.length ? lista : [{ anio: anioPpto, nombre: `Presupuesto ${anioPpto}` }];
+    }, [data, anioPpto]);
+    // Si el colegio no tiene presupuesto vigente para el año elegido, pasa al más reciente que sí tenga
+    useEffect(() => {
+        const lista = data?.presupuestos || [];
+        if (lista.length && !lista.some(p => p.anio === anioPpto)) {
+            setAnioPpto(lista[0].anio);
+            setAnioOcSel(null);
+        }
+    }, [data, anioPpto]);
     const anioOc = data?.anio_oc ?? anioOcSel ?? anioPpto;
+    /** Años de OC: rango fijo 2019–2030 (más cualquier año con datos fuera de ese rango) */
     const aniosOc = useMemo(() => {
         const s = new Set<number>([anioOc, ...(data?.anios_oc || [])]);
+        for (let y = ANIO_OC_MIN; y <= ANIO_OC_MAX; y++) s.add(y);
         return Array.from(s).sort((a, b) => b - a);
     }, [data, anioOc]);
+    const conOc = useMemo(() => new Set(data?.anios_oc || []), [data]);
     const planificacion = anioOc !== anioPpto;
     const cambiarAnioPpto = (y: number) => { setAnioPpto(y); setAnioOcSel(null); };
 
@@ -353,7 +369,7 @@ export default function EjecucionPage() {
                         <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         <select value={anioPpto} onChange={e => cambiarAnioPpto(Number(e.target.value))} title="Año del presupuesto anual"
                             className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
-                            {aniosPpto.map(y => <option key={y} value={y}>{y}</option>)}
+                            {presupuestos.map(p => <option key={p.anio} value={p.anio}>{p.nombre}</option>)}
                         </select>
                     </div>
                     <FiltroMultiSelectGenerico
@@ -380,7 +396,7 @@ export default function EjecucionPage() {
                         <Receipt size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         <select value={anioOc} onChange={e => setAnioOcSel(Number(e.target.value))} title="Año de las órdenes de compra"
                             className="pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
-                            {aniosOc.map(y => <option key={y} value={y}>{y}{y === anioPpto ? ' (mismo año)' : y === anioPpto - 1 ? ' (año anterior)' : ''}</option>)}
+                            {aniosOc.map(y => <option key={y} value={y}>{y}{y === anioPpto ? ' (mismo año)' : y === anioPpto - 1 ? ' (año anterior)' : ''}{data?.oc_disponible && !conOc.has(y) ? ' · sin OC' : ''}</option>)}
                         </select>
                     </div>
                     <FiltroMultiSelectGenerico
