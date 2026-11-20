@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { useAuth } from '@/context/AuthContext';
-import { primeraRutaAccesible } from '@/lib/permissions/registry';
+import { primeraRutaAccesible, puedeVerSeccion, buscarSeccion } from '@/lib/permissions/registry';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import BotonRecargarOC from '@/components/go-contralor/BotonRecargarOC';
 import DetalleEjecucionModal, { FilaEjecucion, pctEjecucion, tieneAlerta } from '@/components/presupuesto/DetalleEjecucionModal';
@@ -170,7 +170,7 @@ function GraficoMensual({ datos, anioPpto, anioOc }: { datos: Resumen['mensual']
 export default function EjecucionPage() {
     const router = useRouter();
     const { user, tienePermiso, puedeSeccion, isLoading: authLoading, colegioActivo } = useAuth();
-    const puedeVer = puedeSeccion('presupuesto.solicitudes');
+    const puedeVer = user?.rol?.codigo === 'ADM' || puedeVerSeccion('contabilidad', buscarSeccion('contabilidad', 'ejecucion')!, tienePermiso, puedeSeccion);
     const esMulticolegio = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'SOS' || user?.rol?.codigo === 'GERENTE' || (user?.colegios && user.colegios.length > 1);
 
     const [colegios, setColegios] = useState<Colegio[]>([]);

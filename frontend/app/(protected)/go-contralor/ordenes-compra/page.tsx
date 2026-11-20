@@ -8,7 +8,7 @@ import axios from 'axios';
 import { ArrowLeft, ArrowUpDown, Download, ListFilter, Loader2, Receipt, School, Search } from 'lucide-react';
 import api from '@/lib/api/client';
 import { useAuth } from '@/context/AuthContext';
-import { primeraRutaAccesible } from '@/lib/permissions/registry';
+import { primeraRutaAccesible, puedeVerSeccion, buscarSeccion } from '@/lib/permissions/registry';
 import { FiltroMultiSelectGenerico } from '@/components/presupuesto/FiltroMultiSelectGenerico';
 import BotonRecargarOC from '@/components/go-contralor/BotonRecargarOC';
 
@@ -62,7 +62,7 @@ const POR_PAGINA = 100;
 export default function OrdenesCompraPage() {
     const router = useRouter();
     const { user, tienePermiso, puedeSeccion, isLoading: authLoading, colegioActivo } = useAuth();
-    const puedeVer = puedeSeccion('presupuesto.solicitudes');
+    const puedeVer = user?.rol?.codigo === 'ADM' || puedeVerSeccion('contabilidad', buscarSeccion('contabilidad', 'ordenes-compra')!, tienePermiso, puedeSeccion);
     const esMulticolegio = user?.rol?.codigo === 'ADM' || user?.rol?.codigo === 'SOS' || user?.rol?.codigo === 'GERENTE' || (user?.colegios && user.colegios.length > 1);
 
     const [colegios, setColegios] = useState<Colegio[]>([]);

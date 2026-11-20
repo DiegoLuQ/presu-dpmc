@@ -118,3 +118,32 @@ def verificar_seccion(seccion_key: str):
             )
         return current_user
     return _check
+
+
+def verificar_seccion_contralor(*slugs: str, seccion_alternativa: str = "presupuesto.solicitudes"):
+    """Secciones de GO-Contralor con permiso propio en el editor de roles
+    (ej. `contabilidad.ejecucion`, `contabilidad.ordenes-compra`).
+
+    Acceso si: ADM/SOS, el rol tiene alguno de `contabilidad.<slug>` (o `contabilidad.*`),
+    o —compatibilidad— `presupuesto.ver` + lista blanca de `seccion_alternativa`."""
+    def _check(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):
+        codigo_rol = current_user.rol.codigo if current_user.rol else None
+        if codigo_rol in ["ADM", "SOS"]:
+            return current_user
+        permisos = get_user_permisos(current_user.rol)
+        if codigo_rol and any(tiene_permiso(permisos, "contabilidad", s) for s in slugs):
+            return current_user
+        if (
+            codigo_rol
+            and tiene_permiso(permisos, "presupuesto", "ver")
+            and usuario_puede_seccion(db, current_user, seccion_alternativa)
+        ):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso a esta sección de GO-Contralor."
+        )
+    return _check

@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   KeyRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { MODULOS, permisoSeccion, seccionKey } from '@/lib/permissions/registry';
+import { MODULOS, permisoSeccion, seccionKey, puedeVerSeccion, SeccionDef } from '@/lib/permissions/registry';
 
 interface MenuSubItem {
   label: string;
@@ -20,6 +20,9 @@ interface MenuSubItem {
   permiso?: string;
   // Permiso "grueso" del módulo (ej. 'presupuesto.ver') que también habilita la sección.
   permisoFallback?: string;
+  // Definición original de la sección (para la regla de visibilidad compartida del registro).
+  modKey?: string;
+  def?: SeccionDef;
   // Si la sección es restringida, su acceso lo define la lista blanca de usuarios
   // (Configuración › Accesos), NO el permiso del rol.
   seccionRestringida?: string;
@@ -50,6 +53,8 @@ const MENU_ITEMS: MenuItem[] = MODULOS.map((mod) => {
         href: sec.href,
         icon: sec.icon,
         permiso: permisoSeccion(mod.key, sec),
+        modKey: mod.key,
+        def: sec,
         permisoFallback: `${mod.key}.ver`,
         seccionRestringida: sec.restringido ? seccionKey(mod.key, sec) : undefined,
         soloAdmin: sec.soloAdmin,
@@ -92,6 +97,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   const subVisible = (sub: MenuSubItem) => {
     if (sub.soloAdmin) return user?.rol?.codigo === 'ADM';
     if (sub.seccionRestringida) return puedeSeccion(sub.seccionRestringida);
+    if (sub.modKey && sub.def) return puedeVerSeccion(sub.modKey, sub.def, tienePermiso, puedeSeccion);
     return permisoActivo(sub.permiso) || permisoActivo(sub.permisoFallback);
   };
 

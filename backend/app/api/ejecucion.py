@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
-from app.api.deps import verificar_permisos, verificar_seccion
+from app.api.deps import verificar_permisos, verificar_seccion, verificar_seccion_contralor
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
@@ -290,8 +290,7 @@ def _redondear(d: dict) -> dict:
 @router.get("/resumen")
 def resumen_ejecucion(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
-    _sec: User = Depends(verificar_seccion("presupuesto.solicitudes")),
+    current_user: User = Depends(verificar_seccion_contralor("ejecucion")),
     id_colegio: Optional[int] = Query(None),
     anio_ppto: int = Query(..., description="Año del presupuesto anual"),
     anio_oc: Optional[int] = Query(None, description="Año de las OC (por defecto el del presupuesto, o el último con OC)"),
@@ -460,8 +459,7 @@ def resumen_ejecucion(
 @router.get("/oc")
 def listar_oc(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
-    _sec: User = Depends(verificar_seccion("presupuesto.solicitudes")),
+    current_user: User = Depends(verificar_seccion_contralor("ejecucion", "ordenes-compra")),
     id_colegio: Optional[int] = Query(None),
     anio: int = Query(...),
     area: Optional[str] = Query(None, description="Clave de área"),
@@ -516,8 +514,7 @@ def listar_oc(
 @router.get("/ordenes")
 def listar_todas_oc(
     db: Session = Depends(get_db),
-    current_user: User = Depends(verificar_permisos("presupuesto", "ver")),
-    _sec: User = Depends(verificar_seccion("presupuesto.solicitudes")),
+    current_user: User = Depends(verificar_seccion_contralor("ordenes-compra")),
     id_colegio: Optional[int] = Query(None),
     desde: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     hasta: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),

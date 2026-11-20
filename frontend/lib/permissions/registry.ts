@@ -46,6 +46,8 @@ export interface SeccionDef {
     restringido?: boolean;     // acceso por lista blanca de usuarios (Configuración › Accesos)
     soloAdmin?: boolean;       // visible/accesible únicamente para el rol Administrador (ADM), sin depender de permisos configurables por rol
     seccionAcceso?: string;    // reutiliza la lista blanca de otra sección (ej. 'presupuesto.solicitudes')
+    accesoAlternativo?: string; // además del permiso del rol, da acceso estar en la lista blanca de esta sección
+    soloPermisoFino?: boolean; // no se hereda de `modulo.ver`: requiere `modulo.<slug>` (o `modulo.*`)
     deshabilitado?: boolean;   // se muestra en gris en el sidebar, sin enlace, y sus páginas no se abren
 }
 
@@ -112,10 +114,11 @@ export const MODULOS: ModuloDef[] = [
             { slug: 'contralor-operaciones', label: 'Contralor Operaciones', href: '/presupuesto/contralor-operaciones', icon: Calculator },
             // Revisión por presupuesto anual: corrige código contable, subvención y actividad PME de los ítems
             { slug: 'revision-presupuestos', label: 'Revisión de Presupuestos', href: '/go-contralor/presupuestos', icon: Wallet },
-            // Presupuesto vs órdenes de compra Softland: mismo acceso que Presupuesto › Solicitudes
-            { slug: 'ejecucion', label: 'Presupuesto vs Ejecutado', href: '/go-contralor/ejecucion', icon: Scale, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
-            // Listado de OC Softland por colegio/área/fecha: mismo acceso que Presupuesto vs Ejecutado
-            { slug: 'ordenes-compra', label: 'Órdenes de Compra', href: '/go-contralor/ordenes-compra', icon: ShoppingCart, permisoOverride: 'presupuesto.aprobar', restringido: true, seccionAcceso: 'presupuesto.solicitudes' },
+            // Presupuesto vs órdenes de compra Softland: permiso de rol `contabilidad.ejecucion`
+            // o, por compatibilidad, la lista blanca de Presupuesto › Solicitudes
+            { slug: 'ejecucion', label: 'Presupuesto vs Ejecutado', href: '/go-contralor/ejecucion', icon: Scale, soloPermisoFino: true, accesoAlternativo: 'presupuesto.solicitudes' },
+            // Listado de OC Softland: permiso de rol `contabilidad.ordenes-compra` o la misma lista blanca
+            { slug: 'ordenes-compra', label: 'Órdenes de Compra', href: '/go-contralor/ordenes-compra', icon: ShoppingCart, soloPermisoFino: true, accesoAlternativo: 'presupuesto.solicitudes' },
             // Órdenes de Pago de Servicio: permiso de sección contabilidad.ops (o acciones del módulo)
             { slug: 'ops', label: 'Órdenes de Pago', href: '/go-contralor/ops', icon: Receipt, deshabilitado: true },
             { slug: 'recursos', label: 'Recursos', href: '/presupuesto/recursos', icon: Package },
@@ -164,6 +167,32 @@ export function seccionKey(modKey: string, sec: SeccionDef): string {
 }
 
 /**
+ * Visibilidad de una sección NO restringida: permiso fino del rol (`modulo.slug`/override),
+ * permiso grueso `modulo.ver` (salvo `soloPermisoFino`) o la lista blanca alternativa.
+ */
+export function puedeVerSeccion(
+    modKey: string,
+    sec: SeccionDef,
+    tienePermiso: (modulo: string, accion: string) => boolean,
+    puedeSeccion: (seccionKey: string) => boolean,
+): boolean {
+    const [m, a] = permisoSeccion(modKey, sec).split('.');
+    if (tienePermiso(m, a)) return true;
+    if (!sec.soloPermisoFino && tienePermiso(modKey, 'ver')) return true;
+    return !!sec.accesoAlternativo && puedeSeccion(sec.accesoAlternativo);
+}
+
+/** Busca una sección del registro por módulo y slug. */
+export function buscarSeccion(modKey: string, slug: string): SeccionDef | undefined {
+    for (const mod of MODULOS) {
+        if (mod.key !== modKey) continue;
+        const sec = mod.secciones?.find(s => s.slug === slug);
+        if (sec) return sec;
+    }
+    return undefined;
+}
+
+/**
  * Primera ruta del registro (en el orden de `MODULOS`) a la que el usuario tiene acceso.
  *
  * Es la misma lógica de visibilidad que usa el Sidebar (`permisoActivo`/`subVisible`),
@@ -189,7 +218,7 @@ export function primeraRutaAccesible(
                     if (puedeSeccion(seccionKey(mod.key, sec))) return sec.href;
                     continue;
                 }
-                if (permisoActivo(permisoSeccion(mod.key, sec)) || permisoActivo(`${mod.key}.ver`)) {
+                if (puedeVerSeccion(mod.key, sec, tienePermiso, puedeSeccion)) {
                     return sec.href;
                 }
             }
