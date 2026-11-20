@@ -15,7 +15,9 @@ import BotonRecargarOC from '@/components/go-contralor/BotonRecargarOC';
 /**
  * Todas las órdenes aprobadas (BD central OC_DB_NAME, vista v_oc_area, solo lectura): OC de Softland
  * y Órdenes de Pago de Servicio (OPS), por colegio, con filtros de área, centro de costo,
- * fecha, origen y tipo de documento. Mismo acceso que "Presupuesto vs Ejecutado"
+ * fecha, origen y tipo de documento. El check "Análisis" (oc_ordenes.incluir) decide si la orden
+ * entra en "Presupuesto vs Ejecutado"; solo ADM/SOS y GO-Contralor pueden cambiarlo.
+ * Mismo acceso que "Presupuesto vs Ejecutado"
  * (sección presupuesto.solicitudes).
  */
 
@@ -42,11 +44,14 @@ interface Orden {
     area: string;
     cc_key: string;
     cc: string;
+    incluir: boolean;
 }
 interface Opcion { key: string; label: string }
 interface Respuesta {
     oc_disponible: boolean;
     ultima_sync: string | null;
+    incluir_disponible: boolean;
+    puede_editar_incluir: boolean;
     ordenes: Orden[];
     totales: { n: number; subtotal: number; total: number; total_pagar: number; n_ops: number };
     opciones: { areas: Opcion[]; centros: Opcion[] };
@@ -74,6 +79,8 @@ export default function OrdenesCompraPage() {
     const [origen, setOrigen] = useState('');
     const [tipo, setTipo] = useState('');
     const [q, setQ] = useState('');
+    const [incluir, setIncluir] = useState(''); // '' todas | '1' incluidas | '0' excluidas
+    const [guardando, setGuardando] = useState<Set<number>>(new Set());
     const [orden, setOrden] = useState<{ campo: Orden_; asc: boolean }>({ campo: 'fecha', asc: false });
     const [pagina, setPagina] = useState(1);
 
@@ -101,6 +108,7 @@ export default function OrdenesCompraPage() {
             if (origen) p.append('origen', origen);
             if (tipo) p.append('tipo', tipo);
             if (q.trim()) p.append('q', q.trim());
+            if (incluir) p.append('incluir', incluir);
             areas.forEach(a => p.append('areas', a));
             centros.forEach(c => p.append('centros', c));
             const res = await api.get(`/presupuesto/ejecucion/ordenes?${p.toString()}`);
@@ -111,7 +119,21 @@ export default function OrdenesCompraPage() {
         } finally {
             setLoading(false);
         }
-    }, [puedeVer, colegioId, desde, hasta, origen, tipo, q, areas, centros]);
+    }, [puedeVer, colegioId, desde, hasta, origen, tipo, q, incluir, areas, centros]);
+
+    /** Marca/desmarca la orden para el análisis de Presupuesto vs Ejecutado (oc_ordenes.incluir). */
+    const cambiarIncluir = async (o: Orden) => {
+        const nuevo = !o.incluir;
+        setGuardando(s => new Set(s).add(o.id));
+        try {
+            await api.patch(`/presupuesto/ejecucion/ordenes/${o.id}/incluir`, { incluir: nuevo });
+            setData(d => d && { ...d, ordenes: d.ordenes.map(x => (x.id === o.id ? { ...x, incluir: nuevo } : x)) });
+        } catch (e) {
+            setError((axios.isAxiosError(e) && e.response?.data?.detail) || 'No se pudo actualizar la orden.');
+        } finally {
+            setGuardando(s => { const n = new Set(s); n.delete(o.id); return n; });
+        }
+    };
 
     useEffect(() => {
         const t = setTimeout(fetchData, 300);
@@ -165,6 +187,7 @@ export default function OrdenesCompraPage() {
             Retención: o.retencion ?? '',
             Total: o.total,
             'A pagar': o.total_pagar,
+            ...(data.incluir_disponible ? { 'En análisis': o.incluir ? 'Sí' : 'No' } : {}),
         }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Órdenes de compra');
@@ -185,6 +208,10 @@ export default function OrdenesCompraPage() {
         </th>
     );
     const totales = data?.totales || { n: 0, subtotal: 0, total: 0, total_pagar: 0, n_ops: 0 };
+    const conIncluir = !!data?.incluir_disponible;
+    const puedeEditarIncluir = !!data?.puede_editar_incluir;
+    const excluidas = (data?.ordenes || []).filter(o => !o.incluir);
+    const totalExcluido = excluidas.reduce((acc, o) => acc + o.total, 0);
     const selectCls = 'py-2.5 px-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary';
 
     return (
@@ -244,6 +271,14 @@ export default function OrdenesCompraPage() {
                     <option value="Factura">Factura</option>
                     <option value="Boleta">Boleta de honorarios</option>
                 </select>
+                {conIncluir && (
+                    <select value={incluir} onChange={e => setIncluir(e.target.value)} className={selectCls}
+                        title="Órdenes que entran (o no) en Presupuesto vs Ejecutado">
+                        <option value="">Incluidas y excluidas</option>
+                        <option value="1">Solo incluidas en análisis</option>
+                        <option value="0">Solo excluidas del análisis</option>
+                    </select>
+                )}
                 <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
                     <span>Desde</span>
                     <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} className={selectCls} />
@@ -270,6 +305,11 @@ export default function OrdenesCompraPage() {
                     <p className="text-[11px] text-gray-400 mt-0.5">
                         {(totales.n - totales.n_ops).toLocaleString('es-CL')} OC · {totales.n_ops.toLocaleString('es-CL')} OPS · Neto {formatCLP(totales.subtotal)}
                     </p>
+                    {conIncluir && excluidas.length > 0 && (
+                        <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
+                            {excluidas.length.toLocaleString('es-CL')} excluidas del análisis ({formatCLP(totalExcluido)})
+                        </p>
+                    )}
                 </div>
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_20px_rgba(0,0,0,0.02)]">
                     <p className="text-xs font-semibold text-gray-500">Gasto total</p>
@@ -301,6 +341,9 @@ export default function OrdenesCompraPage() {
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-500 text-xs">
                         <tr>
+                            {conIncluir && (
+                                <th className="px-3 py-3 text-center uppercase" title="Marcada = entra en Presupuesto vs Ejecutado">Análisis</th>
+                            )}
                             {th('num', 'N°')}
                             {th('fecha', 'Fecha')}
                             {!colegioId && <th className="text-left px-4 py-3 uppercase">Colegio</th>}
@@ -315,11 +358,23 @@ export default function OrdenesCompraPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {loading ? (
-                            <tr><td colSpan={10} className="py-12 text-center text-gray-400"><Loader2 className="animate-spin inline" /></td></tr>
+                            <tr><td colSpan={11} className="py-12 text-center text-gray-400"><Loader2 className="animate-spin inline" /></td></tr>
                         ) : visibles.length === 0 ? (
-                            <tr><td colSpan={10} className="py-12 text-center text-gray-400">No hay órdenes con estos filtros.</td></tr>
+                            <tr><td colSpan={11} className="py-12 text-center text-gray-400">No hay órdenes con estos filtros.</td></tr>
                         ) : visibles.map(o => (
-                            <tr key={o.id} className="hover:bg-gray-50/60">
+                            <tr key={o.id} className={`hover:bg-gray-50/60 ${conIncluir && !o.incluir ? 'bg-gray-50/80 opacity-60' : ''}`}>
+                                {conIncluir && (
+                                    <td className="px-3 py-2.5 text-center">
+                                        {guardando.has(o.id) ? (
+                                            <Loader2 size={14} className="animate-spin inline text-gray-400" />
+                                        ) : (
+                                            <input type="checkbox" checked={o.incluir} disabled={!puedeEditarIncluir}
+                                                onChange={() => cambiarIncluir(o)}
+                                                title={o.incluir ? 'Incluida en el análisis (clic para excluir)' : 'Excluida del análisis (clic para incluir)'}
+                                                className="h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed" />
+                                        )}
+                                    </td>
+                                )}
                                 <td className="px-4 py-2.5 whitespace-nowrap">
                                     <span className="font-bold text-gray-900">{o.num_oc}</span>
                                     <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${o.origen === 'OPS' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>

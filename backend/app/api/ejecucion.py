@@ -1,5 +1,6 @@
 """Presupuesto vs Ejecutado: cruza el presupuesto aprobado con las órdenes de compra
-aprobadas (BD central OC_DB_NAME del .env, vista `v_oc_area`, SOLO LECTURA; la mantiene el extractor externo).
+aprobadas (BD central OC_DB_NAME del .env, vista `v_oc_area`; la mantiene el extractor externo.
+Solo se escribe `oc_ordenes.incluir`: el ejecutado considera únicamente las órdenes con incluir = 1).
 Incluye OC de Softland (origen 'softland') y Órdenes de Pago de Servicio (origen 'OPS').
 
 - Presupuestado = ítems 'Aprobado' de solicitudes 'Aceptado' y activas.
@@ -27,7 +28,10 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
-from app.api.deps import verificar_permisos, verificar_seccion, verificar_seccion_contralor
+from app.api.deps import (
+    get_current_user, get_user_permisos, verificar_permisos, verificar_seccion, verificar_seccion_contralor,
+)
+from app.core.permissions import tiene_permiso
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
@@ -67,6 +71,26 @@ def _oc_schema(db: Session) -> Optional[str]:
         db.rollback()
         return None
     return nombre if existe else None
+
+
+def _tiene_incluir(db: Session, schema: str) -> bool:
+    """True si <central>.oc_ordenes tiene la columna `incluir` (1 = entra al análisis, 0 = excluida)."""
+    try:
+        return db.execute(text(
+            "SELECT 1 FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = :s AND TABLE_NAME = :t AND COLUMN_NAME = 'incluir'"
+        ), {"s": schema, "t": OC_TABLA}).first() is not None
+    except Exception:
+        db.rollback()
+        return False
+
+
+def _join_incluir(schema: str, con_incluir: bool) -> str:
+    """JOIN a oc_ordenes para leer `incluir` (la vista no la expone)."""
+    return f"LEFT JOIN `{schema}`.{OC_TABLA} o ON o.id = v.id " if con_incluir else ""
+
+
+SQL_INCLUIDA = "COALESCE(o.incluir, 1) = 1"
 
 
 def _ultima_sync(db: Session, schema: str) -> Optional[str]:
@@ -235,11 +259,14 @@ def _registros_presupuesto(db: Session, ctx: _Contexto, id_colegio: Optional[int
 
 
 def _registros_oc(db: Session, ctx: _Contexto, schema: str, id_colegio: Optional[int]) -> List[dict]:
+    # Solo las órdenes marcadas para el análisis (oc_ordenes.incluir = 1)
+    con_incluir = _tiene_incluir(db, schema)
+    where = (["v.id_colegio = :col"] if id_colegio else []) + ([SQL_INCLUIDA] if con_incluir else [])
     sql = (
-        f"SELECT anio, MONTH(fecha_oc) AS mes, id_area, centro_costo, SUM(total) AS total, COUNT(*) AS n "
-        f"FROM `{schema}`.{OC_VISTA} "
-        f"{'WHERE id_colegio = :col ' if id_colegio else ''}"
-        f"GROUP BY anio, MONTH(fecha_oc), id_area, centro_costo"
+        f"SELECT v.anio, MONTH(v.fecha_oc) AS mes, v.id_area, v.centro_costo, SUM(v.total) AS total, COUNT(*) AS n "
+        f"FROM `{schema}`.{OC_VISTA} v {_join_incluir(schema, con_incluir)}"
+        f"{('WHERE ' + ' AND '.join(where) + ' ') if where else ''}"
+        f"GROUP BY v.anio, MONTH(v.fecha_oc), v.id_area, v.centro_costo"
     )
     rows = db.execute(text(sql), {"col": id_colegio} if id_colegio else {}).all()
     out = []
@@ -472,10 +499,13 @@ def listar_oc(
         return {"oc_disponible": False, "ordenes": []}
     id_col = _colegio_efectivo(id_colegio, current_user)
     ctx = _Contexto(db, schema)
+    con_incluir = _tiene_incluir(db, schema)
     sql = (
-        f"SELECT empresa, id_colegio, num_oc, fecha_oc, centro_costo, subtotal, total, solicitante, "
-        f"grupo, grupo_manual, id_area, origen, tipo_documento, proveedor FROM `{schema}`.{OC_VISTA} WHERE anio = :anio "
-        f"{'AND id_colegio = :col ' if id_col else ''}ORDER BY fecha_oc DESC, num_oc DESC"
+        f"SELECT v.empresa, v.id_colegio, v.num_oc, v.fecha_oc, v.centro_costo, v.subtotal, v.total, v.solicitante, "
+        f"v.grupo, v.grupo_manual, v.id_area, v.origen, v.tipo_documento, v.proveedor "
+        f"FROM `{schema}`.{OC_VISTA} v {_join_incluir(schema, con_incluir)}WHERE v.anio = :anio "
+        f"{'AND v.id_colegio = :col ' if id_col else ''}{('AND ' + SQL_INCLUIDA + ' ') if con_incluir else ''}"
+        f"ORDER BY v.fecha_oc DESC, v.num_oc DESC"
     )
     params = {"anio": anio}
     if id_col:
@@ -523,6 +553,7 @@ def listar_todas_oc(
     origen: Optional[str] = Query(None, pattern=r"^(softland|OPS)$", description="softland | OPS"),
     tipo: Optional[str] = Query(None, pattern=r"^(OC|Factura|Boleta)$", description="OC | Factura | Boleta"),
     q: Optional[str] = Query(None, description="N°, solicitante, proveedor o RUT"),
+    incluir: Optional[int] = Query(None, ge=0, le=1, description="1 = incluidas en el análisis, 0 = excluidas"),
 ):
     """Todas las órdenes (OC de Softland y OPS) de un colegio, con filtros de área, centro, fecha,
     origen y tipo. Las opciones de área/centro salen de las órdenes del colegio y rango de fechas
@@ -530,6 +561,7 @@ def listar_todas_oc(
     schema = _oc_schema(db)
     if not schema:
         return {"oc_disponible": False, "ultima_sync": None, "ordenes": [], "opciones": {"areas": [], "centros": []},
+                "incluir_disponible": False, "puede_editar_incluir": False,
                 "totales": {"n": 0, "subtotal": 0, "total": 0, "total_pagar": 0, "n_ops": 0}}
     id_col = _colegio_efectivo(id_colegio, current_user)
     ctx = _Contexto(db, schema)
@@ -549,6 +581,9 @@ def listar_todas_oc(
     if tipo:
         where.append("v.tipo_documento = :tipo")
         params["tipo"] = tipo
+    con_incluir = _tiene_incluir(db, schema)
+    if con_incluir and incluir is not None:
+        where.append(SQL_INCLUIDA if incluir == 1 else f"NOT ({SQL_INCLUIDA})")
     texto = (q or "").strip()
     if texto:
         cond = "v.solicitante LIKE :txt OR v.proveedor LIKE :txt OR v.rut_proveedor LIKE :txt"
@@ -561,7 +596,8 @@ def listar_todas_oc(
     sql = (
         f"SELECT v.id, v.empresa, v.id_colegio, v.num_oc, v.fecha_oc, v.centro_costo, v.subtotal, v.total, "
         f"v.solicitante, v.grupo, v.grupo_manual, v.id_area, v.origen, v.tipo_documento, v.rut_proveedor, "
-        f"v.proveedor, o.iva, o.retencion, o.total_pagar "
+        f"v.proveedor, o.iva, o.retencion, o.total_pagar, "
+        f"{'COALESCE(o.incluir, 1)' if con_incluir else '1'} AS incluir "
         f"FROM `{schema}`.{OC_VISTA} v LEFT JOIN `{schema}`.{OC_TABLA} o ON o.id = v.id "
         f"{('WHERE ' + ' AND '.join(where)) if where else ''} ORDER BY v.fecha_oc DESC, v.num_oc DESC"
     )
@@ -594,10 +630,13 @@ def listar_todas_oc(
             "rut_proveedor": r.rut_proveedor, "proveedor": r.proveedor,
             "solicitante": r.solicitante, "grupo": r.grupo, "grupo_manual": bool(r.grupo_manual),
             "area_key": a_key, "area": ctx.area_label(a_key), "cc_key": c_key, "cc": ctx.cc_label(c_key),
+            "incluir": bool(int(r.incluir)),
         })
     return {
         "oc_disponible": True,
         "ultima_sync": _ultima_sync(db, schema),
+        "incluir_disponible": con_incluir,
+        "puede_editar_incluir": con_incluir and _puede_editar_incluir(current_user),
         "ordenes": ordenes,
         "totales": {"n": len(ordenes), "subtotal": round(sum(o["subtotal"] for o in ordenes)),
                     "total": round(sum(o["total"] for o in ordenes)),
@@ -608,6 +647,56 @@ def listar_todas_oc(
             "centros": sorted(({"key": k, "label": ctx.cc_label(k)} for k in opciones_cc), key=lambda x: x["label"]),
         },
     }
+
+
+# ── Incluir / excluir órdenes del análisis (oc_ordenes.incluir) ─────────────────
+# Es la ÚNICA columna de la BD central que se modifica desde aquí; el extractor externo
+# crea las filas con incluir = 1.
+
+def _puede_editar_incluir(user: User) -> bool:
+    """Solo administradores (ADM/SOS) y GO-Contralor (permiso `contabilidad.ordenes-compra`),
+    sin el acceso de compatibilidad por `presupuesto.ver`."""
+    codigo = user.rol.codigo if user.rol else None
+    if codigo in ("ADM", "SOS"):
+        return True
+    return bool(codigo) and tiene_permiso(get_user_permisos(user.rol), "contabilidad", "ordenes-compra")
+
+
+class IncluirBody(BaseModel):
+    incluir: bool
+
+
+@router.patch("/ordenes/{id_orden}/incluir")
+def cambiar_incluir(
+    id_orden: int,
+    body: IncluirBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Marca una OC/OPS para que entre (1) o no (0) en Presupuesto vs Ejecutado."""
+    if not _puede_editar_incluir(current_user):
+        raise HTTPException(status_code=403, detail="Solo GO-Contralor o un administrador puede cambiar esto.")
+    schema = _oc_schema(db)
+    if not schema:
+        raise HTTPException(status_code=503, detail="La base de órdenes de compra no está disponible.")
+    if not _tiene_incluir(db, schema):
+        raise HTTPException(status_code=409, detail="La tabla de órdenes aún no tiene la columna 'incluir'.")
+    fila = db.execute(text(f"SELECT id_colegio FROM `{schema}`.{OC_VISTA} WHERE id = :id"), {"id": id_orden}).first()
+    if not fila:
+        raise HTTPException(status_code=404, detail="Orden no encontrada.")
+    col_usuario = _colegio_efectivo(None, current_user)
+    if col_usuario and fila.id_colegio != col_usuario:
+        raise HTTPException(status_code=403, detail="La orden es de otro colegio.")
+    try:
+        db.execute(text(f"UPDATE `{schema}`.{OC_TABLA} SET incluir = :inc WHERE id = :id"),
+                   {"inc": 1 if body.incluir else 0, "id": id_orden})
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.exception("Error actualizando incluir de la orden %s: %s", id_orden, e)
+        raise HTTPException(status_code=502, detail="No se pudo actualizar la orden.")
+    logger.info("Orden %s: incluir=%s (usuario %s)", id_orden, int(body.incluir), current_user.id_user)
+    return {"id": id_orden, "incluir": body.incluir}
 
 
 # ── Configuración de mapeos ─────────────────────────────────────────────────────
