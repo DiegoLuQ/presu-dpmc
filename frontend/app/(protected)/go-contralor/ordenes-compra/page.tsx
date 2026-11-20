@@ -127,7 +127,13 @@ export default function OrdenesCompraPage() {
         setGuardando(s => new Set(s).add(o.id));
         try {
             await api.patch(`/presupuesto/ejecucion/ordenes/${o.id}/incluir`, { incluir: nuevo });
-            setData(d => d && { ...d, ordenes: d.ordenes.map(x => (x.id === o.id ? { ...x, incluir: nuevo } : x)) });
+            // Con el filtro "Solo incluidas/excluidas" activo, la orden sale de la lista al dejar de cumplirlo
+            setData(d => d && {
+                ...d,
+                ordenes: d.ordenes
+                    .map(x => (x.id === o.id ? { ...x, incluir: nuevo } : x))
+                    .filter(x => !incluir || x.incluir === (incluir === '1')),
+            });
         } catch (e) {
             setError((axios.isAxiosError(e) && e.response?.data?.detail) || 'No se pudo actualizar la orden.');
         } finally {
@@ -153,12 +159,33 @@ export default function OrdenesCompraPage() {
     const paginas = Math.max(1, Math.ceil(ordenadas.length / POR_PAGINA));
     const visibles = ordenadas.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
-    const porArea = useMemo(() => {
-        const m = new Map<string, { label: string; total: number; n: number }>();
+    /** Totales calculados en el cliente para que reaccionen al check "Análisis" sin recargar. */
+    const resumen = useMemo(() => {
+        const vacio = () => ({ n: 0, n_ops: 0, subtotal: 0, total: 0, total_pagar: 0 });
+        const todo = vacio();
+        const inc = vacio();
         for (const o of data?.ordenes || []) {
-            const x = m.get(o.area_key) || { label: o.area, total: 0, n: 0 };
+            for (const t of o.incluir ? [todo, inc] : [todo]) {
+                t.n += 1;
+                if (o.origen === 'OPS') t.n_ops += 1;
+                t.subtotal += o.subtotal;
+                t.total += o.total;
+                t.total_pagar += o.total_pagar;
+            }
+        }
+        return { todo, inc };
+    }, [data]);
+
+    const porArea = useMemo(() => {
+        const m = new Map<string, { label: string; total: number; incluido: number; n: number; n_inc: number }>();
+        for (const o of data?.ordenes || []) {
+            const x = m.get(o.area_key) || { label: o.area, total: 0, incluido: 0, n: 0, n_inc: 0 };
             x.total += o.total;
             x.n += 1;
+            if (o.incluir) {
+                x.incluido += o.total;
+                x.n_inc += 1;
+            }
             m.set(o.area_key, x);
         }
         return Array.from(m.values()).sort((a, b) => b.total - a.total);
@@ -191,7 +218,10 @@ export default function OrdenesCompraPage() {
         }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Órdenes de compra');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porArea.map(a => ({ Área: a.label, 'N° órdenes': a.n, Total: a.total }))), 'Por área');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porArea.map(a => ({
+            Área: a.label, 'N° órdenes': a.n, Total: a.total,
+            ...(data.incluir_disponible ? { 'N° en análisis': a.n_inc, 'Total en análisis': a.incluido } : {}),
+        }))), 'Por área');
         const nombre = colegioId ? colegioNombre(Number(colegioId)) : 'Todos';
         XLSX.writeFile(wb, `Ordenes_Compra_${nombre.replace(/\s+/g, '_')}_${desde || 'inicio'}_${hasta || 'hoy'}.xlsx`);
     };
@@ -207,11 +237,10 @@ export default function OrdenesCompraPage() {
             </button>
         </th>
     );
-    const totales = data?.totales || { n: 0, subtotal: 0, total: 0, total_pagar: 0, n_ops: 0 };
+    const { todo: totales, inc: enAnalisis } = resumen;
     const conIncluir = !!data?.incluir_disponible;
     const puedeEditarIncluir = !!data?.puede_editar_incluir;
-    const excluidas = (data?.ordenes || []).filter(o => !o.incluir);
-    const totalExcluido = excluidas.reduce((acc, o) => acc + o.total, 0);
+    const nExcluidas = totales.n - enAnalisis.n;
     const selectCls = 'py-2.5 px-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary';
 
     return (
@@ -305,9 +334,14 @@ export default function OrdenesCompraPage() {
                     <p className="text-[11px] text-gray-400 mt-0.5">
                         {(totales.n - totales.n_ops).toLocaleString('es-CL')} OC · {totales.n_ops.toLocaleString('es-CL')} OPS · Neto {formatCLP(totales.subtotal)}
                     </p>
-                    {conIncluir && excluidas.length > 0 && (
+                    {conIncluir && (
+                        <p className="text-[11px] text-primary font-semibold mt-1.5">
+                            En análisis: {enAnalisis.n.toLocaleString('es-CL')} · Neto {formatCLP(enAnalisis.subtotal)}
+                        </p>
+                    )}
+                    {conIncluir && nExcluidas > 0 && (
                         <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
-                            {excluidas.length.toLocaleString('es-CL')} excluidas del análisis ({formatCLP(totalExcluido)})
+                            {nExcluidas.toLocaleString('es-CL')} excluidas del análisis ({formatCLP(totales.total - enAnalisis.total)})
                         </p>
                     )}
                 </div>
@@ -317,21 +351,39 @@ export default function OrdenesCompraPage() {
                     <p className="text-[11px] text-gray-400 mt-0.5">
                         A pagar {formatCLP(totales.total_pagar)} · {formatFecha(desde)} a {formatFecha(hasta)}
                     </p>
+                    {conIncluir && (
+                        <div className="mt-2 pt-2 border-t border-gray-100" title="Solo las órdenes marcadas: es lo que entra en Presupuesto vs Ejecutado">
+                            <p className="text-xs font-semibold text-gray-500">En análisis</p>
+                            <p className="text-lg font-extrabold text-primary">{formatCLP(enAnalisis.total)}</p>
+                            <p className="text-[11px] text-gray-400">A pagar {formatCLP(enAnalisis.total_pagar)}</p>
+                        </div>
+                    )}
                 </div>
                 <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_20px_rgba(0,0,0,0.02)]">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Por área</p>
+                    <p className="text-xs font-semibold text-gray-500 mb-2">
+                        Por área
+                        {conIncluir && <span className="font-normal text-gray-400"> · barra de color = en análisis, gris = excluido</span>}
+                    </p>
                     <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
                         {porArea.length === 0 && <p className="text-xs text-gray-400">Sin datos.</p>}
-                        {porArea.map(a => (
-                            <div key={a.label} className="flex items-center gap-2 text-xs">
-                                <span className="w-40 truncate text-gray-600" title={a.label}>{a.label}</span>
-                                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary rounded-full" style={{ width: `${totales.total ? (a.total / totales.total) * 100 : 0}%` }} />
+                        {porArea.map(a => {
+                            const parcial = conIncluir && a.incluido !== a.total;
+                            return (
+                                <div key={a.label} className="flex items-center gap-2 text-xs"
+                                    title={conIncluir ? `${a.label}: total ${formatCLP(a.total)} · en análisis ${formatCLP(a.incluido)} (${a.n_inc} de ${a.n})` : a.label}>
+                                    <span className="w-40 truncate text-gray-600">{a.label}</span>
+                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                                        <div className="h-full bg-primary" style={{ width: `${totales.total ? ((conIncluir ? a.incluido : a.total) / totales.total) * 100 : 0}%` }} />
+                                        {parcial && <div className="h-full bg-gray-300" style={{ width: `${totales.total ? ((a.total - a.incluido) / totales.total) * 100 : 0}%` }} />}
+                                    </div>
+                                    <span className="w-28 text-right">
+                                        <span className="font-semibold text-gray-800">{formatCLP(conIncluir ? a.incluido : a.total)}</span>
+                                        {parcial && <span className="block text-[10px] text-gray-400">de {formatCLP(a.total)}</span>}
+                                    </span>
+                                    <span className="w-12 text-right text-gray-400">{conIncluir && parcial ? `${a.n_inc}/${a.n}` : a.n}</span>
                                 </div>
-                                <span className="w-28 text-right font-semibold text-gray-800">{formatCLP(a.total)}</span>
-                                <span className="w-12 text-right text-gray-400">{a.n}</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
